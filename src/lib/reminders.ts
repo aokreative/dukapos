@@ -1,0 +1,98 @@
+// ---------------------------------------------------------------------------
+// Debt reminders — the heart of the added feature.
+//
+// Builds a friendly reminder message that ALWAYS includes how the customer can
+// pay you back (the payment method), then turns it into a WhatsApp or SMS link
+// that opens the phone's own app pre-filled. Works fully offline: we don't send
+// anything from a server, we hand the ready message to WhatsApp / the SMS app.
+// ---------------------------------------------------------------------------
+
+import type { BusinessSettings, Customer, Debt } from '../types'
+import { money, normalizePhone } from './format'
+
+/**
+ * Human-readable payment instructions derived from the shop's settings.
+ * This is the "payment method" that gets embedded in every reminder.
+ */
+export function paymentInstructions(s: BusinessSettings): string {
+  const lines: string[] = []
+  if (s.mpesaType === 'till' && s.mpesaTill.trim()) {
+    lines.push(`M-PESA Buy Goods (Till): ${s.mpesaTill.trim()}`)
+  } else if (s.mpesaType === 'paybill' && s.mpesaPaybill.trim()) {
+    const acc = s.mpesaAccount.trim()
+    lines.push(`M-PESA Paybill: ${s.mpesaPaybill.trim()}${acc ? ` (Acc: ${acc})` : ''}`)
+  }
+  if (s.acceptCash) lines.push('Or pay cash at the shop')
+  if (lines.length === 0) lines.push('Please contact the shop to arrange payment')
+  return lines.join('\n')
+}
+
+/** A single-line version for tight UI. */
+export function paymentInstructionsShort(s: BusinessSettings): string {
+  if (s.mpesaType === 'till' && s.mpesaTill.trim()) return `M-PESA Till ${s.mpesaTill.trim()}`
+  if (s.mpesaType === 'paybill' && s.mpesaPaybill.trim())
+    return `M-PESA Paybill ${s.mpesaPaybill.trim()}${s.mpesaAccount.trim() ? ` / ${s.mpesaAccount.trim()}` : ''}`
+  if (s.acceptCash) return 'Cash at shop'
+  return 'Contact shop'
+}
+
+export const DEFAULT_TEMPLATE =
+  'Habari {name}, this is a friendly reminder from {business}. ' +
+  'Your outstanding balance is {amount} (receipt {receipt}).\n\n' +
+  'Kindly pay via:\n{pay}\n\nAsante sana!'
+
+/**
+ * Fill the reminder template for a given customer + debt.
+ * The {pay} placeholder is replaced with the payment instructions, guaranteeing
+ * the payment method is present even if the owner edits the template.
+ */
+export function buildReminderMessage(
+  settings: BusinessSettings,
+  customer: Customer,
+  debt: Debt,
+): string {
+  const pay = paymentInstructions(settings)
+  const template = settings.reminderTemplate?.trim() || DEFAULT_TEMPLATE
+  let msg = template
+    .replaceAll('{name}', customer.name || 'customer')
+    .replaceAll('{business}', settings.name || 'our shop')
+    .replaceAll('{amount}', money(debt.balance, settings.currency))
+    .replaceAll('{receipt}', debt.receiptNo)
+    .replaceAll('{pay}', pay)
+
+  // Safety net: if the owner removed {pay}, append the payment method anyway.
+  if (!template.includes('{pay}')) {
+    msg += `\n\nPay via:\n${pay}`
+  }
+  return msg
+}
+
+/** Combined balance across several debts, for a "remind about everything" message. */
+export function buildCombinedReminder(
+  settings: BusinessSettings,
+  customer: Customer,
+  debts: Debt[],
+): string {
+  const total = debts.reduce((s, d) => s + d.balance, 0)
+  const pay = paymentInstructions(settings)
+  const receipts = debts.map((d) => d.receiptNo).join(', ')
+  return (
+    `Habari ${customer.name || 'customer'}, a friendly reminder from ${settings.name || 'our shop'}. ` +
+    `Your total outstanding balance is ${money(total, settings.currency)} across ${debts.length} ` +
+    `sale${debts.length > 1 ? 's' : ''} (${receipts}).\n\n` +
+    `Kindly pay via:\n${pay}\n\nAsante sana!`
+  )
+}
+
+/** WhatsApp click-to-chat deep link with the message pre-filled. */
+export function whatsappLink(phone: string, message: string): string {
+  const n = normalizePhone(phone)
+  return `https://wa.me/${n}?text=${encodeURIComponent(message)}`
+}
+
+/** SMS link with the body pre-filled — opens the native messaging app. */
+export function smsLink(phone: string, message: string): string {
+  const n = normalizePhone(phone)
+  // The `?&body=` form is the most widely-compatible across Android & iOS.
+  return `sms:${n}?&body=${encodeURIComponent(message)}`
+}

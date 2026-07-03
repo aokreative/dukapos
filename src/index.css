@@ -1,0 +1,65 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light dark;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+  background: #f4f6f5;
+}
+
+.dark body {
+  background: #0b1f16;
+}
+
+/* Bigger, comfortable touch targets for counter use. */
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 font-semibold transition active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none;
+  }
+  .btn-primary {
+    @apply btn bg-brand-600 text-white hover:bg-brand-700;
+  }
+  .btn-gold {
+    @apply btn bg-gold-500 text-brand-900 hover:bg-gold-400;
+  }
+  .btn-ghost {
+    @apply btn bg-black/5 text-brand-900 hover:bg-black/10 dark:bg-white/10 dark:text-white dark:hover:bg-white/20;
+  }
+  .btn-danger {
+    @apply btn bg-red-600 text-white hover:bg-red-700;
+  }
+  .card {
+    @apply rounded-2xl bg-white shadow-sm ring-1 ring-black/5 dark:bg-brand-800 dark:ring-white/10;
+  }
+  .input {
+    @apply w-full rounded-xl border border-black/10 bg-white px-3 py-3 text-base text-brand-900 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/30 dark:border-white/15 dark:bg-brand-900 dark:text-white;
+  }
+  .label {
+    @apply mb-1 block text-sm font-medium text-brand-800/80 dark:text-white/70;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold;
+  }
+}
+
+/* Hide number input spinners for a cleaner keypad feel. */
+input[type='number']::-webkit-outer-spin-button,
+input[type='number']::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type='number'] {
+  -moz-appearance: textfield;
+}
