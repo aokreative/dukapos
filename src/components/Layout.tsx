@@ -7,6 +7,7 @@ import {
   BarChart3,
   Settings as SettingsIcon,
   HandCoins,
+  CreditCard,
   Moon,
   Sun,
   Wifi,
@@ -15,6 +16,7 @@ import {
 import { useStore, selectTotalOwed } from '../store/useStore'
 import { money } from '../lib/format'
 import { useOnline } from '../lib/useOnline'
+import { BillingBanner, Paywall, useBilling } from './Billing'
 
 const NAV = [
   { to: '/', label: 'Sell', icon: ShoppingCart },
@@ -22,6 +24,7 @@ const NAV = [
   { to: '/customers', label: 'Customers', icon: Users },
   { to: '/products', label: 'Stock', icon: Package },
   { to: '/reports', label: 'Reports', icon: BarChart3 },
+  { to: '/subscription', label: 'Billing', icon: CreditCard },
   { to: '/settings', label: 'Settings', icon: SettingsIcon },
 ]
 
@@ -32,6 +35,8 @@ export default function Layout({ children }: { children: ReactNode }) {
   const totalOwed = useStore(selectTotalOwed)
   const online = useOnline()
   const loc = useLocation()
+  const { billing } = useBilling()
+  const billingAlert = billing.status !== 'active'
 
   return (
     <div className="mx-auto flex min-h-full max-w-6xl flex-col md:flex-row">
@@ -48,48 +53,58 @@ export default function Layout({ children }: { children: ReactNode }) {
                   {money(totalOwed).replace('KES ', '')}
                 </span>
               )}
+              {n.to === '/subscription' && billingAlert && <span className="ml-auto h-2 w-2 rounded-full bg-amber-400" />}
             </NavLink>
           ))}
         </nav>
         <FooterControls dark={dark} toggleDark={toggleDark} online={online} />
       </aside>
 
-      {/* Mobile top bar */}
-      <header className="sticky top-0 z-30 flex items-center justify-between border-b border-black/5 bg-white px-4 py-3 dark:border-white/10 dark:bg-brand-900 md:hidden">
-        <Brand shopName={shopName} />
-        <div className="flex items-center gap-1">
-          <span
-            className={`chip ${online ? 'bg-green-100 text-green-800 dark:bg-green-500/20 dark:text-green-300' : 'bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300'}`}
-            title={online ? 'Online' : 'Offline — sales still work'}
-          >
-            {online ? <Wifi size={13} /> : <WifiOff size={13} />}
-            {online ? 'Online' : 'Offline'}
-          </span>
-          <button className="rounded-full p-2 text-brand-900/70 hover:bg-black/5 dark:text-white/70 dark:hover:bg-white/10" onClick={toggleDark} aria-label="Toggle theme">
-            {dark ? <Sun size={18} /> : <Moon size={18} />}
-          </button>
-        </div>
-      </header>
+      {/* Content column */}
+      <div className="flex min-w-0 flex-1 flex-col">
+        {/* Mobile top bar */}
+        <header className="sticky top-0 z-30 flex items-center justify-between border-b border-black/5 bg-white px-4 py-3 dark:border-white/10 dark:bg-brand-900 md:hidden">
+          <Brand shopName={shopName} />
+          <div className="flex items-center gap-1">
+            <span
+              className={`chip ${online ? 'bg-green-100 text-green-800 dark:bg-green-500/20 dark:text-green-300' : 'bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300'}`}
+              title={online ? 'Online' : 'Offline — sales still work'}
+            >
+              {online ? <Wifi size={13} /> : <WifiOff size={13} />}
+              {online ? 'Online' : 'Offline'}
+            </span>
+            <button className="rounded-full p-2 text-brand-900/70 hover:bg-black/5 dark:text-white/70 dark:hover:bg-white/10" onClick={toggleDark} aria-label="Toggle theme">
+              {dark ? <Sun size={18} /> : <Moon size={18} />}
+            </button>
+          </div>
+        </header>
 
-      {/* Content */}
-      <main className="flex-1 px-4 pb-24 pt-4 md:px-8 md:pb-10" key={loc.pathname}>
-        {children}
-      </main>
+        <BillingBanner />
+
+        {/* Content */}
+        <main className="flex-1 px-4 pb-24 pt-4 md:px-8 md:pb-10" key={loc.pathname}>
+          {children}
+        </main>
+      </div>
 
       {/* Mobile bottom nav */}
       <nav className="fixed inset-x-0 bottom-0 z-30 flex justify-around border-t border-black/5 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur dark:border-white/10 dark:bg-brand-900/95 md:hidden">
         {NAV.map((n) => (
           <NavLink key={n.to} to={n.to} className={({ isActive }) => tabClass(isActive)} end={n.to === '/'}>
             <div className="relative">
-              <n.icon size={22} />
+              <n.icon size={20} />
               {n.to === '/debts' && totalOwed > 0 && (
                 <span className="absolute -right-2 -top-1 h-2 w-2 rounded-full bg-red-500" />
               )}
+              {n.to === '/subscription' && billingAlert && <span className="absolute -right-2 -top-1 h-2 w-2 rounded-full bg-amber-400" />}
             </div>
-            <span className="text-[10px] font-medium">{n.label}</span>
+            <span className="text-[9px] font-medium">{n.label}</span>
           </NavLink>
         ))}
       </nav>
+
+      {/* Suspended account paywall */}
+      <Paywall />
     </div>
   )
 }

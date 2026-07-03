@@ -8,10 +8,15 @@ import Customers from './pages/Customers'
 import Products from './pages/Products'
 import Reports from './pages/Reports'
 import Settings from './pages/Settings'
+import Subscription from './pages/Subscription'
+import { useAutomation } from './lib/useAutomation'
 
 export default function App() {
   const hydrated = useStore((s) => s._hasHydrated)
   const dark = useStore((s) => s.dark)
+
+  // Runs automated debt reminders while the app is open and online.
+  useAutomation()
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', dark)
@@ -36,6 +41,7 @@ export default function App() {
         <Route path="/customers" element={<Customers />} />
         <Route path="/products" element={<Products />} />
         <Route path="/reports" element={<Reports />} />
+        <Route path="/subscription" element={<Subscription />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

@@ -14,15 +14,23 @@ import type {
   Debt,
   DebtPayment,
   PaymentMethod,
+  PlanId,
   Product,
+  ReminderLogEntry,
+  ReminderRule,
   Sale,
+  SubInvoice,
+  Subscription,
   Tender,
 } from '../types'
 import { uid } from '../lib/id'
 import { receiptNo as fmtReceipt } from '../lib/id'
 import { normalizePhone } from '../lib/format'
+import { PERIOD_DAYS, getPlan } from '../lib/plans'
 import {
+  defaultReminderRule,
   defaultSettings,
+  defaultSubscription,
   seedCustomers,
   seedDebtsAndSales,
   seedProducts,
@@ -56,6 +64,11 @@ interface State {
   debts: Debt[]
   receiptCounter: number
 
+  // SaaS layer
+  subscription: Subscription
+  reminderRule: ReminderRule
+  reminderLog: ReminderLogEntry[]
+
   // lifecycle
   setHydrated: (v: boolean) => void
   toggleDark: () => void
@@ -79,6 +92,17 @@ interface State {
   recordDebtPayment: (debtId: string, amount: number, method: PaymentMethod, ref?: string) => void
   markReminderSent: (debtId: string, channel: 'whatsapp' | 'sms') => void
 
+  // subscription / billing
+  setPlan: (planId: PlanId) => void
+  setAutoRenew: (v: boolean) => void
+  recordSubscriptionPayment: (planId: PlanId, method: 'mpesa' | 'card' | 'manual', ref?: string) => void
+  /** Demo helper: shift billing dates so a given status is reproduced. */
+  simulateBillingAge: (daysOverdue: number) => void
+
+  // reminders automation
+  updateReminderRule: (patch: Partial<ReminderRule>) => void
+  logReminder: (entry: Omit<ReminderLogEntry, 'id' | 'at'>) => void
+
   // data management
   resetDemoData: () => void
   clearAll: () => void
@@ -94,6 +118,9 @@ function buildSeed() {
     sales,
     debts,
     receiptCounter: 4, // seeds used R-00001..R-00003
+    subscription: defaultSubscription(),
+    reminderRule: defaultReminderRule,
+    reminderLog: [] as ReminderLogEntry[],
   }
 }
 
@@ -215,6 +242,71 @@ export const useStore = create<State>()(
           ),
         })),
 
+      setPlan: (planId) => set((s) => ({ subscription: { ...s.subscription, planId } })),
+      setAutoRenew: (v) => set((s) => ({ subscription: { ...s.subscription, autoRenew: v } })),
+
+      recordSubscriptionPayment: (planId, method, ref) =>
+        set((s) => {
+          const now = Date.now()
+          const plan = getPlan(planId)
+          // New period starts from whichever is later: now, or the current due date.
+          const from = Math.max(now, s.subscription.currentPeriodEnd)
+          const periodEnd = from + PERIOD_DAYS * 24 * 60 * 60 * 1000
+          const invoice: SubInvoice = {
+            id: uid('inv_'),
+            planId,
+            amount: plan.price,
+            periodStart: from,
+            periodEnd,
+            issuedAt: now,
+            paidAt: now,
+            method,
+            ref,
+            status: 'paid',
+          }
+          return {
+            subscription: {
+              ...s.subscription,
+              planId,
+              lastPaymentAt: now,
+              currentPeriodEnd: periodEnd,
+              invoices: [invoice, ...s.subscription.invoices],
+            },
+          }
+        }),
+
+      simulateBillingAge: (daysOverdue) =>
+        set((s) => {
+          const DAY = 24 * 60 * 60 * 1000
+          const now = Date.now()
+          if (daysOverdue <= 0) {
+            // Healthy: paid, due 30 days out.
+            return {
+              subscription: {
+                ...s.subscription,
+                lastPaymentAt: now,
+                trialEndsAt: now - 1 * DAY,
+                currentPeriodEnd: now + PERIOD_DAYS * DAY,
+              },
+            }
+          }
+          // Overdue by N days: last payment a period+N ago, due N days in the past.
+          return {
+            subscription: {
+              ...s.subscription,
+              lastPaymentAt: now - (PERIOD_DAYS + daysOverdue) * DAY,
+              trialEndsAt: now - (PERIOD_DAYS + daysOverdue + 5) * DAY,
+              currentPeriodEnd: now - daysOverdue * DAY,
+            },
+          }
+        }),
+
+      updateReminderRule: (patch) => set((s) => ({ reminderRule: { ...s.reminderRule, ...patch } })),
+      logReminder: (entry) =>
+        set((s) => ({
+          reminderLog: [{ ...entry, id: uid('rl_'), at: Date.now() }, ...s.reminderLog].slice(0, 500),
+        })),
+
       resetDemoData: () => set({ ...buildSeed() }),
       clearAll: () =>
         set({
@@ -223,6 +315,7 @@ export const useStore = create<State>()(
           sales: [],
           debts: [],
           receiptCounter: 1,
+          reminderLog: [],
         }),
     }),
     {
@@ -283,4 +376,25 @@ export function selectOpenDebtsByCustomer(state: State): DebtorSummary[] {
 
 export function selectTotalOwed(state: State): number {
   return state.debts.filter((d) => d.status === 'open').reduce((s, d) => s + d.balance, 0)
+}
+
+export interface Usage {
+  shops: number
+  staff: number
+  products: number
+  monthlyTx: number
+}
+
+/** Current usage of the shop, for comparing against plan limits. */
+export function selectUsage(state: State): Usage {
+  const monthStart = new Date()
+  monthStart.setDate(1)
+  monthStart.setHours(0, 0, 0, 0)
+  const monthlyTx = state.sales.filter((s) => s.createdAt >= monthStart.getTime()).length
+  return {
+    shops: 1, // single-shop MVP
+    staff: 1,
+    products: state.products.length,
+    monthlyTx,
+  }
 }

@@ -4,6 +4,7 @@ import { useStore, selectOpenDebtsByCustomer, type DebtorSummary } from '../stor
 import { money, displayPhone, agingBucket, relativeDays, shortDate } from '../lib/format'
 import { buildCombinedReminder, paymentInstructions, smsLink, whatsappLink } from '../lib/reminders'
 import { PageHeader, Modal, Badge, EmptyState } from '../components/ui'
+import AutomationPanel from '../components/AutomationPanel'
 import type { Debt, PaymentMethod } from '../types'
 
 const BUCKET_COLOR: Record<string, 'green' | 'amber' | 'red'> = {
@@ -38,7 +39,9 @@ export default function Debts() {
 
   return (
     <div>
-      <PageHeader title="Debts & Reminders" subtitle="Who owes you — and one tap to remind them." />
+      <PageHeader title="Debts & Reminders" subtitle="Who owes you — automatic or one-tap reminders." />
+
+      <AutomationPanel />
 
       {/* Summary */}
       <div className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-4">

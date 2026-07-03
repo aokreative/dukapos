@@ -1,6 +1,7 @@
 // Demo data so the shop works the moment it opens. All prices in KES.
-import type { BusinessSettings, Customer, Debt, Product, Sale } from '../types'
+import type { BusinessSettings, Customer, Debt, Product, ReminderRule, Sale, Subscription } from '../types'
 import { DEFAULT_TEMPLATE } from './reminders'
+import { TRIAL_DAYS } from './plans'
 import { uid } from './id'
 
 export const defaultSettings: BusinessSettings = {
@@ -23,6 +24,28 @@ export const defaultSettings: BusinessSettings = {
 
 const now = Date.now()
 const day = 24 * 60 * 60 * 1000
+
+export function defaultSubscription(): Subscription {
+  const t = Date.now()
+  return {
+    planId: 'standard',
+    startedAt: t,
+    trialEndsAt: t + TRIAL_DAYS * day,
+    currentPeriodEnd: t + TRIAL_DAYS * day,
+    autoRenew: true,
+    invoices: [],
+  }
+}
+
+export const defaultReminderRule: ReminderRule = {
+  enabled: true,
+  startDay: 3,
+  everyDays: 3,
+  maxPerDebt: 4,
+  channel: 'whatsapp',
+  quietFrom: 21, // 9pm
+  quietTo: 7, // 7am
+}
 
 export function seedProducts(): Product[] {
   const p = (name: string, sku: string, category: string, price: number, cost: number, stock: number, reorder: number): Product => ({

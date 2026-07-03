@@ -98,3 +98,76 @@ export interface BusinessSettings {
   vatRate: number // e.g. 16
   lowStockNudge: boolean
 }
+
+// ---------------------------------------------------------------------------
+// SaaS layer — the POS itself is a subscription product.
+// ---------------------------------------------------------------------------
+
+export type PlanId = 'micro' | 'standard' | 'growth' | 'chain'
+
+export interface PlanLimits {
+  shops: number
+  staff: number
+  products: number
+  monthlyTx: number
+}
+
+export interface Plan {
+  id: PlanId
+  name: string
+  swahili: string
+  price: number // KES per month
+  limits: PlanLimits // Infinity means unlimited
+  blurb: string
+  features: string[]
+}
+
+/** Lifecycle of the shop's own subscription to Duka POS. */
+export type SubStatus = 'trial' | 'active' | 'grace' | 'restricted' | 'suspended'
+
+export interface SubInvoice {
+  id: string
+  planId: PlanId
+  amount: number
+  periodStart: number
+  periodEnd: number
+  issuedAt: number
+  paidAt?: number
+  method?: 'mpesa' | 'card' | 'manual'
+  ref?: string
+  status: 'paid' | 'pending' | 'failed'
+}
+
+export interface Subscription {
+  planId: PlanId
+  startedAt: number
+  trialEndsAt: number
+  currentPeriodEnd: number // next due date once paid
+  lastPaymentAt?: number
+  autoRenew: boolean
+  invoices: SubInvoice[]
+}
+
+/** Rules that drive automated debt reminders (customer debts, not billing). */
+export interface ReminderRule {
+  enabled: boolean
+  startDay: number // begin auto-reminding once a debt is this many days old
+  everyDays: number // repeat interval between reminders
+  maxPerDebt: number // stop after this many auto reminders on one debt
+  channel: 'whatsapp' | 'sms'
+  quietFrom: number // hour 0-23 — do not send during quiet hours
+  quietTo: number
+}
+
+export interface ReminderLogEntry {
+  id: string
+  debtId: string
+  customerId: string
+  customerName: string
+  channel: 'whatsapp' | 'sms'
+  message: string
+  at: number
+  auto: boolean
+  status: 'sent' | 'simulated' | 'queued' | 'failed'
+  detail?: string
+}

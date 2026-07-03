@@ -6,11 +6,14 @@ import type { CartLine, Product, Sale, Tender } from '../types'
 import PaymentModal from '../components/PaymentModal'
 import Receipt from '../components/Receipt'
 import { EmptyState } from '../components/ui'
+import { useBilling } from '../components/Billing'
 
 export default function POS() {
   const products = useStore((s) => s.products)
   const completeSale = useStore((s) => s.completeSale)
   const currency = useStore((s) => s.settings.currency)
+  const { billing } = useBilling()
+  const held = !billing.canSell
 
   const [q, setQ] = useState('')
   const [cat, setCat] = useState<string>('All')
@@ -111,6 +114,7 @@ export default function POS() {
           setQty={setQty}
           clearCart={clearCart}
           onCharge={() => setPayOpen(true)}
+          held={held}
         />
       </div>
 
@@ -145,6 +149,7 @@ export default function POS() {
               setQty={setQty}
               clearCart={clearCart}
               onCharge={() => setPayOpen(true)}
+              held={held}
               embedded
             />
           </div>
@@ -167,6 +172,7 @@ function CartPanel({
   setQty,
   clearCart,
   onCharge,
+  held,
   embedded,
 }: {
   cart: CartLine[]
@@ -178,6 +184,7 @@ function CartPanel({
   setQty: (id: string, qty: number) => void
   clearCart: () => void
   onCharge: () => void
+  held?: boolean
   embedded?: boolean
 }) {
   return (
@@ -240,9 +247,15 @@ function CartPanel({
         </div>
       </div>
 
-      <button className="btn-primary mt-3 w-full text-lg" disabled={cart.length === 0} onClick={onCharge}>
-        Charge {money(total, currency)}
-      </button>
+      {held ? (
+        <div className="mt-3 rounded-xl bg-red-100 px-3 py-3 text-center text-sm font-semibold text-red-700 dark:bg-red-500/20 dark:text-red-300">
+          Selling is paused — pay your subscription to continue.
+        </div>
+      ) : (
+        <button className="btn-primary mt-3 w-full text-lg" disabled={cart.length === 0} onClick={onCharge}>
+          Charge {money(total, currency)}
+        </button>
+      )}
     </div>
   )
 }
