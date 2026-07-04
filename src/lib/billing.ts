@@ -2,8 +2,11 @@
 // suspended based on the subscription dates. This is what "holds" the POS when
 // payment is pending.
 import type { Subscription, SubStatus } from '../types'
+import type { TenantView } from './api'
 import { GRACE_DAYS, RESTRICT_UNTIL_DAY, getPlan } from './plans'
 import { daysBetween } from './format'
+
+const DAY = 24 * 60 * 60 * 1000
 
 export interface BillingState {
   status: SubStatus
@@ -53,6 +56,21 @@ export function evaluateBilling(sub: Subscription, now: number = Date.now()): Bi
   }
   // Suspended: full paywall.
   return { ...base, status: 'suspended', effectiveDue: due, overdueDays: over, trialDaysLeft: 0, canSell: false, locked: true }
+}
+
+/** Build billing state from the server's authoritative tenant status. */
+export function billingFromServer(v: TenantView, now: number = Date.now()): BillingState {
+  const plan = getPlan(v.planId as Subscription['planId'])
+  return {
+    status: v.status,
+    effectiveDue: v.status === 'trial' ? v.trialEndsAt : v.currentPeriodEnd,
+    overdueDays: v.overdueDays,
+    trialDaysLeft: v.status === 'trial' ? Math.max(0, Math.ceil((v.trialEndsAt - now) / DAY)) : 0,
+    canSell: v.canSell,
+    locked: v.locked,
+    planId: v.planId as Subscription['planId'],
+    price: plan.price,
+  }
 }
 
 export const STATUS_LABEL: Record<SubStatus, string> = {

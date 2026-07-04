@@ -10,6 +10,7 @@ import Reports from './pages/Reports'
 import Settings from './pages/Settings'
 import Subscription from './pages/Subscription'
 import { useAutomation } from './lib/useAutomation'
+import { useBillingSync } from './lib/useBillingSync'
 
 export default function App() {
   const hydrated = useStore((s) => s._hasHydrated)
@@ -17,6 +18,8 @@ export default function App() {
 
   // Runs automated debt reminders while the app is open and online.
   useAutomation()
+  // Keeps subscription status in step with the platform backend (when connected).
+  useBillingSync()
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', dark)

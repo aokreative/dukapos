@@ -24,6 +24,7 @@ import type {
   Subscription,
   Tender,
 } from '../types'
+import type { TenantView } from '../lib/api'
 import { uid } from '../lib/id'
 import { receiptNo as fmtReceipt } from '../lib/id'
 import { normalizePhone } from '../lib/format'
@@ -69,6 +70,9 @@ interface State {
   subscription: Subscription
   reminderRule: ReminderRule
   reminderLog: ReminderLogEntry[]
+  /** When connected to the backend, the server's authoritative billing status. */
+  tenantId?: string
+  serverBilling: TenantView | null
 
   // lifecycle
   setHydrated: (v: boolean) => void
@@ -97,6 +101,8 @@ interface State {
   setPlan: (planId: PlanId) => void
   setAutoRenew: (v: boolean) => void
   recordSubscriptionPayment: (planId: PlanId, cycle: BillingCycle, method: 'mpesa' | 'card' | 'manual', ref?: string) => void
+  setTenantId: (id: string) => void
+  setServerBilling: (v: TenantView | null) => void
   /** Demo helper: shift billing dates so a given status is reproduced. */
   simulateBillingAge: (daysOverdue: number) => void
 
@@ -122,6 +128,7 @@ function buildSeed() {
     subscription: defaultSubscription(),
     reminderRule: defaultReminderRule,
     reminderLog: [] as ReminderLogEntry[],
+    serverBilling: null as TenantView | null,
   }
 }
 
@@ -245,6 +252,8 @@ export const useStore = create<State>()(
 
       setPlan: (planId) => set((s) => ({ subscription: { ...s.subscription, planId } })),
       setAutoRenew: (v) => set((s) => ({ subscription: { ...s.subscription, autoRenew: v } })),
+      setTenantId: (id) => set({ tenantId: id }),
+      setServerBilling: (v) => set({ serverBilling: v }),
 
       recordSubscriptionPayment: (planId, cycle, method, ref) =>
         set((s) => {

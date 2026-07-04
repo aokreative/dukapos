@@ -11,10 +11,10 @@ export function startScheduler({ chargeTenant, intervalMs = 60 * 60 * 1000 }) {
     if (running) return
     running = true
     try {
-      const due = listDueForCharge()
+      const due = await listDueForCharge()
       if (due.length) console.log(`[billing] ${due.length} tenant(s) due — auto-charging`)
       for (const t of due) {
-        setLastChargeAttempt(t.id)
+        await setLastChargeAttempt(t.id)
         try {
           await chargeTenant(t)
         } catch (e) {

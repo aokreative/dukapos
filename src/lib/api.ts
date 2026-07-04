@@ -54,6 +54,8 @@ export interface PayInput {
   amount: number
   planId: string
   business: string
+  tenantId?: string
+  cycle?: 'monthly' | 'annual'
 }
 export interface PayResult {
   ok: boolean
@@ -92,5 +94,61 @@ export async function checkPayment(checkoutId: string): Promise<{ status: 'pendi
     return { status: data.status, ref: data.ref }
   } catch {
     return { status: 'pending' }
+  }
+}
+
+// --- Server-authoritative subscription (tenant registry) -------------------
+
+export interface TenantView {
+  id: string
+  business: string
+  phone: string
+  planId: string
+  cycle: 'monthly' | 'annual'
+  autoRenew: boolean
+  status: 'trial' | 'active' | 'grace' | 'restricted' | 'suspended'
+  canSell: boolean
+  locked: boolean
+  overdueDays: number
+  currentPeriodEnd: number
+  trialEndsAt: number
+  lastPaymentAt: number | null
+  amountDue: number
+  invoices: unknown[]
+}
+
+export interface RegisterTenantInput {
+  business: string
+  phone: string
+  planId: string
+  cycle: 'monthly' | 'annual'
+  autoRenew: boolean
+}
+
+/** Register/link this shop with the platform biller. No-op when not live. */
+export async function registerTenant(input: RegisterTenantInput): Promise<TenantView | null> {
+  if (!BASE) return null
+  try {
+    const res = await fetch(`${BASE}/api/tenants/register`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(input),
+    })
+    if (!res.ok) return null
+    return (await res.json()) as TenantView
+  } catch {
+    return null
+  }
+}
+
+/** Read this shop's authoritative subscription status from the server. */
+export async function getTenantStatus(id: string): Promise<TenantView | null> {
+  if (!BASE) return null
+  try {
+    const res = await fetch(`${BASE}/api/tenants/${encodeURIComponent(id)}`)
+    if (!res.ok) return null
+    return (await res.json()) as TenantView
+  } catch {
+    return null
   }
 }

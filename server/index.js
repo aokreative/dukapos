@@ -10,8 +10,8 @@
 //        • the app reads each shop's status from here (server = source of truth),
 //          so an unpaid shop is held/suspended automatically.
 //
-// Runs with NO credentials — every provider falls back to simulation — so the
-// whole flow is testable before you wire real keys. See .env.example.
+// Storage: JSON file by default, or Postgres/Supabase when DATABASE_URL is set.
+// Providers fall back to simulation with no credentials. See .env.example.
 // ---------------------------------------------------------------------------
 import express from 'express'
 import cors from 'cors'
@@ -20,6 +20,8 @@ import { sendSMS, smsConfigured } from './lib/sms.js'
 import { stkPush, mpesaConfigured } from './lib/mpesa.js'
 import { priceFor } from './lib/plans.js'
 import {
+  initSubscriptions,
+  storeKind,
   registerTenant,
   getTenant,
   findByPhone,
@@ -37,9 +39,8 @@ app.use(express.json({ limit: '256kb' }))
 const PORT = process.env.PORT || 8787
 const PUBLIC_URL = process.env.PUBLIC_URL || `http://localhost:${PORT}`
 
-// In-memory payment tracking (checkoutId -> { status, ref, tenantId, ... }).
+// checkoutId -> { status, ref, tenantId, ... }
 const payments = new Map()
-
 const rand = (p) => p + Math.random().toString(36).slice(2, 8).toUpperCase()
 
 app.get('/api/health', (_req, res) => {
@@ -50,6 +51,7 @@ app.get('/api/health', (_req, res) => {
       sms: smsConfigured() ? 'live' : 'simulation',
       mpesa: mpesaConfigured() ? 'live' : 'simulation',
     },
+    storage: storeKind(),
     billing: 'auto-charge scheduler running',
   })
 })
@@ -77,22 +79,26 @@ app.post('/api/reminders/send', async (req, res) => {
 // ===========================================================================
 
 // Register/link a shop (tenant). The app calls this so the server knows who to
-// charge and can be the source of truth for the shop's status.
-app.post('/api/tenants/register', (req, res) => {
+// charge and is the source of truth for the shop's status.
+app.post('/api/tenants/register', async (req, res) => {
   const { business, phone, planId, cycle, autoRenew } = req.body || {}
   if (!phone) return res.status(400).json({ error: 'phone is required' })
-  const t = registerTenant({ business, phone, planId, cycle, autoRenew })
-  res.json(publicView(t))
+  try {
+    const t = await registerTenant({ business, phone, planId, cycle, autoRenew })
+    res.json(publicView(t))
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
 })
 
 // The app polls this to enforce the subscription (hold/suspend) authoritatively.
-app.get('/api/tenants/:id', (req, res) => {
-  const t = getTenant(req.params.id)
+app.get('/api/tenants/:id', async (req, res) => {
+  const t = await getTenant(req.params.id)
   if (!t) return res.status(404).json({ error: 'not found' })
   res.json(publicView(t))
 })
 
-app.get('/api/admin/tenants', (_req, res) => res.json(allTenants()))
+app.get('/api/admin/tenants', async (_req, res) => res.json(await allTenants()))
 
 /** Charge one shop now — sends an STK push (or simulates + renews). */
 async function chargeTenant(t) {
@@ -105,7 +111,7 @@ async function chargeTenant(t) {
     callbackUrl: `${PUBLIC_URL}/api/mpesa/callback`,
   })
   if (!out.configured) {
-    renew(t.id, { ref: rand('Q'), method: 'mpesa' }) // simulation: treat as paid
+    await renew(t.id, { ref: rand('Q'), method: 'mpesa' }) // simulation: treat as paid
     console.log(`[billing] (sim) auto-charged ${t.business} KES ${amount}`)
     return { simulated: true, amount }
   }
@@ -114,13 +120,13 @@ async function chargeTenant(t) {
   return { simulated: false, checkoutId: out.checkoutId, amount }
 }
 
-// Manually trigger a charge for a shop (e.g. owner taps "Pay now", or testing).
+// Manually trigger a charge for a shop.
 app.post('/api/tenants/:id/charge', async (req, res) => {
-  const t = getTenant(req.params.id)
+  const t = await getTenant(req.params.id)
   if (!t) return res.status(404).json({ error: 'not found' })
   try {
     const out = await chargeTenant(t)
-    res.json({ ok: true, ...out, tenant: publicView(getTenant(t.id)) })
+    res.json({ ok: true, ...out, tenant: publicView(await getTenant(t.id)) })
   } catch (e) {
     res.status(502).json({ error: e.message })
   }
@@ -141,12 +147,12 @@ app.post('/api/subscription/pay', async (req, res) => {
     if (!out.configured) {
       const checkoutId = rand('ws_CO_')
       payments.set(checkoutId, { status: 'pending', tenantId, amount, planId, cycle, phone })
-      setTimeout(() => {
+      setTimeout(async () => {
         const p = payments.get(checkoutId)
         if (!p) return
         const ref = rand('Q')
         payments.set(checkoutId, { ...p, status: 'success', ref })
-        if (p.tenantId) renew(p.tenantId, { ref, cycle: p.cycle })
+        if (p.tenantId) await renew(p.tenantId, { ref, cycle: p.cycle })
       }, 1500)
       return res.json({ simulated: true, checkoutId, ref: rand('Q'), detail: 'Simulated M-PESA payment confirmed' })
     }
@@ -164,9 +170,6 @@ app.get('/api/subscription/status/:checkoutId', (req, res) => {
 })
 
 // M-PESA Ratiba — set up a STANDING ORDER for true zero-touch monthly billing.
-// The customer approves once; Safaricom then debits automatically each cycle.
-// (Simulated here; wire the Daraja Ratiba endpoint when your shortcode is
-// enabled for standing orders.)
 app.post('/api/subscription/ratiba', async (req, res) => {
   const { phone, planId = 'standard', cycle = 'monthly' } = req.body || {}
   if (!phone) return res.status(400).json({ error: 'phone is required' })
@@ -178,13 +181,12 @@ app.post('/api/subscription/ratiba', async (req, res) => {
       detail: `Simulated standing order: KES ${amount} ${cycle} from ${phone}. In production, Safaricom sends the customer a one-time approval, then auto-debits each cycle.`,
     })
   }
-  // TODO: call Daraja Ratiba "Standing Order" create endpoint here with your
-  // shortcode credentials. Returns an order the customer approves once.
+  // TODO: call the Daraja Ratiba "Standing Order" create endpoint here.
   return res.json({ simulated: false, detail: 'Ratiba standing-order create not yet wired — see server/README.md' })
 })
 
 // --- Daraja STK callback ---------------------------------------------------
-app.post('/api/mpesa/callback', (req, res) => {
+app.post('/api/mpesa/callback', async (req, res) => {
   try {
     const cb = req.body?.Body?.stkCallback
     if (cb) {
@@ -194,7 +196,7 @@ app.post('/api/mpesa/callback', (req, res) => {
         const items = cb.CallbackMetadata?.Item || []
         const receipt = items.find((i) => i.Name === 'MpesaReceiptNumber')?.Value
         payments.set(cb.CheckoutRequestID, { ...p, status: ok ? 'success' : 'failed', ref: receipt })
-        if (ok && p.tenantId) renew(p.tenantId, { ref: receipt, cycle: p.cycle }) // auto-renew the shop
+        if (ok && p.tenantId) await renew(p.tenantId, { ref: receipt, cycle: p.cycle })
       }
     }
   } catch {
@@ -204,15 +206,13 @@ app.post('/api/mpesa/callback', (req, res) => {
 })
 
 // --- Daraja C2B confirmation (Paybill/Till auto-detect) --------------------
-// If a shop pays your Paybill manually, this renews them automatically by
-// matching the paying phone (or the account/BillRef) to a tenant.
-app.post('/api/mpesa/c2b/confirmation', (req, res) => {
+app.post('/api/mpesa/c2b/confirmation', async (req, res) => {
   try {
     const b = req.body || {}
     const phone = b.MSISDN || b.phone
-    const t = (b.BillRefNumber && getTenant(b.BillRefNumber)) || (phone && findByPhone(phone))
+    const t = (b.BillRefNumber && (await getTenant(b.BillRefNumber))) || (phone && (await findByPhone(phone)))
     if (t) {
-      renew(t.id, { ref: b.TransID || b.ref, method: 'mpesa' })
+      await renew(t.id, { ref: b.TransID || b.ref, method: 'mpesa' })
       console.log(`[billing] C2B payment matched -> renewed ${t.business}`)
     }
   } catch {
@@ -226,25 +226,31 @@ const scheduler = startScheduler({
   intervalMs: Number(process.env.BILLING_INTERVAL_MS) || 60 * 60 * 1000, // hourly
 })
 
-// Test-only: force a billing sweep now.
 app.post('/api/admin/run-billing', async (_req, res) => {
   await scheduler.runOnce()
-  res.json({ ok: true, tenants: allTenants() })
+  res.json({ ok: true, tenants: await allTenants() })
 })
 
 // Test/demo only (blocked when real M-PESA is configured): age a tenant so you
 // can watch the auto-charge kick in.
-app.post('/api/tenants/:id/simulate-age', (req, res) => {
+app.post('/api/tenants/:id/simulate-age', async (req, res) => {
   if (mpesaConfigured()) return res.status(403).json({ error: 'disabled when M-PESA is live' })
-  const t = simulateAge(req.params.id, Number(req.body?.daysOverdue) || 0)
+  const t = await simulateAge(req.params.id, Number(req.body?.daysOverdue) || 0)
   if (!t) return res.status(404).json({ error: 'not found' })
   res.json(publicView(t))
 })
 
-app.listen(PORT, () => {
-  console.log(`Duka POS backend on ${PUBLIC_URL}`)
-  console.log(
-    `Providers — WhatsApp: ${whatsappConfigured() ? 'live' : 'sim'}, SMS: ${smsConfigured() ? 'live' : 'sim'}, M-PESA: ${mpesaConfigured() ? 'live' : 'sim'}`,
-  )
-  console.log('Billing scheduler: on (auto-charges shops when their subscription is due)')
-})
+initSubscriptions()
+  .then((kind) => {
+    app.listen(PORT, () => {
+      console.log(`Duka POS backend on ${PUBLIC_URL}`)
+      console.log(
+        `Providers — WhatsApp: ${whatsappConfigured() ? 'live' : 'sim'}, SMS: ${smsConfigured() ? 'live' : 'sim'}, M-PESA: ${mpesaConfigured() ? 'live' : 'sim'}`,
+      )
+      console.log(`Storage: ${kind} · Billing scheduler: on`)
+    })
+  })
+  .catch((e) => {
+    console.error('Failed to start:', e)
+    process.exit(1)
+  })

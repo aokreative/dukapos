@@ -3,43 +3,30 @@
 // paid up. Each shop using Duka POS is a "tenant". The app reads its status
 // from here, so a shop can't bypass billing by clearing its device.
 //
-// Storage is a JSON file for a simple single-instance deploy. For real scale,
-// swap these functions for a database (Postgres/Supabase) — the interface
-// stays the same.
+// Storage is pluggable: a zero-config JSON file by default, or Postgres/Supabase
+// when DATABASE_URL is set. Business logic below is storage-agnostic.
 // ---------------------------------------------------------------------------
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs'
-import { dirname, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { randomUUID } from 'node:crypto'
 import { getPlan, priceFor, periodDaysFor, TRIAL_DAYS, GRACE_DAYS, RESTRICT_UNTIL_DAY } from './plans.js'
+import { createMemoryStore } from './store.memory.js'
 
-const __dirname = dirname(fileURLToPath(import.meta.url))
-const DATA_DIR = resolve(__dirname, '..', 'data')
-const FILE = resolve(DATA_DIR, 'tenants.json')
 const DAY = 24 * 60 * 60 * 1000
+let store = null
 
-/** @type {Map<string, any>} */
-const tenants = new Map()
+export async function initSubscriptions() {
+  if (process.env.DATABASE_URL) {
+    const { createPgStore } = await import('./store.pg.js')
+    store = await createPgStore(process.env.DATABASE_URL)
+  } else {
+    store = createMemoryStore()
+  }
+  await store.init()
+  return store.kind
+}
 
-function load() {
-  try {
-    if (existsSync(FILE)) {
-      const arr = JSON.parse(readFileSync(FILE, 'utf8'))
-      for (const t of arr) tenants.set(t.id, t)
-    }
-  } catch {
-    /* start empty on any read/parse error */
-  }
+export function storeKind() {
+  return store?.kind || 'memory'
 }
-function save() {
-  try {
-    mkdirSync(DATA_DIR, { recursive: true })
-    writeFileSync(FILE, JSON.stringify([...tenants.values()], null, 2))
-  } catch {
-    /* best-effort; DB replaces this in production */
-  }
-}
-load()
 
 function normalizePhone(raw) {
   let s = String(raw || '').replace(/\D/g, '')
@@ -49,7 +36,7 @@ function normalizePhone(raw) {
   return s
 }
 
-/** Same billing state machine as the app (src/lib/billing.ts). */
+/** Same billing state machine as the app (src/lib/billing.ts). Pure. */
 export function evaluateStatus(t, now = Date.now()) {
   const paid = !!t.lastPaymentAt
   if (!paid && now < t.trialEndsAt) return { status: 'trial', due: t.trialEndsAt, overdueDays: 0 }
@@ -82,20 +69,19 @@ export function publicView(t) {
   }
 }
 
-export function findByPhone(phone) {
+export async function findByPhone(phone) {
   const n = normalizePhone(phone)
-  for (const t of tenants.values()) if (t.phone === n) return t
-  return null
+  return n ? store.getByPhone(n) : null
 }
 
-export function getTenant(id) {
-  return tenants.get(id) || null
+export async function getTenant(id) {
+  return store.getById(id)
 }
 
 /** Create a tenant (on trial) or update an existing one's plan/phone. */
-export function registerTenant({ business, phone, planId = 'standard', cycle = 'monthly', autoRenew = true }) {
+export async function registerTenant({ business, phone, planId = 'standard', cycle = 'monthly', autoRenew = true }) {
   const n = normalizePhone(phone)
-  let t = n ? findByPhone(n) : null
+  let t = n ? await store.getByPhone(n) : null
   const now = Date.now()
   if (t) {
     t.business = business || t.business
@@ -117,15 +103,14 @@ export function registerTenant({ business, phone, planId = 'standard', cycle = '
       lastChargeAttemptAt: null,
       invoices: [],
     }
-    tenants.set(t.id, t)
   }
-  save()
+  await store.put(t)
   return t
 }
 
 /** Mark a successful payment — extends the paid period. */
-export function renew(id, { ref, method = 'mpesa', cycle } = {}) {
-  const t = tenants.get(id)
+export async function renew(id, { ref, method = 'mpesa', cycle } = {}) {
+  const t = await store.getById(id)
   if (!t) return null
   const now = Date.now()
   const useCycle = cycle || t.cycle
@@ -139,21 +124,21 @@ export function renew(id, { ref, method = 'mpesa', cycle } = {}) {
     { id: randomUUID(), planId: t.planId, cycle: useCycle, amount, method, ref: ref || null, periodStart: from, periodEnd, paidAt: now, status: 'paid' },
     ...(t.invoices || []),
   ].slice(0, 100)
-  save()
+  await store.put(t)
   return t
 }
 
-export function setLastChargeAttempt(id) {
-  const t = tenants.get(id)
+export async function setLastChargeAttempt(id) {
+  const t = await store.getById(id)
   if (t) {
     t.lastChargeAttemptAt = Date.now()
-    save()
+    await store.put(t)
   }
 }
 
 /** Test/demo helper: shift a tenant's dates to reproduce a billing state. */
-export function simulateAge(id, daysOverdue) {
-  const t = tenants.get(id)
+export async function simulateAge(id, daysOverdue) {
+  const t = await store.getById(id)
   if (!t) return null
   const now = Date.now()
   if (daysOverdue <= 0) {
@@ -166,29 +151,28 @@ export function simulateAge(id, daysOverdue) {
     t.currentPeriodEnd = now - daysOverdue * DAY
     t.lastChargeAttemptAt = null
   }
-  save()
+  await store.put(t)
   return t
 }
 
 /**
  * Tenants that should be auto-charged now: auto-renew on, past/at due date,
- * not suspended-beyond-recovery, and not already attempted in the last 12h.
+ * and not already attempted in the last 12h.
  */
-export function listDueForCharge(now = Date.now()) {
-  const out = []
-  for (const t of tenants.values()) {
-    if (!t.autoRenew) continue
+export async function listDueForCharge(now = Date.now()) {
+  const all = await store.all()
+  return all.filter((t) => {
+    if (!t.autoRenew) return false
     const { status } = evaluateStatus(t, now)
     const dueForCharge = status === 'active' ? t.currentPeriodEnd - now <= DAY : ['grace', 'restricted', 'suspended'].includes(status)
-    if (!dueForCharge) continue
-    if (t.lastChargeAttemptAt && now - t.lastChargeAttemptAt < 12 * 60 * 60 * 1000) continue
-    out.push(t)
-  }
-  return out
+    if (!dueForCharge) return false
+    if (t.lastChargeAttemptAt && now - t.lastChargeAttemptAt < 12 * 60 * 60 * 1000) return false
+    return true
+  })
 }
 
-export function allTenants() {
-  return [...tenants.values()].map(publicView)
+export async function allTenants() {
+  return (await store.all()).map(publicView)
 }
 
 export { getPlan }

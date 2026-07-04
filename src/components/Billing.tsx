@@ -2,10 +2,10 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Smartphone, Lock, AlertTriangle, Sparkles, Loader2, Check } from 'lucide-react'
 import { useStore } from '../store/useStore'
-import { evaluateBilling } from '../lib/billing'
+import { evaluateBilling, billingFromServer } from '../lib/billing'
 import { getPlan, priceFor } from '../lib/plans'
 import { money, displayPhone, isValidPhone, normalizePhone } from '../lib/format'
-import { startSubscriptionPayment, isLive } from '../lib/api'
+import { startSubscriptionPayment, checkPayment, getTenantStatus, isLive } from '../lib/api'
 import { Modal } from './ui'
 import type { BillingCycle, PlanId } from '../types'
 
@@ -21,8 +21,11 @@ function useNow(intervalMs = 60_000) {
 
 export function useBilling() {
   const subscription = useStore((s) => s.subscription)
+  const serverBilling = useStore((s) => s.serverBilling)
   const now = useNow()
-  return { billing: evaluateBilling(subscription, now), subscription }
+  // When connected to the backend, the server is the source of truth.
+  const billing = isLive && serverBilling ? billingFromServer(serverBilling, now) : evaluateBilling(subscription, now)
+  return { billing, subscription }
 }
 
 export function PaySubscriptionModal({
@@ -40,11 +43,30 @@ export function PaySubscriptionModal({
 }) {
   const settings = useStore((s) => s.settings)
   const recordSubscriptionPayment = useStore((s) => s.recordSubscriptionPayment)
+  const tenantId = useStore((s) => s.tenantId)
+  const setServerBilling = useStore((s) => s.setServerBilling)
   const plan = getPlan(planId)
   const amount = priceFor(plan, cycle)
   const [phone, setPhone] = useState(displayPhone(settings.phone))
   const [state, setState] = useState<'idle' | 'pending' | 'done' | 'error'>('idle')
   const [detail, setDetail] = useState('')
+
+  async function refreshServer() {
+    if (isLive && tenantId) {
+      const v = await getTenantStatus(tenantId)
+      if (v) setServerBilling(v)
+    }
+  }
+
+  function finishOk() {
+    recordSubscriptionPayment(planId, cycle, 'mpesa')
+    setState('done')
+    setTimeout(() => {
+      onPaid()
+      onClose()
+      setState('idle')
+    }, 1100)
+  }
 
   async function pay() {
     if (!isValidPhone(phone)) return
@@ -54,19 +76,38 @@ export function PaySubscriptionModal({
       phone: normalizePhone(phone),
       amount,
       planId,
+      cycle,
+      tenantId,
       business: settings.name,
     })
-    if (res.ok) {
-      recordSubscriptionPayment(planId, cycle, 'mpesa', res.ref)
-      setState('done')
-      setTimeout(() => {
-        onPaid()
-        onClose()
-        setState('idle')
-      }, 1100)
-    } else {
+    if (!res.ok) {
       setState('error')
       setDetail(res.detail || 'Payment failed. Try again.')
+      return
+    }
+    if (res.simulated) {
+      // Demo mode or a backend without M-PESA keys: treat as paid.
+      setTimeout(refreshServer, 1800) // server renews the tenant shortly after
+      finishOk()
+      return
+    }
+    // Real STK push initiated — wait for the customer to confirm on their phone.
+    let confirmed = false
+    for (let i = 0; i < 20 && res.checkoutId; i++) {
+      await new Promise((r) => setTimeout(r, 3000))
+      const s = await checkPayment(res.checkoutId)
+      if (s.status === 'success') {
+        confirmed = true
+        break
+      }
+      if (s.status === 'failed') break
+    }
+    if (confirmed) {
+      await refreshServer()
+      finishOk()
+    } else {
+      setState('error')
+      setDetail('Payment not completed. If you entered your PIN, give it a moment and check the Billing page.')
     }
   }
 
