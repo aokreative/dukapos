@@ -1,0 +1,386 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Duka POS — Owner Setup &amp; Selling Guide</title>
+<style>
+  :root {
+    --green:#166534; --green-d:#0b3b22; --gold:#c69214; --gold-d:#9c7410;
+    --ink:#17251d; --muted:#586b5f; --line:#dfe6e0; --tint:#eef4ef; --tint2:#f6f9f6;
+    --amber:#8a5a00; --amber-bg:#fdf3dd; --red:#b3261e; --red-bg:#fbe9e7;
+  }
+  * { box-sizing:border-box; }
+  html,body { margin:0; padding:0; }
+  body {
+    font-family: system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    color:var(--ink); font-size:10.6pt; line-height:1.55;
+    -webkit-print-color-adjust:exact; print-color-adjust:exact;
+  }
+  h1,h2,h3 { line-height:1.15; }
+  p { margin:0 0 8pt; }
+  strong,b { color:var(--ink); }
+  code { font-family:ui-monospace,Menlo,Consolas,monospace; font-size:9pt; background:var(--tint); color:var(--green-d); padding:1px 4px; border-radius:3px; }
+  a { color:var(--green); text-decoration:none; }
+
+  /* Cover */
+  .cover {
+    background:var(--green); color:#fff; border-radius:12pt;
+    padding:34pt 30pt; min-height:238mm; display:flex; flex-direction:column;
+  }
+  .cover .mark { width:64pt; height:64pt; border-radius:16pt; margin-bottom:20pt; }
+  .cover .eyebrow { color:#e7d9a6; font-size:10pt; letter-spacing:.16em; text-transform:uppercase; font-weight:700; margin-bottom:6pt; }
+  .cover h1 { font-size:40pt; margin:0 0 10pt; letter-spacing:-.02em; }
+  .cover .sub { font-size:15pt; color:#d8ecdf; max-width:150mm; font-weight:500; }
+  .cover .spacer { flex:1; }
+  .cover .foot { border-top:1px solid rgba(255,255,255,.25); padding-top:14pt; color:#cfe6d7; font-size:9.5pt; }
+  .cover .foot b { color:#fff; }
+  .cover .prepared { margin-top:26pt; background:rgba(255,255,255,.1); border-radius:10pt; padding:14pt 16pt; }
+  .cover .prepared .l { color:#bfe0c9; font-size:8.5pt; text-transform:uppercase; letter-spacing:.1em; }
+  .cover .prepared .v { font-size:13pt; font-weight:700; color:#fff; }
+
+  /* Page flow */
+  .page { page-break-before:always; }
+  section { margin-bottom:16pt; }
+  .kicker { color:var(--gold-d); font-size:8.5pt; font-weight:800; letter-spacing:.13em; text-transform:uppercase; margin-bottom:2pt; }
+  h2.part { font-size:20pt; margin:0 0 3pt; color:var(--green-d); }
+  .part-lead { color:var(--muted); font-size:11pt; margin-bottom:12pt; }
+  h3 { font-size:12.5pt; margin:14pt 0 6pt; color:var(--green-d); }
+
+  /* Steps */
+  ol.steps { list-style:none; counter-reset:s; margin:0; padding:0; }
+  ol.steps.alpha { counter-reset:s; }
+  ol.steps > li {
+    counter-increment:s; position:relative; padding:9pt 12pt 9pt 40pt;
+    border:1px solid var(--line); border-radius:9pt; margin-bottom:7pt; background:#fff;
+    break-inside:avoid;
+  }
+  ol.steps > li::before {
+    content:counter(s); position:absolute; left:9pt; top:9pt;
+    width:24pt; height:24pt; border-radius:7pt; background:var(--green); color:#fff;
+    font-weight:700; font-size:11pt; display:flex; align-items:center; justify-content:center;
+  }
+  ol.steps.alpha > li::before { content:counter(s,upper-alpha); }
+  ol.steps > li .st { font-weight:700; display:block; margin-bottom:1pt; }
+  ol.steps ul { margin:4pt 0 0; padding-left:14pt; color:var(--muted); }
+  ol.steps ul li { margin:2pt 0; }
+
+  /* Callouts */
+  .box { border-radius:9pt; padding:10pt 12pt; margin:10pt 0; break-inside:avoid; }
+  .box .h { font-weight:800; margin-bottom:3pt; }
+  .box.tip { background:var(--tint); border:1px solid #cfe0d4; }
+  .box.warn { background:var(--amber-bg); border:1px solid #f0dCA6; color:#5f4300; }
+  .box.warn .h, .box.warn code { color:#5f4300; }
+  .box.key { background:#0b3b22; color:#eaf3ec; }
+  .box.key .h { color:var(--gold); }
+  .box.key code { background:rgba(255,255,255,.12); color:#fff; }
+
+  /* Tables */
+  table { width:100%; border-collapse:collapse; margin:8pt 0; font-size:9.6pt; break-inside:avoid; }
+  th,td { text-align:left; padding:6pt 8pt; border:1px solid var(--line); vertical-align:top; }
+  thead th { background:var(--green); color:#fff; font-size:8.6pt; letter-spacing:.04em; text-transform:uppercase; }
+  tbody tr:nth-child(even) td { background:var(--tint2); }
+  td .free { color:var(--green); font-weight:700; }
+  .price { font-weight:800; color:var(--green-d); white-space:nowrap; }
+
+  /* Checklist */
+  .check { border:1px solid var(--line); border-radius:9pt; padding:10pt 14pt; background:#fff; }
+  .check li { list-style:none; margin:5pt 0; padding-left:20pt; position:relative; }
+  .check li::before { content:"☐"; position:absolute; left:0; font-size:13pt; color:var(--green); top:-2pt; }
+
+  .lead-note { background:var(--tint); border-left:4px solid var(--gold); padding:8pt 12pt; border-radius:0 8pt 8pt 0; margin:10pt 0; }
+  .two { display:flex; gap:10pt; }
+  .two > * { flex:1; }
+  .muted { color:var(--muted); }
+  .small { font-size:9pt; }
+  ul.plain { margin:4pt 0 8pt; padding-left:16pt; }
+  ul.plain li { margin:3pt 0; }
+  hr { border:none; border-top:1px solid var(--line); margin:12pt 0; }
+  .toc li { margin:5pt 0; }
+  .tag { display:inline-block; font-size:8pt; font-weight:700; padding:1.5pt 7pt; border-radius:20pt; }
+  .tag.now { background:var(--tint); color:var(--green-d); }
+  .tag.later { background:var(--amber-bg); color:var(--amber); }
+</style>
+</head>
+<body>
+
+<!-- ============ COVER ============ -->
+<div class="cover">
+  <svg class="mark" viewBox="0 0 512 512"><rect width="512" height="512" rx="96" fill="#d4af37"/><path d="M150 144 h70 a150 112 0 0 1 0 224 h-70 z M212 198 v116 h8 a84 54 0 0 0 0 -116 z" fill="#166534"/></svg>
+  <div class="eyebrow">Owner Setup &amp; Selling Guide</div>
+  <h1>Duka POS</h1>
+  <div class="sub">Everything you need to launch your POS, charge shops automatically every month, and sign up the clients already waiting — written for a non-technical owner.</div>
+  <div class="prepared">
+    <div class="l">The short version</div>
+    <div class="v">Put it online (1 hr) → connect M-PESA → set your prices → onboard each shop on a 14-day free trial → the system charges them monthly and locks the POS if they don't pay.</div>
+  </div>
+  <div class="spacer"></div>
+  <div class="foot"><b>Duka POS</b> — offline-first Point of Sale for Kenyan shops, sold as a monthly subscription. &nbsp; Built for Kenya. Ready for Africa.</div>
+</div>
+
+<!-- ============ CONTENTS ============ -->
+<div class="page">
+  <div class="kicker">Contents</div>
+  <h2 class="part">What's in this guide</h2>
+  <ol class="toc">
+    <li><b>Part 1 — Understand your business</b> <span class="tag now">read first</span> — what you're selling and how money reaches you.</li>
+    <li><b>Part 2 — Put the system online</b> <span class="tag now">1 hour</span> — the app and the biller, step by step.</li>
+    <li><b>Part 3 — Connect M-PESA &amp; messages</b> <span class="tag later">a few days to approve</span> — get your keys.</li>
+    <li><b>Part 4 — Set your prices</b> — the plans and how to change them.</li>
+    <li><b>Part 5 — How shops are charged automatically</b> — the four methods, and the "lock".</li>
+    <li><b>Part 6 — Sign up a new shop (onboarding)</b> — the exact steps per client.</li>
+    <li><b>Part 7 — Selling it</b> — a simple pitch and answers to common questions.</li>
+    <li><b>Part 8 — Running it day to day</b> — what to check, what to do when a shop won't pay.</li>
+    <li><b>Go-live checklist</b> &amp; <b>Quick reference</b> — the one-page cheat sheets.</li>
+  </ol>
+
+  <div class="box tip">
+    <div class="h">You do NOT need to understand code</div>
+    Everywhere below, you only fill in web forms and copy-paste a few values. When a box says
+    <code>LIKE_THIS</code>, that's just a label you'll paste a value next to — nothing to "program".
+  </div>
+
+  <section>
+    <div class="kicker">Part 1</div>
+    <h2 class="part">Understand your business</h2>
+    <p class="part-lead">You are the <b>platform owner</b>. Shops (dukas) use your POS to sell, and pay you a monthly fee to use it.</p>
+    <p>There are two pieces, and both are already built for you:</p>
+    <ul class="plain">
+      <li><b>The POS app</b> — what each shop uses to sell, track who owes them (debt), and send WhatsApp/SMS reminders. Works on any phone, tablet or computer, even offline.</li>
+      <li><b>The biller (helper service)</b> — your money machine. It charges each shop every month by M-PESA, and if a shop doesn't pay, it automatically <b>locks their POS</b> until they do.</li>
+    </ul>
+    <div class="lead-note"><b>How you make money:</b> every shop pays you monthly (from KES 1,900 to KES 24,900 depending on their size). The money lands in <b>your</b> M-PESA Till/Paybill. You never chase anyone — the system charges them and enforces payment by holding the POS.</div>
+  </section>
+</div>
+
+<!-- ============ PART 2 ============ -->
+<div class="page">
+  <div class="kicker">Part 2 · about 1 hour · free</div>
+  <h2 class="part">Put the system online</h2>
+  <p class="part-lead">Two free sign-ups: one for the app (Vercel), one for the biller (Render). Your code is already on GitHub — you're just switching it on.</p>
+
+  <h3>2A · The POS app (Vercel) — ~10 min</h3>
+  <ol class="steps">
+    <li><span class="st">Create a free account</span> Go to <b>vercel.com</b> → <b>Sign Up</b> → <b>Continue with GitHub</b>. Approve when GitHub asks.</li>
+    <li><span class="st">Import the project</span> <b>Add New… → Project</b> → find <code>duka-pos</code> → <b>Import</b> → <b>Deploy</b>. Wait ~2 minutes for "Congratulations".</li>
+    <li><span class="st">Get your link</span> You'll get an address like <code>https://duka-pos-xxxx.vercel.app</code>. This is the POS. Bookmark it.</li>
+  </ol>
+
+  <h3>2B · The biller (Render) — ~10 min</h3>
+  <ol class="steps">
+    <li><span class="st">Create a free account</span> Go to <b>render.com</b> → <b>Sign up</b> → <b>Continue with GitHub</b>.</li>
+    <li><span class="st">Create from blueprint</span> <b>New + → Blueprint</b> → choose <code>duka-pos</code> → <b>Apply</b>. You'll get an address like <code>https://duka-pos-backend.onrender.com</code>. Copy it.</li>
+    <li><span class="st">Connect the app to the biller</span> In <b>Vercel → your project → Settings → Environment Variables</b>, add: name <code>VITE_API_URL</code>, value = your Render address. Then <b>Deployments → Redeploy</b>.</li>
+  </ol>
+
+  <h3>2C · Give shops a memory that can't be wiped (database)</h3>
+  <p>By default the biller remembers shops in a simple file. For real business, use a free database so nothing is ever lost:</p>
+  <ol class="steps">
+    <li><span class="st">Create a free database</span> Go to <b>supabase.com</b> → new project. Open <b>Project Settings → Database → Connection string (URI)</b> and copy it.</li>
+    <li><span class="st">Give it to the biller</span> In <b>Render → your service → Environment</b>, add <code>DATABASE_URL</code> = that connection string. Render restarts and creates the table by itself.</li>
+  </ol>
+  <div class="box tip"><div class="h">How to know it worked</div> Open <code>https://YOUR-backend.onrender.com/api/health</code> in a browser. It should say <code>"storage":"postgres"</code> once the database is connected (or <code>"memory"</code> before that).</div>
+</div>
+
+<!-- ============ PART 3 ============ -->
+<div class="page">
+  <div class="kicker">Part 3 · apply once · approval takes days</div>
+  <h2 class="part">Connect M-PESA &amp; messages</h2>
+  <p class="part-lead">These let you take real money and send real WhatsApp/SMS. Start the M-PESA application early — approval is the slowest part. Until keys are added, everything runs in a safe demo mode.</p>
+
+  <h3>3A · M-PESA (to collect subscription money)</h3>
+  <ul class="plain">
+    <li>You need a <b>Lipa na M-PESA Till or Paybill</b> (from Safaricom / M-PESA Business) — this is where shops' payments land.</li>
+    <li>Then register on the <b>Safaricom Daraja</b> developer portal (<code>developer.safaricom.co.ke</code>) and create an app to get your keys.</li>
+  </ul>
+  <div class="box key">
+    <div class="h">Paste these into Render → Environment</div>
+    <code>MPESA_CONSUMER_KEY</code> &nbsp; <code>MPESA_CONSUMER_SECRET</code> &nbsp; <code>MPESA_SHORTCODE</code> (your Till/Paybill) &nbsp; <code>MPESA_PASSKEY</code> &nbsp; <code>MPESA_ENV=production</code>
+  </div>
+
+  <h3>3B · Messages (so reminders send by themselves)</h3>
+  <table>
+    <thead><tr><th>To turn on</th><th>Sign up at</th><th>Paste into Render</th></tr></thead>
+    <tbody>
+      <tr><td>Automatic SMS</td><td>africastalking.com</td><td><code>AT_API_KEY</code>, <code>AT_USERNAME</code></td></tr>
+      <tr><td>Automatic WhatsApp</td><td>business.facebook.com</td><td><code>WHATSAPP_TOKEN</code>, <code>WHATSAPP_PHONE_ID</code></td></tr>
+    </tbody>
+  </table>
+  <div class="box warn"><div class="h">Order of operations</div> You can go live and start selling <b>before</b> messages are approved — shops just tap "Remind" by hand (still one tap, still includes your pay details). Turn on automatic sending whenever the keys arrive.</div>
+
+  <div class="box tip"><div class="h">Where each value goes</div> App settings (like <code>VITE_API_URL</code>) go in <b>Vercel</b>. Money/message keys (like <code>MPESA_*</code>) go in <b>Render</b>. That's the only rule to remember.</div>
+</div>
+
+<!-- ============ PART 4 ============ -->
+<div class="page">
+  <div class="kicker">Part 4</div>
+  <h2 class="part">Set your prices</h2>
+  <p class="part-lead">These are the monthly fees shops pay you. They're benchmarked to the Kenyan POS market and can be changed.</p>
+  <table>
+    <thead><tr><th>Plan</th><th>Best for</th><th>Monthly</th><th>Yearly (2 months free)</th></tr></thead>
+    <tbody>
+      <tr><td><b>Starter</b> (Duka Ndogo)</td><td>1 small shop, up to 2 staff, ~500 products</td><td class="price">KES 1,900</td><td class="price">KES 19,000</td></tr>
+      <tr><td><b>Standard</b> (Duka)</td><td>1 busy shop, up to 6 staff, ~3,000 products</td><td class="price">KES 4,900</td><td class="price">KES 49,000</td></tr>
+      <tr><td><b>Growth</b> (Duka Biashara)</td><td>up to 3 branches, 20 staff</td><td class="price">KES 9,900</td><td class="price">KES 99,000</td></tr>
+      <tr><td><b>Chain</b> (Duka Mtandao)</td><td>many branches + warehouse</td><td class="price">KES 24,900</td><td class="price">KES 249,000</td></tr>
+    </tbody>
+  </table>
+  <p class="small muted">Every shop starts on a <b>14-day free trial</b> with full features — no money needed to begin.</p>
+
+  <h3>Want to change a price?</h3>
+  <p>Prices live in one small file. Ask your developer (or a follow-up session) to edit <code>src/lib/plans.ts</code> (the app) and <code>server/lib/plans.js</code> (the biller) — change the <code>price</code> numbers, save, and it redeploys. Keep the two files matching.</p>
+
+  <div class="box tip"><div class="h">Pricing tip for your waiting clients</div> Offer the annual plan to anyone who can pay up front — you get 10 months of cash today and they save 2 months. For the rest, monthly on auto-charge keeps cash flowing without you chasing.</div>
+</div>
+
+<!-- ============ PART 5 ============ -->
+<div class="page">
+  <div class="kicker">Part 5</div>
+  <h2 class="part">How shops are charged automatically</h2>
+  <p class="part-lead">M-PESA can't silently take money like a card — so "automatic" works in one of four ways. All are built in; you choose which to offer.</p>
+  <table>
+    <thead><tr><th>Method</th><th>How automatic</th><th>What the shop does</th></tr></thead>
+    <tbody>
+      <tr><td><b>1. Auto STK push</b> on the due date</td><td>Semi — you charge, they approve</td><td>Enters M-PESA PIN when the prompt pops up</td></tr>
+      <tr><td><b>2. Paybill auto-detect</b></td><td>Automatic detection</td><td>Pays your Paybill like any bill; system renews them</td></tr>
+      <tr><td><b>3. M-PESA Ratiba</b> (standing order)</td><td><b>Fully automatic</b></td><td>Approves once; Safaricom debits every month by itself</td></tr>
+      <tr><td><b>4. Card</b> (optional)</td><td>Fully automatic</td><td>Enters card once</td></tr>
+    </tbody>
+  </table>
+  <div class="lead-note"><b>The part that makes shops actually pay:</b> if a shop is late, the POS <b>holds</b> — day 1–7 it still works (with reminders), day 8–14 it can view but <b>can't sell</b>, day 15+ it's locked with a "Pay to reactivate" screen. The moment they pay, it unlocks. This is automatic and already built.</div>
+
+  <h3>What you do</h3>
+  <ul class="plain">
+    <li>Leave the biller's <b>scheduler on</b> (it is by default) — every due shop gets charged automatically each cycle.</li>
+    <li>For the most hands-off shops, offer <b>Ratiba</b> at sign-up so it debits with zero taps.</li>
+    <li>You can watch it happen safely in demo mode before going live (see the "Try it" box in <code>BILLING.md</code>).</li>
+  </ul>
+  <div class="box tip"><div class="h">Recommended setup</div> Ratiba for shops who accept it → STK push on the due date for everyone else → Paybill auto-detect as a safety net → the POS-hold to enforce it. That combination is automatic for most and self-enforcing for the rest.</div>
+</div>
+
+<!-- ============ PART 6 ============ -->
+<div class="page">
+  <div class="kicker">Part 6</div>
+  <h2 class="part">Sign up a new shop</h2>
+  <p class="part-lead">Do this with each client. It takes about 15 minutes and they can sell the same day.</p>
+  <ol class="steps">
+    <li><span class="st">Send them the link</span> Give them your Vercel POS link. On their phone they open it in Chrome/Safari and choose <b>Add to Home Screen</b> — now it's an app icon that works offline.</li>
+    <li><span class="st">Set up their shop</span> In <b>Settings</b>: shop name, phone number (this is their billing identity), location, and their own <b>M-PESA Till/Paybill</b> (so their customers can pay them — separate from your platform Till).</li>
+    <li><span class="st">Pick their plan</span> On the <b>Billing</b> screen, use <b>"Find your fit"</b> (enter their shops/staff/products) — it recommends Starter, Standard, Growth or Chain. Their <b>14-day free trial</b> starts automatically.</li>
+    <li><span class="st">Add their products</span> In <b>Stock</b>, add items (name, price, stock). Then <b>Settings → Data → Clear everything</b> once to remove the demo items and start clean.</li>
+    <li><span class="st">Show them the essentials</span> Selling on the <b>Sell</b> screen, recording credit (mkopo) under a customer, and tapping <b>Remind</b> on the <b>Debts</b> screen to WhatsApp/SMS a debtor.</li>
+    <li><span class="st">They're live</span> On day 10 of the trial they'll be nudged to pay; on day 14 the trial ends and the auto-charge begins. Nothing more for you to do.</li>
+  </ol>
+  <div class="box tip"><div class="h">Their phone number matters</div> The number you enter in a shop's Settings is how the biller identifies and charges them. Use the owner's real M-PESA number.</div>
+</div>
+
+<!-- ============ PART 7 ============ -->
+<div class="page">
+  <div class="kicker">Part 7</div>
+  <h2 class="part">Selling it to your clients</h2>
+  <p class="part-lead">You already have shops waiting. Here's a simple way to pitch and close.</p>
+
+  <h3>The 20-second pitch</h3>
+  <div class="lead-note">"It's a POS that works even when your internet is down, and it automatically reminds customers who owe you — by WhatsApp and SMS — with your M-PESA number in the message so they can pay on the spot. You get paid faster. It's KES 1,900 to KES 4,900 a month, and the first 14 days are free."</div>
+
+  <h3>The three things shop owners care about</h3>
+  <ul class="plain">
+    <li><b>"Will it work when Safaricom is down?"</b> Yes — it keeps selling offline and syncs later.</li>
+    <li><b>"Can it help me collect debts (mkopo)?"</b> Yes — it tracks who owes and sends reminders with your pay details. This alone usually pays for the subscription.</li>
+    <li><b>"Is it hard?"</b> No — a sale takes seconds, and it's on their phone.</li>
+  </ul>
+
+  <h3>Handling "it's too expensive"</h3>
+  <ul class="plain">
+    <li>Point at the debt feature: recovering even one or two forgotten debts a month covers the fee.</li>
+    <li>Offer the <b>Starter</b> plan (KES 1,900) to very small shops.</li>
+    <li>Offer <b>annual</b> — they pay for 10 months, use 12.</li>
+    <li>Let the <b>14-day free trial</b> do the selling — they try it risk-free.</li>
+  </ul>
+  <div class="box tip"><div class="h">A smooth first week</div> Sign up 2–3 shops, sit with each for 15 minutes, and make sure they process one real sale and send one real reminder while you're there. Happy early users bring you the next ones.</div>
+</div>
+
+<!-- ============ PART 8 ============ -->
+<div class="page">
+  <div class="kicker">Part 8</div>
+  <h2 class="part">Running it day to day</h2>
+  <ul class="plain">
+    <li><b>Watch your shops:</b> open <code>https://YOUR-backend.onrender.com/api/admin/tenants</code> to see every shop, their plan, and whether they're paid, in grace, on hold, or suspended.</li>
+    <li><b>When a shop doesn't pay:</b> do nothing — the system moves them from grace → hold → suspended and keeps prompting them to pay. They reactivate instantly when they do.</li>
+    <li><b>When a shop pays:</b> nothing to do — their POS unlocks and an invoice is recorded automatically.</li>
+    <li><b>New client:</b> follow Part 6. <b>Price change:</b> see Part 4.</li>
+  </ul>
+
+  <div class="box warn"><div class="h">Two things to keep healthy</div>
+    <ul style="margin:4pt 0 0; padding-left:16pt;">
+      <li>The free Render biller "sleeps" when idle. For punctual monthly charging, upgrade Render to a small paid tier (a few dollars/month) so it's always awake.</li>
+      <li>Keep your M-PESA and database keys safe. Never share them or post them anywhere.</li>
+    </ul>
+  </div>
+
+  <hr>
+  <h3>Costs summary</h3>
+  <table>
+    <thead><tr><th>Piece</th><th>Cost</th></tr></thead>
+    <tbody>
+      <tr><td>The POS app (Vercel)</td><td class="free">Free</td></tr>
+      <tr><td>The biller (Render)</td><td>Free to start; ~few $/mo to stay always-on</td></tr>
+      <tr><td>Database (Supabase)</td><td class="free">Free tier</td></tr>
+      <tr><td>SMS (Africa's Talking)</td><td>~KES 0.80 per SMS sent</td></tr>
+      <tr><td>WhatsApp (Meta)</td><td>Free / low per conversation</td></tr>
+      <tr><td>M-PESA (Daraja)</td><td>Free to connect; normal Till/Paybill rates</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ============ CHECKLIST ============ -->
+<div class="page">
+  <div class="kicker">One page</div>
+  <h2 class="part">Go-live checklist</h2>
+  <div class="two">
+    <div>
+      <h3>Set up (once)</h3>
+      <ul class="check">
+        <li>Vercel account + <code>duka-pos</code> deployed</li>
+        <li>Render account + biller deployed (Blueprint)</li>
+        <li><code>VITE_API_URL</code> set in Vercel → redeployed</li>
+        <li>Supabase database + <code>DATABASE_URL</code> in Render</li>
+        <li>M-PESA Till/Paybill + Daraja keys in Render</li>
+        <li>(Optional) SMS / WhatsApp keys in Render</li>
+        <li><code>/api/health</code> shows storage + providers OK</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Per shop</h3>
+      <ul class="check">
+        <li>Sent them the app link</li>
+        <li>Settings: name, phone, their M-PESA</li>
+        <li>Plan chosen (trial started)</li>
+        <li>Products added, demo data cleared</li>
+        <li>Showed sale + reminder</li>
+        <li>Confirmed they appear in <code>/api/admin/tenants</code></li>
+      </ul>
+    </div>
+  </div>
+
+  <h2 class="part" style="margin-top:18pt;">Quick reference</h2>
+  <table>
+    <thead><tr><th>I want to…</th><th>Where</th></tr></thead>
+    <tbody>
+      <tr><td>See all my shops &amp; who's paid</td><td><code>/api/admin/tenants</code> on your backend</td></tr>
+      <tr><td>Change app settings</td><td>Vercel → Settings → Environment Variables</td></tr>
+      <tr><td>Change money/message keys</td><td>Render → your service → Environment</td></tr>
+      <tr><td>Change prices</td><td><code>src/lib/plans.ts</code> + <code>server/lib/plans.js</code></td></tr>
+      <tr><td>Read the technical detail</td><td><code>DEPLOYMENT.md</code>, <code>BILLING.md</code>, <code>README.md</code> in your repo</td></tr>
+    </tbody>
+  </table>
+
+  <div class="box key" style="margin-top:16pt;">
+    <div class="h">You're ready</div>
+    Put it online, connect M-PESA, set your prices, and start onboarding the shops that are waiting.
+    The system sells, tracks debts, charges monthly, and enforces payment — so you can focus on
+    signing up more dukas. Karibu, and good luck. 🇰🇪
+  </div>
+</div>
+
+</body>
+</html>
