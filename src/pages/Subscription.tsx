@@ -1,12 +1,12 @@
 import { useMemo, useState } from 'react'
 import { Check, Sparkles, Calculator, Smartphone, RefreshCw, Receipt as ReceiptIcon, ShieldCheck } from 'lucide-react'
 import { useStore, selectUsage } from '../store/useStore'
-import { PLANS, getPlan, recommendPlan, limitLabel, type SizeInputs } from '../lib/plans'
+import { PLANS, getPlan, recommendPlan, limitLabel, priceFor, type SizeInputs } from '../lib/plans'
 import { STATUS_COLOR, STATUS_LABEL } from '../lib/billing'
 import { money, shortDate } from '../lib/format'
 import { PageHeader, Badge } from '../components/ui'
 import { PaySubscriptionModal, useBilling } from '../components/Billing'
-import type { PlanId } from '../types'
+import type { BillingCycle, PlanId } from '../types'
 
 export default function Subscription() {
   const { billing, subscription } = useBilling()
@@ -17,10 +17,22 @@ export default function Subscription() {
 
   const currentPlan = getPlan(subscription.planId)
   const [payFor, setPayFor] = useState<PlanId | null>(null)
+  const [cycle, setCycle] = useState<BillingCycle>('monthly')
+  const per = cycle === 'annual' ? '/yr' : '/mo'
 
   return (
     <div className="max-w-3xl">
       <PageHeader title="Subscription & Billing" subtitle="Duka POS is a subscription — pick the size that fits your shop." />
+
+      {/* Billing cycle toggle */}
+      <div className="mb-4 inline-flex rounded-xl bg-black/5 p-1 dark:bg-white/10">
+        <button onClick={() => setCycle('monthly')} className={`rounded-lg px-4 py-1.5 text-sm font-semibold transition ${cycle === 'monthly' ? 'bg-white text-brand-900 shadow-sm dark:bg-brand-700 dark:text-white' : 'text-brand-900/60 dark:text-white/60'}`}>
+          Monthly
+        </button>
+        <button onClick={() => setCycle('annual')} className={`rounded-lg px-4 py-1.5 text-sm font-semibold transition ${cycle === 'annual' ? 'bg-white text-brand-900 shadow-sm dark:bg-brand-700 dark:text-white' : 'text-brand-900/60 dark:text-white/60'}`}>
+          Annual <span className="text-green-600 dark:text-green-400">−2 months</span>
+        </button>
+      </div>
 
       {/* Status card */}
       <div className="card mb-5 p-5">
@@ -41,8 +53,8 @@ export default function Subscription() {
             </div>
           </div>
           <div className="text-right">
-            <div className="text-2xl font-black text-brand-700 dark:text-gold-400">{money(currentPlan.price)}</div>
-            <div className="text-xs text-brand-900/50 dark:text-white/50">per month</div>
+            <div className="text-2xl font-black text-brand-700 dark:text-gold-400">{money(priceFor(currentPlan, cycle))}</div>
+            <div className="text-xs text-brand-900/50 dark:text-white/50">{cycle === 'annual' ? 'per year' : 'per month'}</div>
           </div>
         </div>
 
@@ -70,7 +82,7 @@ export default function Subscription() {
         </div>
       </div>
 
-      <SizeRecommender onChoose={(id) => setPayFor(id)} currentPlan={subscription.planId} onSetPlan={setPlan} />
+      <SizeRecommender onChoose={(id) => setPayFor(id)} currentPlan={subscription.planId} onSetPlan={setPlan} cycle={cycle} />
 
       {/* Plans */}
       <h2 className="mb-3 mt-6 text-sm font-bold uppercase tracking-wide text-brand-900/60 dark:text-white/60">All plans</h2>
@@ -87,9 +99,10 @@ export default function Subscription() {
                 {current && <Badge color="green">Current</Badge>}
               </div>
               <div className="mt-2 text-2xl font-black text-brand-700 dark:text-gold-400">
-                {money(p.price)}
-                <span className="text-sm font-medium text-brand-900/40 dark:text-white/40">/mo</span>
+                {money(priceFor(p, cycle))}
+                <span className="text-sm font-medium text-brand-900/40 dark:text-white/40">{per}</span>
               </div>
+              {cycle === 'annual' && <div className="text-xs font-semibold text-green-600 dark:text-green-400">2 months free</div>}
               <p className="mt-1 text-sm text-brand-900/60 dark:text-white/60">{p.blurb}</p>
               <ul className="mt-3 space-y-1">
                 {p.features.map((f) => (
@@ -118,7 +131,7 @@ export default function Subscription() {
             {subscription.invoices.map((inv) => (
               <div key={inv.id} className="flex items-center justify-between px-3 py-3">
                 <div>
-                  <div className="text-sm font-semibold text-brand-900 dark:text-white">{getPlan(inv.planId).name} · {shortDate(inv.periodStart)} → {shortDate(inv.periodEnd)}</div>
+                  <div className="text-sm font-semibold text-brand-900 dark:text-white">{getPlan(inv.planId).name} · {inv.cycle === 'annual' ? 'Annual' : 'Monthly'} · {shortDate(inv.periodStart)} → {shortDate(inv.periodEnd)}</div>
                   <div className="text-xs text-brand-900/50 dark:text-white/50">{inv.method?.toUpperCase()}{inv.ref ? ` · ${inv.ref}` : ''}</div>
                 </div>
                 <div className="text-right">
@@ -144,7 +157,7 @@ export default function Subscription() {
       </div>
 
       {payFor && (
-        <PaySubscriptionModal planId={payFor} open onClose={() => setPayFor(null)} onPaid={() => setPayFor(null)} />
+        <PaySubscriptionModal planId={payFor} cycle={cycle} open onClose={() => setPayFor(null)} onPaid={() => setPayFor(null)} />
       )}
     </div>
   )
@@ -168,7 +181,7 @@ function UsageBar({ label, used, limit }: { label: string; used: number; limit: 
   )
 }
 
-function SizeRecommender({ onChoose, currentPlan, onSetPlan }: { onChoose: (id: PlanId) => void; currentPlan: PlanId; onSetPlan: (id: PlanId) => void }) {
+function SizeRecommender({ onChoose, currentPlan, onSetPlan, cycle }: { onChoose: (id: PlanId) => void; currentPlan: PlanId; onSetPlan: (id: PlanId) => void; cycle: BillingCycle }) {
   const [size, setSize] = useState<SizeInputs>({ shops: 1, staff: 2, products: 200, monthlyTx: 1000 })
   const rec = useMemo(() => recommendPlan(size), [size])
 
@@ -192,7 +205,7 @@ function SizeRecommender({ onChoose, currentPlan, onSetPlan }: { onChoose: (id: 
         <div className="flex-1">
           <div className="text-sm text-brand-900/60 dark:text-white/60">Recommended for you</div>
           <div className="text-lg font-black text-brand-900 dark:text-white">
-            {rec.name} · {money(rec.price)}/mo
+            {rec.name} · {money(priceFor(rec, cycle))}{cycle === 'annual' ? '/yr' : '/mo'}
           </div>
         </div>
         {rec.id === currentPlan ? (

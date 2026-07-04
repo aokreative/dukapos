@@ -3,11 +3,11 @@ import { useNavigate } from 'react-router-dom'
 import { Smartphone, Lock, AlertTriangle, Sparkles, Loader2, Check } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { evaluateBilling } from '../lib/billing'
-import { getPlan } from '../lib/plans'
+import { getPlan, priceFor } from '../lib/plans'
 import { money, displayPhone, isValidPhone, normalizePhone } from '../lib/format'
 import { startSubscriptionPayment, isLive } from '../lib/api'
 import { Modal } from './ui'
-import type { PlanId } from '../types'
+import type { BillingCycle, PlanId } from '../types'
 
 /** Re-render every minute so the billing status stays current. */
 function useNow(intervalMs = 60_000) {
@@ -27,11 +27,13 @@ export function useBilling() {
 
 export function PaySubscriptionModal({
   planId,
+  cycle = 'monthly',
   open,
   onClose,
   onPaid,
 }: {
   planId: PlanId
+  cycle?: BillingCycle
   open: boolean
   onClose: () => void
   onPaid: () => void
@@ -39,6 +41,7 @@ export function PaySubscriptionModal({
   const settings = useStore((s) => s.settings)
   const recordSubscriptionPayment = useStore((s) => s.recordSubscriptionPayment)
   const plan = getPlan(planId)
+  const amount = priceFor(plan, cycle)
   const [phone, setPhone] = useState(displayPhone(settings.phone))
   const [state, setState] = useState<'idle' | 'pending' | 'done' | 'error'>('idle')
   const [detail, setDetail] = useState('')
@@ -49,12 +52,12 @@ export function PaySubscriptionModal({
     setDetail(isLive ? 'Check your phone and enter your M-PESA PIN…' : 'Simulating M-PESA prompt…')
     const res = await startSubscriptionPayment({
       phone: normalizePhone(phone),
-      amount: plan.price,
+      amount,
       planId,
       business: settings.name,
     })
     if (res.ok) {
-      recordSubscriptionPayment(planId, 'mpesa', res.ref)
+      recordSubscriptionPayment(planId, cycle, 'mpesa', res.ref)
       setState('done')
       setTimeout(() => {
         onPaid()
@@ -70,8 +73,9 @@ export function PaySubscriptionModal({
   return (
     <Modal open={open} onClose={state === 'pending' ? () => {} : onClose} title="Pay subscription">
       <div className="rounded-2xl bg-brand-50 p-4 text-center dark:bg-brand-900">
-        <div className="text-xs uppercase tracking-wide text-brand-900/50 dark:text-white/50">{plan.name} plan · monthly</div>
-        <div className="text-3xl font-black text-brand-700 dark:text-gold-400">{money(plan.price)}</div>
+        <div className="text-xs uppercase tracking-wide text-brand-900/50 dark:text-white/50">{plan.name} plan · {cycle === 'annual' ? 'annual' : 'monthly'}</div>
+        <div className="text-3xl font-black text-brand-700 dark:text-gold-400">{money(amount)}</div>
+        {cycle === 'annual' && <div className="text-xs font-semibold text-green-600 dark:text-green-400">12 months for the price of 10</div>}
       </div>
 
       {state === 'done' ? (
@@ -91,7 +95,7 @@ export function PaySubscriptionModal({
           )}
           <button className="btn-primary mt-4 w-full text-lg" onClick={pay} disabled={!isValidPhone(phone) || state === 'pending'}>
             {state === 'pending' ? <Loader2 className="animate-spin" size={20} /> : <Smartphone size={20} />}
-            {state === 'pending' ? 'Waiting for payment…' : `Pay ${money(plan.price)} with M-PESA`}
+            {state === 'pending' ? 'Waiting for payment…' : `Pay ${money(amount)} with M-PESA`}
           </button>
           {!isLive && (
             <p className="mt-2 text-center text-xs text-brand-900/40 dark:text-white/40">

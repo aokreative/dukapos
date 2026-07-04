@@ -8,6 +8,7 @@ import { persist, createJSONStorage, type StateStorage } from 'zustand/middlewar
 import { get as idbGet, set as idbSet, del as idbDel } from 'idb-keyval'
 
 import type {
+  BillingCycle,
   BusinessSettings,
   CartLine,
   Customer,
@@ -26,7 +27,7 @@ import type {
 import { uid } from '../lib/id'
 import { receiptNo as fmtReceipt } from '../lib/id'
 import { normalizePhone } from '../lib/format'
-import { PERIOD_DAYS, getPlan } from '../lib/plans'
+import { PERIOD_DAYS, getPlan, priceFor, periodDaysFor } from '../lib/plans'
 import {
   defaultReminderRule,
   defaultSettings,
@@ -95,7 +96,7 @@ interface State {
   // subscription / billing
   setPlan: (planId: PlanId) => void
   setAutoRenew: (v: boolean) => void
-  recordSubscriptionPayment: (planId: PlanId, method: 'mpesa' | 'card' | 'manual', ref?: string) => void
+  recordSubscriptionPayment: (planId: PlanId, cycle: BillingCycle, method: 'mpesa' | 'card' | 'manual', ref?: string) => void
   /** Demo helper: shift billing dates so a given status is reproduced. */
   simulateBillingAge: (daysOverdue: number) => void
 
@@ -245,17 +246,19 @@ export const useStore = create<State>()(
       setPlan: (planId) => set((s) => ({ subscription: { ...s.subscription, planId } })),
       setAutoRenew: (v) => set((s) => ({ subscription: { ...s.subscription, autoRenew: v } })),
 
-      recordSubscriptionPayment: (planId, method, ref) =>
+      recordSubscriptionPayment: (planId, cycle, method, ref) =>
         set((s) => {
           const now = Date.now()
           const plan = getPlan(planId)
+          const amount = priceFor(plan, cycle)
           // New period starts from whichever is later: now, or the current due date.
           const from = Math.max(now, s.subscription.currentPeriodEnd)
-          const periodEnd = from + PERIOD_DAYS * 24 * 60 * 60 * 1000
+          const periodEnd = from + periodDaysFor(cycle) * 24 * 60 * 60 * 1000
           const invoice: SubInvoice = {
             id: uid('inv_'),
             planId,
-            amount: plan.price,
+            amount,
+            cycle,
             periodStart: from,
             periodEnd,
             issuedAt: now,
@@ -268,6 +271,7 @@ export const useStore = create<State>()(
             subscription: {
               ...s.subscription,
               planId,
+              billingCycle: cycle,
               lastPaymentAt: now,
               currentPeriodEnd: periodEnd,
               invoices: [invoice, ...s.subscription.invoices],

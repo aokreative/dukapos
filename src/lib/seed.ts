@@ -29,6 +29,7 @@ export function defaultSubscription(): Subscription {
   const t = Date.now()
   return {
     planId: 'standard',
+    billingCycle: 'monthly',
     startedAt: t,
     trialEndsAt: t + TRIAL_DAYS * day,
     currentPeriodEnd: t + TRIAL_DAYS * day,

@@ -125,10 +125,13 @@ export interface Plan {
 /** Lifecycle of the shop's own subscription to Duka POS. */
 export type SubStatus = 'trial' | 'active' | 'grace' | 'restricted' | 'suspended'
 
+export type BillingCycle = 'monthly' | 'annual'
+
 export interface SubInvoice {
   id: string
   planId: PlanId
   amount: number
+  cycle: BillingCycle
   periodStart: number
   periodEnd: number
   issuedAt: number
@@ -140,6 +143,7 @@ export interface SubInvoice {
 
 export interface Subscription {
   planId: PlanId
+  billingCycle: BillingCycle
   startedAt: number
   trialEndsAt: number
   currentPeriodEnd: number // next due date once paid
