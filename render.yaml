@@ -1,0 +1,14 @@
+# One-click blueprint for the OPTIONAL backend (automated sending + M-PESA
+# subscription billing). On render.com choose "New +" → "Blueprint" and point
+# it at this repo. The app works without this — only automation & real billing
+# need it. Add provider keys in the Render dashboard (see server/.env.example).
+services:
+  - type: web
+    name: duka-pos-backend
+    runtime: node
+    plan: free
+    rootDir: server
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    autoDeploy: true

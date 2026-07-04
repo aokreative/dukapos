@@ -140,6 +140,11 @@ The app opens with demo data (products, customers and a few open debts) so you c
 immediately. Clear it any time from **Settings → Data**. See [`server/README.md`](./server/README.md)
 for provider credentials (WhatsApp / Africa's Talking / M-PESA Daraja).
 
+### Going live (non-technical)
+See **[DEPLOYMENT.md](./DEPLOYMENT.md)** — a plain-English, click-by-click guide to put the app
+online for free (Vercel) and, optionally later, enable automatic sending + real M-PESA billing
+(Render + provider keys).
+
 ### Install as an app
 Open the site in Chrome/Safari on a phone or desktop and choose **Add to Home Screen /
 Install**. It then launches full-screen and works offline.
