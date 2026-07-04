@@ -4,10 +4,10 @@ A small Express service that makes automated sending and subscription billing **
 
 - **`POST /api/reminders/send`** — relays a debt reminder to **WhatsApp Cloud API** or
   **Africa's Talking (SMS)**.
-- **`POST /api/subscription/pay`** — starts an **M-PESA STK push** to collect a subscription
-  payment.
-- **`GET /api/subscription/status/:checkoutId`** — poll a payment's status.
-- **`POST /api/mpesa/callback`** — receives the Daraja result callback.
+- **Automatic subscription billing** — a shop registry + hourly scheduler that charges shops when
+  their subscription is due and renews them on payment. Endpoints: `/api/tenants/register`,
+  `/api/tenants/:id`, `/api/tenants/:id/charge`, `/api/subscription/pay`, `/api/subscription/ratiba`,
+  `/api/mpesa/callback`, `/api/mpesa/c2b/confirmation`. **Full guide: [../BILLING.md](../BILLING.md).**
 - **`GET /api/health`** — shows which providers are live vs simulated.
 
 ## Run

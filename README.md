@@ -67,6 +67,9 @@ Asante sana!
   - Pay any time (M-PESA) to reactivate instantly. Every payment produces an invoice.
 - A demo panel on the Billing screen lets you preview each state (Active / Grace / Hold /
   Suspended) so you can see the hold behaviour immediately.
+- **Charging shops automatically** (as the platform owner) is handled by the backend biller — a
+  shop registry + hourly scheduler that auto-charges via M-PESA (STK push / Paybill auto-detect /
+  Ratiba standing orders) and renews on payment. See **[BILLING.md](./BILLING.md)**.
 
 ### Run the shop
 - **Customers** — save name + phone, see each customer's outstanding balance
