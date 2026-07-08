@@ -130,6 +130,7 @@
     <li><b>Part 6 — Sign up a new shop (onboarding)</b> — the exact steps per client.</li>
     <li><b>Part 7 — Selling it</b> — a simple pitch and answers to common questions.</li>
     <li><b>Part 8 — Running it day to day</b> — what to check, what to do when a shop won't pay.</li>
+    <li><b>Part 9 — Staff logins &amp; your control room</b> — roles per shop, and your Super-Admin portal.</li>
     <li><b>Go-live checklist</b> &amp; <b>Quick reference</b> — the one-page cheat sheets.</li>
   </ol>
 
@@ -332,6 +333,36 @@
   </table>
 </div>
 
+<!-- ============ PART 9 ============ -->
+<div class="page">
+  <div class="kicker">Part 9</div>
+  <h2 class="part">Staff logins &amp; your control room</h2>
+  <p class="part-lead">Two kinds of access: staff <b>inside each shop</b>, and you <b>across all shops</b>.</p>
+
+  <h3>9A · Staff on the shop device</h3>
+  <p>Each shop's device is <b>PIN-locked</b>. Staff tap their name and enter a PIN to sign in; the
+    <b>lock</b> button switches user. The owner adds staff in <b>Settings → Staff &amp; roles</b>.</p>
+  <table>
+    <thead><tr><th>Role</th><th>Can do</th><th>Cannot do</th></tr></thead>
+    <tbody>
+      <tr><td><b>Owner</b></td><td>Everything</td><td>—</td></tr>
+      <tr><td><b>Manager</b></td><td>Sell, stock, reports, discounts, debts</td><td>Billing, manage staff</td></tr>
+      <tr><td><b>Cashier</b></td><td>Sell &amp; serve customers, view/chase debts</td><td>Edit stock/prices, reports, settings, discounts</td></tr>
+    </tbody>
+  </table>
+  <div class="box tip"><div class="h">Setting PINs</div> Give each person their own PIN and role. Demo PINs to start: Owner <code>1234</code>, Cashier <code>0000</code> — change these before real use (Settings → Staff &amp; roles).</div>
+
+  <h3>9B · Your Super-Admin portal (all shops)</h3>
+  <p>You get a private control room to run the whole business:</p>
+  <ol class="steps">
+    <li><span class="st">Set your admin password</span> In <b>Render → your service → Environment</b>, add <code>ADMIN_TOKEN</code> = a long secret you make up.</li>
+    <li><span class="st">Open your portal</span> Go to <code>https://YOUR-backend.onrender.com/admin</code> and paste that token.</li>
+    <li><span class="st">Run the business</span> See every shop with its plan, status and renewal date, your <b>estimated monthly revenue (MRR)</b>, and buttons to <b>charge a shop now</b> or <b>run a billing sweep</b>.</li>
+  </ol>
+  <div class="box warn"><div class="h">Keep this token secret</div> Anyone with the admin token can see and manage all your shops. Don't share it. If it leaks, change <code>ADMIN_TOKEN</code> in Render.</div>
+  <div class="box key"><div class="h">If the app itself has a problem</div> You own the code and the servers, so any issue can be fixed and redeployed — by you with help, or in a follow-up session. Your shops' data is safe in your database (Part 2C).</div>
+</div>
+
 <!-- ============ CHECKLIST ============ -->
 <div class="page">
   <div class="kicker">One page</div>
@@ -346,6 +377,8 @@
         <li>Supabase database + <code>DATABASE_URL</code> in Render</li>
         <li>M-PESA Till/Paybill + Daraja keys in Render</li>
         <li>(Optional) SMS / WhatsApp keys in Render</li>
+        <li><code>ADMIN_TOKEN</code> set in Render → <code>/admin</code> portal opens</li>
+        <li>Changed the demo staff PINs (1234 / 0000)</li>
         <li><code>/api/health</code> shows storage + providers OK</li>
       </ul>
     </div>
