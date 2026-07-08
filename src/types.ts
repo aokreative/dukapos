@@ -5,6 +5,19 @@
 
 export type PaymentMethod = 'cash' | 'mpesa' | 'card' | 'credit'
 
+// Staff & access control -----------------------------------------------------
+export type Role = 'owner' | 'manager' | 'cashier'
+
+export interface StaffMember {
+  id: string
+  name: string
+  role: Role
+  pin: string // 4–6 digits; gates the device
+  phone?: string
+  active: boolean
+  createdAt: number
+}
+
 export interface Product {
   id: string
   name: string

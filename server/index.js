@@ -15,6 +15,9 @@
 // ---------------------------------------------------------------------------
 import express from 'express'
 import cors from 'cors'
+import { readFileSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { sendWhatsApp, whatsappConfigured } from './lib/whatsapp.js'
 import { sendSMS, smsConfigured } from './lib/sms.js'
 import { stkPush, mpesaConfigured } from './lib/mpesa.js'
@@ -38,10 +41,22 @@ app.use(express.json({ limit: '256kb' }))
 
 const PORT = process.env.PORT || 8787
 const PUBLIC_URL = process.env.PUBLIC_URL || `http://localhost:${PORT}`
+const ADMIN_TOKEN = process.env.ADMIN_TOKEN || ''
 
 // checkoutId -> { status, ref, tenantId, ... }
 const payments = new Map()
 const rand = (p) => p + Math.random().toString(36).slice(2, 8).toUpperCase()
+
+// Gate for platform-owner (Super-Admin) endpoints. Requires ADMIN_TOKEN via
+// an Authorization: Bearer header or ?token=. If ADMIN_TOKEN isn't set, admin
+// endpoints are disabled (secure by default) — set one to use the portal.
+function requireAdmin(req, res, next) {
+  if (!ADMIN_TOKEN) return res.status(503).json({ error: 'Admin disabled — set ADMIN_TOKEN on the server to enable.' })
+  const bearer = (req.headers.authorization || '').replace(/^Bearer\s+/i, '')
+  const token = bearer || req.query.token || req.headers['x-admin-token']
+  if (token !== ADMIN_TOKEN) return res.status(401).json({ error: 'Unauthorized' })
+  next()
+}
 
 app.get('/api/health', (_req, res) => {
   res.json({
@@ -98,7 +113,7 @@ app.get('/api/tenants/:id', async (req, res) => {
   res.json(publicView(t))
 })
 
-app.get('/api/admin/tenants', async (_req, res) => res.json(await allTenants()))
+app.get('/api/admin/tenants', requireAdmin, async (_req, res) => res.json(await allTenants()))
 
 /** Charge one shop now — sends an STK push (or simulates + renews). */
 async function chargeTenant(t) {
@@ -120,8 +135,8 @@ async function chargeTenant(t) {
   return { simulated: false, checkoutId: out.checkoutId, amount }
 }
 
-// Manually trigger a charge for a shop.
-app.post('/api/tenants/:id/charge', async (req, res) => {
+// Manually trigger a charge for a shop (Super-Admin action).
+app.post('/api/tenants/:id/charge', requireAdmin, async (req, res) => {
   const t = await getTenant(req.params.id)
   if (!t) return res.status(404).json({ error: 'not found' })
   try {
@@ -226,9 +241,15 @@ const scheduler = startScheduler({
   intervalMs: Number(process.env.BILLING_INTERVAL_MS) || 60 * 60 * 1000, // hourly
 })
 
-app.post('/api/admin/run-billing', async (_req, res) => {
+app.post('/api/admin/run-billing', requireAdmin, async (_req, res) => {
   await scheduler.runOnce()
   res.json({ ok: true, tenants: await allTenants() })
+})
+
+// Super-Admin portal (static page; talks to the protected APIs with your token).
+const ADMIN_PORTAL_HTML = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), 'admin.html'), 'utf8')
+app.get('/admin', (_req, res) => {
+  res.type('html').send(ADMIN_PORTAL_HTML)
 })
 
 // Test/demo only (blocked when real M-PESA is configured): age a tenant so you

@@ -12,20 +12,22 @@ import {
   Sun,
   Wifi,
   WifiOff,
+  Lock,
 } from 'lucide-react'
-import { useStore, selectTotalOwed } from '../store/useStore'
+import { useStore, selectTotalOwed, selectCurrentStaff, selectRole } from '../store/useStore'
 import { money } from '../lib/format'
 import { useOnline } from '../lib/useOnline'
+import { can, ROLE_LABEL, type Capability } from '../lib/permissions'
 import { BillingBanner, Paywall, useBilling } from './Billing'
 
-const NAV = [
+const NAV: { to: string; label: string; icon: typeof ShoppingCart; cap?: Capability }[] = [
   { to: '/', label: 'Sell', icon: ShoppingCart },
-  { to: '/debts', label: 'Debts', icon: HandCoins },
-  { to: '/customers', label: 'Customers', icon: Users },
-  { to: '/products', label: 'Stock', icon: Package },
-  { to: '/reports', label: 'Reports', icon: BarChart3 },
-  { to: '/subscription', label: 'Billing', icon: CreditCard },
-  { to: '/settings', label: 'Settings', icon: SettingsIcon },
+  { to: '/debts', label: 'Debts', icon: HandCoins, cap: 'viewDebts' },
+  { to: '/customers', label: 'Customers', icon: Users, cap: 'manageCustomers' },
+  { to: '/products', label: 'Stock', icon: Package, cap: 'manageStock' },
+  { to: '/reports', label: 'Reports', icon: BarChart3, cap: 'viewReports' },
+  { to: '/subscription', label: 'Billing', icon: CreditCard, cap: 'viewBilling' },
+  { to: '/settings', label: 'Settings', icon: SettingsIcon, cap: 'editSettings' },
 ]
 
 export default function Layout({ children }: { children: ReactNode }) {
@@ -37,6 +39,10 @@ export default function Layout({ children }: { children: ReactNode }) {
   const loc = useLocation()
   const { billing } = useBilling()
   const billingAlert = billing.status !== 'active'
+  const role = useStore(selectRole)
+  const currentStaff = useStore(selectCurrentStaff)
+  const logout = useStore((s) => s.logout)
+  const nav = NAV.filter((n) => !n.cap || can(role, n.cap))
 
   return (
     <div className="mx-auto flex min-h-full max-w-6xl flex-col md:flex-row">
@@ -44,7 +50,7 @@ export default function Layout({ children }: { children: ReactNode }) {
       <aside className="sticky top-0 hidden h-screen w-56 shrink-0 flex-col border-r border-black/5 bg-white px-3 py-5 dark:border-white/10 dark:bg-brand-900 md:flex">
         <Brand shopName={shopName} />
         <nav className="mt-6 flex flex-1 flex-col gap-1">
-          {NAV.map((n) => (
+          {nav.map((n) => (
             <NavLink key={n.to} to={n.to} className={({ isActive }) => railClass(isActive)} end={n.to === '/'}>
               <n.icon size={20} />
               <span>{n.label}</span>
@@ -57,6 +63,16 @@ export default function Layout({ children }: { children: ReactNode }) {
             </NavLink>
           ))}
         </nav>
+        {currentStaff && (
+          <button onClick={logout} className="mb-2 flex items-center gap-2 rounded-xl bg-black/5 px-3 py-2 text-left transition hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/15" title="Lock / switch user">
+            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-600 text-sm font-bold text-gold-400">{currentStaff.name.charAt(0).toUpperCase()}</span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-sm font-semibold text-brand-900 dark:text-white">{currentStaff.name}</span>
+              <span className="block text-[11px] text-brand-900/50 dark:text-white/50">{role && ROLE_LABEL[role]}</span>
+            </span>
+            <Lock size={15} className="text-brand-900/40 dark:text-white/40" />
+          </button>
+        )}
         <FooterControls dark={dark} toggleDark={toggleDark} online={online} />
       </aside>
 
@@ -76,6 +92,12 @@ export default function Layout({ children }: { children: ReactNode }) {
             <button className="rounded-full p-2 text-brand-900/70 hover:bg-black/5 dark:text-white/70 dark:hover:bg-white/10" onClick={toggleDark} aria-label="Toggle theme">
               {dark ? <Sun size={18} /> : <Moon size={18} />}
             </button>
+            {currentStaff && (
+              <button onClick={logout} className="flex items-center gap-1 rounded-full bg-black/5 py-1 pl-1 pr-2.5 dark:bg-white/10" title="Lock / switch user">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-600 text-[11px] font-bold text-gold-400">{currentStaff.name.charAt(0).toUpperCase()}</span>
+                <Lock size={13} className="text-brand-900/50 dark:text-white/50" />
+              </button>
+            )}
           </div>
         </header>
 
@@ -89,7 +111,7 @@ export default function Layout({ children }: { children: ReactNode }) {
 
       {/* Mobile bottom nav */}
       <nav className="fixed inset-x-0 bottom-0 z-30 flex justify-around border-t border-black/5 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur dark:border-white/10 dark:bg-brand-900/95 md:hidden">
-        {NAV.map((n) => (
+        {nav.map((n) => (
           <NavLink key={n.to} to={n.to} className={({ isActive }) => tabClass(isActive)} end={n.to === '/'}>
             <div className="relative">
               <n.icon size={20} />

@@ -1,5 +1,5 @@
 // Demo data so the shop works the moment it opens. All prices in KES.
-import type { BusinessSettings, Customer, Debt, Product, ReminderRule, Sale, Subscription } from '../types'
+import type { BusinessSettings, Customer, Debt, Product, ReminderRule, Sale, StaffMember, Subscription } from '../types'
 import { DEFAULT_TEMPLATE } from './reminders'
 import { TRIAL_DAYS } from './plans'
 import { uid } from './id'
@@ -36,6 +36,14 @@ export function defaultSubscription(): Subscription {
     autoRenew: true,
     invoices: [],
   }
+}
+
+export function seedStaff(): StaffMember[] {
+  const t = Date.now()
+  return [
+    { id: 'staff_owner', name: 'Owner', role: 'owner', pin: '1234', active: true, createdAt: t },
+    { id: 'staff_cashier', name: 'Cashier', role: 'cashier', pin: '0000', active: true, createdAt: t },
+  ]
 }
 
 export const defaultReminderRule: ReminderRule = {

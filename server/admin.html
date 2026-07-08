@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23166534'/><text x='50' y='68' font-size='60' text-anchor='middle' fill='%23d4af37' font-family='sans-serif' font-weight='bold'>D</text></svg>">
+<title>Duka POS — Super Admin</title>
+<style>
+  :root { --green:#166534; --green-d:#0b3b22; --gold:#c69214; --ink:#17251d; --muted:#5b6b60; --line:#e3e8e3; --bg:#f4f6f3; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; background:var(--bg); color:var(--ink); }
+  header { background:var(--green); color:#fff; padding:14px 20px; display:flex; align-items:center; justify-content:space-between; }
+  header .brand { display:flex; align-items:center; gap:10px; font-weight:800; font-size:18px; }
+  header .mark { width:30px; height:30px; border-radius:8px; background:var(--gold); color:var(--green); display:flex; align-items:center; justify-content:center; font-weight:900; }
+  header button { background:rgba(255,255,255,.15); color:#fff; border:none; padding:7px 12px; border-radius:8px; font-weight:600; cursor:pointer; }
+  header button:hover { background:rgba(255,255,255,.25); }
+  main { max-width:1100px; margin:0 auto; padding:20px; }
+  .gate { max-width:380px; margin:12vh auto; background:#fff; border:1px solid var(--line); border-radius:16px; padding:26px; text-align:center; }
+  .gate h1 { font-size:20px; margin:0 0 4px; }
+  .gate p { color:var(--muted); font-size:14px; margin:0 0 16px; }
+  input { width:100%; padding:12px; border:1px solid var(--line); border-radius:10px; font-size:15px; }
+  .btn { background:var(--green); color:#fff; border:none; padding:12px 16px; border-radius:10px; font-weight:700; cursor:pointer; font-size:15px; }
+  .btn:hover { background:var(--green-d); }
+  .btn.sm { padding:6px 10px; font-size:13px; border-radius:8px; }
+  .btn.ghost { background:#eef4ef; color:var(--green-d); }
+  .kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:16px; }
+  .kpi { background:#fff; border:1px solid var(--line); border-radius:14px; padding:14px 16px; }
+  .kpi .l { font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); font-weight:700; }
+  .kpi .v { font-size:24px; font-weight:800; margin-top:2px; }
+  .bar { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+  .tablewrap { background:#fff; border:1px solid var(--line); border-radius:14px; overflow:hidden; overflow-x:auto; }
+  table { width:100%; border-collapse:collapse; font-size:14px; min-width:720px; }
+  th,td { text-align:left; padding:11px 14px; border-bottom:1px solid var(--line); white-space:nowrap; }
+  th { font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); background:#fafbfa; }
+  tbody tr:last-child td { border-bottom:none; }
+  .pill { display:inline-block; padding:2px 9px; border-radius:20px; font-size:12px; font-weight:700; }
+  .s-trial { background:#e6efff; color:#1e4fb0; } .s-active { background:#e7f4ec; color:#0f7a37; }
+  .s-grace { background:#fdf3dd; color:#8a5a00; } .s-restricted,.s-suspended { background:#fbe7e6; color:#b3261e; }
+  .err { color:#b3261e; font-size:13px; margin-top:8px; }
+  .muted { color:var(--muted); }
+  .amt { font-weight:700; }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand"><span class="mark">D</span> Duka POS · Super Admin</div>
+  <button id="logout" style="display:none" onclick="logout()">Sign out</button>
+</header>
+<main id="app"></main>
+
+<script>
+const app = document.getElementById('app')
+const logoutBtn = document.getElementById('logout')
+let token = localStorage.getItem('duka_admin_token') || ''
+
+function logout(){ localStorage.removeItem('duka_admin_token'); token=''; render() }
+function saveToken(){ const v=document.getElementById('tok').value.trim(); if(!v)return; localStorage.setItem('duka_admin_token',v); token=v; render() }
+function money(n){ return 'KES ' + Math.round(n).toLocaleString('en-KE') }
+function monthly(t){ return t.cycle==='annual' ? t.amountDue/10 : t.amountDue }
+
+async function api(path, opts={}){
+  const res = await fetch(path, { ...opts, headers:{ 'Authorization':'Bearer '+token, 'content-type':'application/json', ...(opts.headers||{}) } })
+  if(res.status===401||res.status===503){ const e=await res.json().catch(()=>({})); throw new Error(e.error||('HTTP '+res.status)) }
+  return res.json()
+}
+
+async function render(){
+  logoutBtn.style.display = token ? 'block' : 'none'
+  if(!token){
+    app.innerHTML = '<div class="gate"><h1>Super Admin</h1><p>Enter your admin token to manage all shops. (This is the ADMIN_TOKEN you set on the server.)</p>'
+      + '<input id="tok" type="password" placeholder="Admin token" onkeydown="if(event.key===\'Enter\')saveToken()"/>'
+      + '<div style="height:12px"></div><button class="btn" style="width:100%" onclick="saveToken()">Unlock portal</button></div>'
+    return
+  }
+  app.innerHTML = '<p class="muted">Loading shops…</p>'
+  let tenants
+  try { tenants = await api('/api/admin/tenants') }
+  catch(e){ app.innerHTML = '<div class="gate"><h1>Access problem</h1><p class="err">'+e.message+'</p>'
+    + '<button class="btn" style="width:100%" onclick="logout()">Enter a different token</button></div>'; return }
+
+  const total = tenants.length
+  const paying = tenants.filter(t=>t.status==='active'||t.status==='grace')
+  const atRisk = tenants.filter(t=>t.status==='restricted'||t.status==='suspended')
+  const mrr = tenants.filter(t=>t.status!=='suspended').reduce((s,t)=>s+monthly(t),0)
+
+  const rows = tenants.map(t=>{
+    const due = t.currentPeriodEnd ? new Date(t.currentPeriodEnd).toLocaleDateString('en-KE',{day:'2-digit',month:'short',year:'2-digit'}) : '—'
+    return '<tr>'
+      + '<td><b>'+esc(t.business)+'</b></td>'
+      + '<td class="muted">'+esc(t.phone||'')+'</td>'
+      + '<td>'+cap(t.planId)+' · '+t.cycle+'</td>'
+      + '<td><span class="pill s-'+t.status+'">'+t.status+(t.overdueDays?(' '+t.overdueDays+'d'):'')+'</span></td>'
+      + '<td class="amt">'+money(monthly(t))+'/mo</td>'
+      + '<td class="muted">'+due+'</td>'
+      + '<td><button class="btn sm ghost" onclick="charge(\''+t.id+'\',this)">Charge now</button></td>'
+      + '</tr>'
+  }).join('')
+
+  app.innerHTML =
+    '<div class="kpis">'
+    + kpi('Shops', total)
+    + kpi('Paying', paying.length)
+    + kpi('At risk (hold/suspended)', atRisk.length)
+    + kpi('Est. MRR', money(mrr))
+    + '</div>'
+    + '<div class="bar"><h2 style="margin:0;font-size:16px">All shops</h2>'
+    + '<div><button class="btn sm" onclick="sweep(this)">Run billing sweep now</button> '
+    + '<button class="btn sm ghost" onclick="render()">Refresh</button></div></div>'
+    + '<div class="tablewrap"><table><thead><tr>'
+    + '<th>Shop</th><th>Phone</th><th>Plan</th><th>Status</th><th>Fee</th><th>Renews</th><th></th>'
+    + '</tr></thead><tbody>'+(rows||'<tr><td colspan="7" class="muted" style="padding:20px">No shops yet. They appear here once a shop opens the app (connected to this backend).</td></tr>')+'</tbody></table></div>'
+}
+
+function kpi(l,v){ return '<div class="kpi"><div class="l">'+l+'</div><div class="v">'+v+'</div></div>' }
+function cap(s){ return ({micro:'Starter',standard:'Standard',growth:'Growth',chain:'Chain'})[s]||s }
+function esc(s){ return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])) }
+
+async function charge(id,btn){ btn.disabled=true; btn.textContent='Charging…'; try{ await api('/api/tenants/'+id+'/charge',{method:'POST'}); await render() }catch(e){ alert(e.message); btn.disabled=false; btn.textContent='Charge now' } }
+async function sweep(btn){ btn.disabled=true; btn.textContent='Running…'; try{ await api('/api/admin/run-billing',{method:'POST'}); await render() }catch(e){ alert(e.message); btn.disabled=false } }
+
+render()
+</script>
+</body>
+</html>

@@ -7,6 +7,8 @@ import PaymentModal from '../components/PaymentModal'
 import Receipt from '../components/Receipt'
 import { EmptyState } from '../components/ui'
 import { useBilling } from '../components/Billing'
+import { selectRole } from '../store/useStore'
+import { can } from '../lib/permissions'
 
 export default function POS() {
   const products = useStore((s) => s.products)
@@ -14,6 +16,8 @@ export default function POS() {
   const currency = useStore((s) => s.settings.currency)
   const { billing } = useBilling()
   const held = !billing.canSell
+  const role = useStore(selectRole)
+  const canDiscount = can(role, 'applyDiscount')
 
   const [q, setQ] = useState('')
   const [cat, setCat] = useState<string>('All')
@@ -115,6 +119,7 @@ export default function POS() {
           clearCart={clearCart}
           onCharge={() => setPayOpen(true)}
           held={held}
+          canDiscount={canDiscount}
         />
       </div>
 
@@ -150,6 +155,7 @@ export default function POS() {
               clearCart={clearCart}
               onCharge={() => setPayOpen(true)}
               held={held}
+              canDiscount={canDiscount}
               embedded
             />
           </div>
@@ -173,6 +179,7 @@ function CartPanel({
   clearCart,
   onCharge,
   held,
+  canDiscount,
   embedded,
 }: {
   cart: CartLine[]
@@ -185,6 +192,7 @@ function CartPanel({
   clearCart: () => void
   onCharge: () => void
   held?: boolean
+  canDiscount?: boolean
   embedded?: boolean
 }) {
   return (
@@ -235,12 +243,14 @@ function CartPanel({
           <span>Subtotal</span>
           <span>{money(subtotal, currency)}</span>
         </div>
-        <div className="flex items-center justify-between text-sm text-brand-900/70 dark:text-white/70">
-          <span className="flex items-center gap-1">
-            <Tag size={14} /> Discount
-          </span>
-          <input className="input w-24 py-1.5 text-right text-sm" inputMode="decimal" value={discount || ''} placeholder="0" onChange={(e) => setDiscount(Math.max(0, parseFloat(e.target.value) || 0))} />
-        </div>
+        {canDiscount && (
+          <div className="flex items-center justify-between text-sm text-brand-900/70 dark:text-white/70">
+            <span className="flex items-center gap-1">
+              <Tag size={14} /> Discount
+            </span>
+            <input className="input w-24 py-1.5 text-right text-sm" inputMode="decimal" value={discount || ''} placeholder="0" onChange={(e) => setDiscount(Math.max(0, parseFloat(e.target.value) || 0))} />
+          </div>
+        )}
         <div className="flex items-baseline justify-between">
           <span className="font-bold text-brand-900 dark:text-white">Total</span>
           <span className="text-2xl font-black text-brand-700 dark:text-gold-400">{money(total, currency)}</span>

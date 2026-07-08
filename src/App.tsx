@@ -1,7 +1,8 @@
 import { useEffect } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
-import { useStore } from './store/useStore'
+import { useStore, selectRole } from './store/useStore'
 import Layout from './components/Layout'
+import LockScreen from './components/LockScreen'
 import POS from './pages/POS'
 import Debts from './pages/Debts'
 import Customers from './pages/Customers'
@@ -11,10 +12,13 @@ import Settings from './pages/Settings'
 import Subscription from './pages/Subscription'
 import { useAutomation } from './lib/useAutomation'
 import { useBillingSync } from './lib/useBillingSync'
+import { can, type Capability } from './lib/permissions'
+import type { ReactNode } from 'react'
 
 export default function App() {
   const hydrated = useStore((s) => s._hasHydrated)
   const dark = useStore((s) => s.dark)
+  const role = useStore(selectRole)
 
   // Runs automated debt reminders while the app is open and online.
   useAutomation()
@@ -36,18 +40,27 @@ export default function App() {
     )
   }
 
+  // No one is signed in on this device → show the PIN lock screen.
+  if (!role) return <LockScreen />
+
   return (
     <Layout>
       <Routes>
         <Route path="/" element={<POS />} />
-        <Route path="/debts" element={<Debts />} />
-        <Route path="/customers" element={<Customers />} />
-        <Route path="/products" element={<Products />} />
-        <Route path="/reports" element={<Reports />} />
-        <Route path="/subscription" element={<Subscription />} />
-        <Route path="/settings" element={<Settings />} />
+        <Route path="/debts" element={<Guard cap="viewDebts" role={role}><Debts /></Guard>} />
+        <Route path="/customers" element={<Guard cap="manageCustomers" role={role}><Customers /></Guard>} />
+        <Route path="/products" element={<Guard cap="manageStock" role={role}><Products /></Guard>} />
+        <Route path="/reports" element={<Guard cap="viewReports" role={role}><Reports /></Guard>} />
+        <Route path="/subscription" element={<Guard cap="viewBilling" role={role}><Subscription /></Guard>} />
+        <Route path="/settings" element={<Guard cap="editSettings" role={role}><Settings /></Guard>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Layout>
   )
+}
+
+/** Redirects to the till if the signed-in role lacks a capability. */
+function Guard({ cap, role, children }: { cap: Capability; role: ReturnType<typeof selectRole>; children: ReactNode }) {
+  if (!can(role, cap)) return <Navigate to="/" replace />
+  return <>{children}</>
 }

@@ -71,6 +71,20 @@ Asante sana!
   shop registry + hourly scheduler that auto-charges via M-PESA (STK push / Paybill auto-detect /
   Ratiba standing orders) and renews on payment. See **[BILLING.md](./BILLING.md)**.
 
+### Staff logins & roles (per shop device)
+- Each shop device is **PIN-locked**. Staff sign in with a 4–6 digit PIN.
+- Three roles with enforced permissions:
+  - **Owner** — full access (sell, stock, reports, staff, settings, billing).
+  - **Manager** — runs the shop (sell, stock, reports, discounts, debts) — no billing/staff.
+  - **Cashier** — sells & serves customers only (no stock edits, reports, settings, or discounts).
+- The owner manages staff in **Settings → Staff & roles**. Nav items and routes are hidden **and**
+  guarded by role; receipts record the signed-in staff member. Demo PINs: Owner `1234`, Cashier `0000`.
+
+### Platform owner: Super-Admin portal
+- The backend serves a password-protected **`/admin`** portal (set `ADMIN_TOKEN`) where you, the
+  platform owner, see every shop, its plan/status/renewal, estimated MRR, and can charge a shop or
+  run a billing sweep. The `/api/admin/*` endpoints require the same token (disabled if unset).
+
 ### Run the shop
 - **Customers** — save name + phone, see each customer's outstanding balance
 - **Stock** — add/edit products, quick +/- stock, low-stock highlighting and filter

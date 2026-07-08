@@ -19,7 +19,9 @@ import type {
   Product,
   ReminderLogEntry,
   ReminderRule,
+  Role,
   Sale,
+  StaffMember,
   SubInvoice,
   Subscription,
   Tender,
@@ -36,6 +38,7 @@ import {
   seedCustomers,
   seedDebtsAndSales,
   seedProducts,
+  seedStaff,
 } from '../lib/seed'
 
 const idbStorage: StateStorage = {
@@ -66,6 +69,10 @@ interface State {
   debts: Debt[]
   receiptCounter: number
 
+  // staff & access
+  staff: StaffMember[]
+  currentStaffId: string | null
+
   // SaaS layer
   subscription: Subscription
   reminderRule: ReminderRule
@@ -77,6 +84,13 @@ interface State {
   // lifecycle
   setHydrated: (v: boolean) => void
   toggleDark: () => void
+
+  // staff & access
+  staffLogin: (staffId: string, pin: string) => boolean
+  logout: () => void
+  addStaff: (s: Omit<StaffMember, 'id' | 'createdAt'>) => void
+  updateStaff: (id: string, patch: Partial<StaffMember>) => void
+  removeStaff: (id: string) => void
 
   // settings
   updateSettings: (patch: Partial<BusinessSettings>) => void
@@ -125,6 +139,8 @@ function buildSeed() {
     sales,
     debts,
     receiptCounter: 4, // seeds used R-00001..R-00003
+    staff: seedStaff(),
+    currentStaffId: 'staff_owner' as string | null,
     subscription: defaultSubscription(),
     reminderRule: defaultReminderRule,
     reminderLog: [] as ReminderLogEntry[],
@@ -141,6 +157,25 @@ export const useStore = create<State>()(
 
       setHydrated: (v) => set({ _hasHydrated: v }),
       toggleDark: () => set((s) => ({ dark: !s.dark })),
+
+      staffLogin: (staffId, pin) => {
+        const st = get()
+        const member = st.staff.find((m) => m.id === staffId && m.active)
+        if (member && member.pin === pin) {
+          set({ currentStaffId: staffId })
+          return true
+        }
+        return false
+      },
+      logout: () => set({ currentStaffId: null }),
+      addStaff: (s) => set((st) => ({ staff: [...st.staff, { ...s, id: uid('staff_'), createdAt: Date.now() }] })),
+      updateStaff: (id, patch) =>
+        set((st) => ({ staff: st.staff.map((m) => (m.id === id ? { ...m, ...patch } : m)) })),
+      removeStaff: (id) =>
+        set((st) => ({
+          staff: st.staff.filter((m) => m.id !== id),
+          currentStaffId: st.currentStaffId === id ? null : st.currentStaffId,
+        })),
 
       updateSettings: (patch) => set((s) => ({ settings: { ...s.settings, ...patch } })),
 
@@ -183,6 +218,7 @@ export const useStore = create<State>()(
           .reduce((sum, t) => sum + t.amount, 0)
 
         const counter = state.receiptCounter
+        const currentStaff = state.staff.find((m) => m.id === state.currentStaffId)
         const sale: Sale = {
           id: uid('s_'),
           receiptNo: fmtReceipt(counter),
@@ -194,7 +230,7 @@ export const useStore = create<State>()(
           tenders: input.tenders,
           creditAmount,
           customerId: input.customerId,
-          cashierName: state.settings.cashierName || 'Cashier',
+          cashierName: currentStaff?.name || state.settings.cashierName || 'Cashier',
         }
 
         // Deduct stock for real catalog items.
@@ -389,6 +425,14 @@ export function selectOpenDebtsByCustomer(state: State): DebtorSummary[] {
 
 export function selectTotalOwed(state: State): number {
   return state.debts.filter((d) => d.status === 'open').reduce((s, d) => s + d.balance, 0)
+}
+
+export function selectCurrentStaff(state: State): StaffMember | undefined {
+  return state.staff.find((m) => m.id === state.currentStaffId)
+}
+
+export function selectRole(state: State): Role | undefined {
+  return selectCurrentStaff(state)?.role
 }
 
 export interface Usage {

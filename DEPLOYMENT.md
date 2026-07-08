@@ -79,6 +79,13 @@ Two things become "real" here: (a) reminders that send **automatically** without
 3. Go to the **Deployments** tab → click **Redeploy** on the latest one.
    - Now the app talks to your backend instead of simulating.
 
+### Step B2 — Turn on your Super-Admin portal
+1. In **Render → your service → Environment**, add `ADMIN_TOKEN` = a long secret password
+   (make one up; keep it private).
+2. Open **`https://YOUR-backend.onrender.com/admin`**, paste that token, and you'll see every shop,
+   their plan/status, estimated monthly revenue, and buttons to charge a shop or run billing.
+   (Without `ADMIN_TOKEN` set, the portal and admin endpoints stay disabled for safety.)
+
 ### Step C — Get the provider keys (this is the part that takes time)
 You apply for these once. Add each one in **Render → your service → Environment**:
 
