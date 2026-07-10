@@ -27,6 +27,8 @@ import type {
   StockTransfer,
   SubInvoice,
   Subscription,
+  Supplier,
+  SupplierTxn,
   Tender,
   TransferLine,
 } from '../types'
@@ -43,6 +45,7 @@ import {
   seedDebtsAndSales,
   seedProducts,
   seedStaff,
+  seedSuppliers,
 } from '../lib/seed'
 import { MAIN_LOCATION_ID, defaultLocations, normalizeProduct, stockAt, withStockDelta } from '../lib/stock'
 
@@ -78,6 +81,9 @@ export interface CompleteSaleInput {
   discount: number
   tenders: Tender[]
   customerId?: string
+  /** Credit the sale to this staff name (defaults to the signed-in cashier). */
+  assignedToName?: string
+  note?: string
 }
 
 interface State {
@@ -99,6 +105,10 @@ interface State {
   returns: ReturnRecord[]
   /** Credit from an exchange-return, auto-applied to the next sale as discount. */
   exchangeCredit: number
+
+  // suppliers
+  suppliers: Supplier[]
+  supplierTxns: SupplierTxn[]
 
   // staff & access
   staff: StaffMember[]
@@ -146,6 +156,15 @@ interface State {
   recordReturn: (input: Omit<ReturnRecord, 'id' | 'at' | 'byStaffName' | 'locationId'>) => void
   clearExchangeCredit: () => void
 
+  // suppliers
+  addSupplier: (s: Omit<Supplier, 'id' | 'createdAt' | 'active'>) => void
+  updateSupplier: (id: string, patch: Partial<Supplier>) => void
+  removeSupplier: (id: string) => void
+  addSupplierTxn: (t: Omit<SupplierTxn, 'id' | 'at' | 'byStaffName'>) => void
+
+  // debt comments
+  addDebtComment: (debtId: string, text: string) => void
+
   // customers
   addCustomer: (c: Omit<Customer, 'id' | 'createdAt'>) => Customer
   updateCustomer: (id: string, patch: Partial<Customer>) => void
@@ -153,7 +172,7 @@ interface State {
 
   // sales + debts
   completeSale: (input: CompleteSaleInput) => Sale
-  recordDebtPayment: (debtId: string, amount: number, method: PaymentMethod, ref?: string) => void
+  recordDebtPayment: (debtId: string, amount: number, method: PaymentMethod, ref?: string, note?: string) => void
   markReminderSent: (debtId: string, channel: 'whatsapp' | 'sms') => void
 
   // subscription / billing
@@ -191,6 +210,8 @@ function buildSeed() {
     transfers: [] as StockTransfer[],
     returns: [] as ReturnRecord[],
     exchangeCredit: 0,
+    suppliers: seedSuppliers(customers),
+    supplierTxns: [] as SupplierTxn[],
     subscription: defaultSubscription(),
     reminderRule: defaultReminderRule,
     reminderLog: [] as ReminderLogEntry[],
@@ -347,6 +368,46 @@ export const useStore = create<State>()(
         }),
       clearExchangeCredit: () => set({ exchangeCredit: 0 }),
 
+      // --- Suppliers --------------------------------------------------------
+      addSupplier: (sup) =>
+        set((s) => ({ suppliers: [{ ...sup, id: uid('sup_'), active: true, createdAt: Date.now() }, ...s.suppliers] })),
+      updateSupplier: (id, patch) =>
+        set((s) => ({ suppliers: s.suppliers.map((x) => (x.id === id ? { ...x, ...patch } : x)) })),
+      removeSupplier: (id) =>
+        set((s) => ({ suppliers: s.suppliers.filter((x) => x.id !== id) })),
+      addSupplierTxn: (t) =>
+        set((s) => ({
+          supplierTxns: [
+            {
+              ...t,
+              id: uid('st_'),
+              at: Date.now(),
+              byStaffName: s.staff.find((m) => m.id === s.currentStaffId)?.name || 'Staff',
+            },
+            ...s.supplierTxns,
+          ],
+        })),
+
+      addDebtComment: (debtId, text) =>
+        set((s) => ({
+          debts: s.debts.map((d) =>
+            d.id === debtId
+              ? {
+                  ...d,
+                  comments: [
+                    ...(d.comments ?? []),
+                    {
+                      id: uid('dc_'),
+                      text,
+                      at: Date.now(),
+                      byStaffName: s.staff.find((m) => m.id === s.currentStaffId)?.name || 'Staff',
+                    },
+                  ],
+                }
+              : d,
+          ),
+        })),
+
       addCustomer: (c) => {
         const customer: Customer = {
           ...c,
@@ -391,6 +452,8 @@ export const useStore = create<State>()(
           creditAmount,
           customerId: input.customerId,
           cashierName,
+          assignedToName: input.assignedToName && input.assignedToName !== cashierName ? input.assignedToName : undefined,
+          note: input.note,
           locationId: state.currentLocationId,
         }
 
@@ -429,11 +492,11 @@ export const useStore = create<State>()(
         return sale
       },
 
-      recordDebtPayment: (debtId, amount, method, ref) =>
+      recordDebtPayment: (debtId, amount, method, ref, note) =>
         set((s) => ({
           debts: s.debts.map((d) => {
             if (d.id !== debtId) return d
-            const pay: DebtPayment = { id: uid('dp_'), amount, method, ref, at: Date.now() }
+            const pay: DebtPayment = { id: uid('dp_'), amount, method, ref, note, at: Date.now() }
             const balance = Math.max(0, Math.round((d.balance - amount) * 100) / 100)
             return {
               ...d,
@@ -533,15 +596,17 @@ export const useStore = create<State>()(
           transfers: [],
           returns: [],
           exchangeCredit: 0,
+          suppliers: [],
+          supplierTxns: [],
         }),
     }),
     {
       name: 'duka-pos-v1',
-      version: 2,
+      version: 3,
       migrate: (persisted, version) => {
+        const s = persisted as Record<string, unknown> | undefined
         // v1 → v2: single-number stock becomes per-location stock; new
         // branches/transfers/returns state gets sensible defaults.
-        const s = persisted as Record<string, unknown> | undefined
         if (s && version < 2) {
           const locs = s.locations as BizLocation[] | undefined
           s.locations = locs?.length ? locs : defaultLocations()
@@ -552,6 +617,11 @@ export const useStore = create<State>()(
           s.products = ((s.products as Product[]) || []).map((p) => normalizeProduct(p))
           const oldSettings = s.settings as Partial<BusinessSettings>
           s.settings = { businessType: 'shop' as const, ...oldSettings }
+        }
+        // v2 → v3: suppliers.
+        if (s && version < 3) {
+          s.suppliers ??= []
+          s.supplierTxns ??= []
         }
         return persisted as State
       },
@@ -621,6 +691,16 @@ export function selectCurrentStaff(state: State): StaffMember | undefined {
 
 export function selectCurrentLocation(state: State): BizLocation | undefined {
   return state.locations.find((l) => l.id === state.currentLocationId) ?? state.locations[0]
+}
+
+/** What the shop still owes a supplier: deliveries − payments − credit notes. */
+export function supplierBalance(txns: SupplierTxn[], supplierId: string): number {
+  let bal = 0
+  for (const t of txns) {
+    if (t.supplierId !== supplierId) continue
+    bal += t.type === 'delivery' ? t.amount : -t.amount
+  }
+  return Math.round(bal * 100) / 100
 }
 
 export function selectRole(state: State): Role | undefined {

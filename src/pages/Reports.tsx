@@ -51,7 +51,19 @@ export default function Reports() {
     const stockValue = products.reduce((a, p) => a + p.cost * totalStock(p), 0)
     const potentialProfit = products.reduce((a, p) => a + (p.price - p.cost) * totalStock(p), 0)
 
-    return { todayRevenue, todayCount: todaySales.length, methodSplit, days, topProducts, stockValue, potentialProfit }
+    // Sales by cashier (today). Sales ring-fenced to a colleague count for the
+    // colleague; "served by" still names who was physically on the till.
+    const byCashier = new Map<string, { name: string; count: number; revenue: number }>()
+    for (const s of todaySales) {
+      const name = s.assignedToName || s.cashierName
+      const cur = byCashier.get(name) ?? { name, count: 0, revenue: 0 }
+      cur.count += 1
+      cur.revenue += s.total
+      byCashier.set(name, cur)
+    }
+    const cashiers = [...byCashier.values()].sort((a, b) => b.revenue - a.revenue)
+
+    return { todayRevenue, todayCount: todaySales.length, methodSplit, days, topProducts, stockValue, potentialProfit, cashiers }
   }, [sales, products])
 
   const maxDay = Math.max(1, ...stats.days.map((d) => d.value))
@@ -119,6 +131,38 @@ export default function Reports() {
               )
             })}
           </div>
+        </div>
+
+        {/* Sales by cashier (today) */}
+        <div className="card p-5">
+          <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-brand-900/60 dark:text-white/60">Today by cashier</h2>
+          {stats.cashiers.length === 0 ? (
+            <p className="py-6 text-center text-sm text-brand-900/40 dark:text-white/40">No sales yet today.</p>
+          ) : (
+            <div className="space-y-2">
+              {stats.cashiers.map((c) => {
+                const maxRev = stats.cashiers[0]?.revenue || 1
+                return (
+                  <div key={c.name}>
+                    <div className="mb-1 flex items-center justify-between text-sm">
+                      <span className="flex items-center gap-2 text-brand-900/70 dark:text-white/70">
+                        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-600 text-[11px] font-bold text-gold-400">{c.name.charAt(0).toUpperCase()}</span>
+                        {c.name}
+                        <span className="text-xs text-brand-900/40 dark:text-white/40">· {c.count} sale{c.count !== 1 ? 's' : ''}</span>
+                      </span>
+                      <span className="font-semibold text-brand-900 dark:text-white">{money(c.revenue, currency)}</span>
+                    </div>
+                    <div className="h-2 overflow-hidden rounded-full bg-black/5 dark:bg-white/10">
+                      <div className="h-full rounded-full bg-brand-500" style={{ width: `${(c.revenue / maxRev) * 100}%` }} />
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+          <p className="mt-3 text-[11px] text-brand-900/40 dark:text-white/40">
+            A sale rung up for a colleague counts for the colleague; the receipt still records who served it.
+          </p>
         </div>
 
         {/* Top products */}

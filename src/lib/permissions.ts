@@ -16,16 +16,17 @@ export type Capability =
   | 'useAssistant' // Duka AI — sees sales/profit/debt numbers
   | 'transferStock' // send/receive stock between branches & warehouse
   | 'manageLocations' // create/edit branches & warehouses
+  | 'manageSuppliers' // suppliers: deliveries, payments, credit notes
 
 const ROLE_CAPS: Record<Role, Capability[]> = {
   owner: [
     'sell', 'viewDebts', 'manageCustomers', 'manageStock', 'applyDiscount', 'voidRefund',
     'viewReports', 'manageStaff', 'editSettings', 'viewBilling', 'useAssistant',
-    'transferStock', 'manageLocations',
+    'transferStock', 'manageLocations', 'manageSuppliers',
   ],
   manager: [
     'sell', 'viewDebts', 'manageCustomers', 'manageStock', 'applyDiscount', 'voidRefund', 'viewReports', 'useAssistant',
-    'transferStock',
+    'transferStock', 'manageSuppliers',
   ],
   cashier: ['sell', 'viewDebts', 'manageCustomers'],
 }

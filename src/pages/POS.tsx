@@ -69,8 +69,8 @@ export default function POS() {
     setCart([])
     setDiscount(0)
   }
-  function onComplete(tenders: Tender[], customerId?: string) {
-    const sale = completeSale({ lines: cart, discount, tenders, customerId })
+  function onComplete(tenders: Tender[], customerId?: string, extras?: { assignedToName?: string; note?: string }) {
+    const sale = completeSale({ lines: cart, discount, tenders, customerId, ...extras })
     // KRA eTIMS: submit the invoice in the background when enabled.
     const st = useStore.getState().settings
     if (st.etimsEnabled) {

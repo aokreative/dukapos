@@ -12,6 +12,7 @@ import Settings from './pages/Settings'
 import Subscription from './pages/Subscription'
 import Assistant from './pages/Assistant'
 import Branches from './pages/Branches'
+import Suppliers from './pages/Suppliers'
 import { useAutomation } from './lib/useAutomation'
 import { useBillingSync } from './lib/useBillingSync'
 import { useCloudSync } from './lib/useCloudSync'
@@ -65,6 +66,7 @@ export default function App() {
         <Route path="/customers" element={<Guard cap="manageCustomers" role={role}><Customers /></Guard>} />
         <Route path="/products" element={<Guard cap="manageStock" role={role}><Products /></Guard>} />
         <Route path="/branches" element={<Guard cap="transferStock" role={role}><Branches /></Guard>} />
+        <Route path="/suppliers" element={<Guard cap="manageSuppliers" role={role}><Suppliers /></Guard>} />
         <Route path="/reports" element={<Guard cap="viewReports" role={role}><Reports /></Guard>} />
         <Route path="/assistant" element={<Guard cap="useAssistant" role={role}><Assistant /></Guard>} />
         <Route path="/subscription" element={<Guard cap="viewBilling" role={role}><Subscription /></Guard>} />

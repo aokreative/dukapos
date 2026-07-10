@@ -1,10 +1,15 @@
 import { useMemo, useState } from 'react'
-import { Banknote, Smartphone, CreditCard, HandCoins, Trash2, User } from 'lucide-react'
+import { Banknote, Smartphone, CreditCard, HandCoins, Trash2, User, UserCheck, StickyNote } from 'lucide-react'
 import { Modal } from './ui'
 import CustomerPicker from './CustomerPicker'
-import { useStore } from '../store/useStore'
+import { useStore, selectCurrentStaff } from '../store/useStore'
 import { money } from '../lib/format'
 import type { Customer, PaymentMethod, Tender } from '../types'
+
+export interface SaleExtras {
+  assignedToName?: string
+  note?: string
+}
 
 const METHODS: { key: PaymentMethod; label: string; icon: typeof Banknote }[] = [
   { key: 'cash', label: 'Cash', icon: Banknote },
@@ -23,12 +28,18 @@ export default function PaymentModal({
   open: boolean
   onClose: () => void
   total: number
-  onComplete: (tenders: Tender[], customerId?: string) => void
+  onComplete: (tenders: Tender[], customerId?: string, extras?: SaleExtras) => void
 }) {
   const currency = useStore((s) => s.settings.currency)
+  const staff = useStore((s) => s.staff)
+  const currentStaff = useStore(selectCurrentStaff)
   const [tenders, setTenders] = useState<Tender[]>([])
   const [customer, setCustomer] = useState<Customer | null>(null)
   const [pickerOpen, setPickerOpen] = useState(false)
+  const [assignedToName, setAssignedToName] = useState('')
+  const [note, setNote] = useState('')
+  const [showExtras, setShowExtras] = useState(false)
+  const sellers = staff.filter((m) => m.active)
 
   const sum = useMemo(() => tenders.reduce((a, t) => a + (t.amount || 0), 0), [tenders])
   const remaining = Math.round((total - sum) * 100) / 100
@@ -53,13 +64,22 @@ export default function PaymentModal({
   function reset() {
     setTenders([])
     setCustomer(null)
+    setAssignedToName('')
+    setNote('')
+    setShowExtras(false)
+  }
+  function extras(): SaleExtras {
+    return {
+      assignedToName: assignedToName || undefined,
+      note: note.trim() || undefined,
+    }
   }
   function complete() {
     // Clamp a credit tender to the exact remaining so we never over-credit.
     const finalTenders = tenders
       .map((t) => (t.method === 'credit' ? { ...t, amount: Math.max(0, Math.round((total - (sum - t.amount)) * 100) / 100) } : t))
       .filter((t) => t.amount > 0)
-    onComplete(finalTenders, customer?.id)
+    onComplete(finalTenders, customer?.id, extras())
     reset()
   }
 
@@ -152,6 +172,31 @@ export default function PaymentModal({
           )}
         </button>
 
+        {/* Assign to a colleague / add a note */}
+        {!showExtras ? (
+          <button className="mt-2 text-xs font-semibold text-brand-600 underline dark:text-gold-400" onClick={() => setShowExtras(true)}>
+            + Assign to another cashier / add note
+          </button>
+        ) : (
+          <div className="mt-3 space-y-2 rounded-xl bg-black/5 p-3 dark:bg-white/10">
+            <div className="flex items-center gap-2">
+              <UserCheck size={15} className="shrink-0 text-brand-600 dark:text-gold-400" />
+              <select className="input py-2 text-sm" value={assignedToName} onChange={(e) => setAssignedToName(e.target.value)}>
+                <option value="">Sale counts for: {currentStaff?.name || 'me'} (me)</option>
+                {sellers
+                  .filter((m) => m.name !== currentStaff?.name)
+                  .map((m) => (
+                    <option key={m.id} value={m.name}>Sale counts for: {m.name}</option>
+                  ))}
+              </select>
+            </div>
+            <div className="flex items-center gap-2">
+              <StickyNote size={15} className="shrink-0 text-brand-600 dark:text-gold-400" />
+              <input className="input py-2 text-sm" placeholder='Note, e.g. "delivered to the salon"' value={note} onChange={(e) => setNote(e.target.value)} />
+            </div>
+          </div>
+        )}
+
         {/* Status line */}
         <div className="mt-4 flex items-center justify-between text-sm">
           {change > 0 ? (
@@ -167,7 +212,7 @@ export default function PaymentModal({
           Complete sale
         </button>
         {tenders.length === 0 && (
-          <button className="btn-gold mt-2 w-full" onClick={() => { onComplete([{ method: 'cash', amount: total }]); reset() }}>
+          <button className="btn-gold mt-2 w-full" onClick={() => { onComplete([{ method: 'cash', amount: total }], customer?.id, extras()); reset() }}>
             Exact cash · {money(total, currency)}
           </button>
         )}

@@ -20,7 +20,7 @@ import { money } from '../lib/format'
 import { useOnline } from '../lib/useOnline'
 import { can, ROLE_LABEL, type Capability } from '../lib/permissions'
 import { bizLabels } from '../lib/labels'
-import { Building2 } from 'lucide-react'
+import { Building2, Truck } from 'lucide-react'
 import { BillingBanner, Paywall, useBilling } from './Billing'
 
 const NAV: { to: string; label: string; icon: typeof ShoppingCart; cap?: Capability }[] = [
@@ -29,6 +29,7 @@ const NAV: { to: string; label: string; icon: typeof ShoppingCart; cap?: Capabil
   { to: '/customers', label: 'Customers', icon: Users, cap: 'manageCustomers' },
   { to: '/products', label: 'Stock', icon: Package, cap: 'manageStock' },
   { to: '/branches', label: 'Branches', icon: Building2, cap: 'transferStock' },
+  { to: '/suppliers', label: 'Suppliers', icon: Truck, cap: 'manageSuppliers' },
   { to: '/reports', label: 'Reports', icon: BarChart3, cap: 'viewReports' },
   { to: '/assistant', label: 'Duka AI', icon: Sparkles, cap: 'useAssistant' },
   { to: '/subscription', label: 'Billing', icon: CreditCard, cap: 'viewBilling' },
@@ -125,7 +126,7 @@ export default function Layout({ children }: { children: ReactNode }) {
       </div>
 
       {/* Mobile bottom nav */}
-      <nav className="fixed inset-x-0 bottom-0 z-30 flex justify-around border-t border-black/5 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur dark:border-white/10 dark:bg-brand-900/95 md:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-30 flex overflow-x-auto border-t border-black/5 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur dark:border-white/10 dark:bg-brand-900/95 md:hidden">
         {nav.map((n) => (
           <NavLink key={n.to} to={n.to} className={({ isActive }) => tabClass(isActive)} end={n.to === '/'}>
             <div className="relative">
@@ -181,7 +182,7 @@ function railClass(active: boolean) {
 }
 
 function tabClass(active: boolean) {
-  return `flex flex-1 flex-col items-center gap-0.5 py-2 transition ${
+  return `flex min-w-[64px] flex-1 flex-col items-center gap-0.5 py-2 transition ${
     active ? 'text-brand-600 dark:text-gold-400' : 'text-brand-900/50 dark:text-white/50'
   }`
 }

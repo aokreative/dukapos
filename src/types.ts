@@ -43,6 +43,47 @@ export interface StockTransfer {
   receivedAt?: number
 }
 
+// Suppliers -------------------------------------------------------------------
+/**
+ * Someone the shop buys from — a wholesaler, a farmer, or the neighbor next
+ * door. Can be linked to a Customer record (a customer who also supplies you).
+ */
+export interface Supplier {
+  id: string
+  name: string
+  phone: string
+  /** What they supply, e.g. "Eggs & milk", "Vegetables". */
+  supplies?: string
+  /** Link when this supplier is also one of your customers. */
+  customerId?: string
+  note?: string
+  active: boolean
+  createdAt: number
+}
+
+export type SupplierTxnType = 'delivery' | 'payment' | 'creditNote'
+
+/**
+ * Money/goods movement with a supplier:
+ *  - delivery: goods received — increases what you owe (unless paid on the spot)
+ *  - payment: you paid them — reduces what you owe
+ *  - creditNote: goods returned to them / agreed reduction — reduces what you owe
+ */
+export interface SupplierTxn {
+  id: string
+  supplierId: string
+  type: SupplierTxnType
+  amount: number
+  /** For payments: how you paid. */
+  method?: PaymentMethod
+  ref?: string
+  /** For deliveries: what arrived, free text. */
+  items?: string
+  note?: string
+  at: number
+  byStaffName: string
+}
+
 export type ReturnResolution = 'refund' | 'exchange'
 
 /** A customer bringing goods back — refunded or exchanged; stock goes back in. */
@@ -124,7 +165,13 @@ export interface Sale {
   /** Portion sold on credit (mkopo) — becomes/updates a debt. */
   creditAmount: number
   customerId?: string
+  /** Who physically served the sale (signed-in staff). */
   cashierName: string
+  /** Who the sale is credited to — may differ from cashierName when one
+   * cashier rings up a sale on a colleague's behalf. */
+  assignedToName?: string
+  /** Free comment on the transaction, e.g. "delivered to the salon". */
+  note?: string
   /** Which branch made the sale. */
   locationId?: string
 }
@@ -146,6 +193,7 @@ export interface Debt {
   payments: DebtPayment[]
   /** Who served this credit sale — settles "who gave out this debt" disputes. */
   cashierName?: string
+  comments?: DebtComment[]
 }
 
 export interface DebtPayment {
@@ -153,7 +201,16 @@ export interface DebtPayment {
   amount: number
   method: PaymentMethod // how the customer settled (cash/mpesa/card)
   ref?: string
+  note?: string
   at: number
+}
+
+/** A free-text comment on a debt, e.g. "promised to clear on Friday". */
+export interface DebtComment {
+  id: string
+  text: string
+  at: number
+  byStaffName: string
 }
 
 export interface BusinessSettings {

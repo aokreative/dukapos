@@ -10,7 +10,7 @@
 // app simply stays local-only (no cloud section shown as connected).
 // ---------------------------------------------------------------------------
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-import type { BizLocation, Customer, Debt, Product, ReminderLogEntry, ReturnRecord, Sale, StaffMember, StockTransfer } from '../types'
+import type { BizLocation, Customer, Debt, Product, ReminderLogEntry, ReturnRecord, Sale, StaffMember, StockTransfer, Supplier, SupplierTxn } from '../types'
 import { normalizeProduct } from './stock'
 
 const url = (import.meta.env.VITE_SUPABASE_URL as string | undefined) || ''
@@ -37,6 +37,8 @@ export interface SyncedState {
   locations: BizLocation[]
   transfers: StockTransfer[]
   returns: ReturnRecord[]
+  suppliers: Supplier[]
+  supplierTxns: SupplierTxn[]
 }
 
 /** Fill defaults & migrate legacy shapes on state coming from the cloud. */
@@ -52,6 +54,8 @@ export function normalizeSynced(s: Partial<SyncedState>): SyncedState {
     locations: s.locations ?? [],
     transfers: s.transfers ?? [],
     returns: s.returns ?? [],
+    suppliers: s.suppliers ?? [],
+    supplierTxns: s.supplierTxns ?? [],
   }
 }
 
@@ -119,6 +123,8 @@ export function mergeState(local: SyncedState, remote: SyncedState, remoteIsNewe
     products: lwwUnion(prefP.products, otherP.products),
     staff: lwwUnion(prefP.staff, otherP.staff),
     locations: lwwUnion(prefP.locations, otherP.locations),
+    suppliers: lwwUnion(prefP.suppliers, otherP.suppliers),
+    supplierTxns: unionAppendOnly(local.supplierTxns, remote.supplierTxns).sort((a, b) => b.at - a.at),
     receiptCounter: Math.max(local.receiptCounter, remote.receiptCounter),
   }
 }

@@ -78,7 +78,8 @@ export default function Receipt({
       <hr/>
       <div>Receipt: ${sale!.receiptNo}</div>
       <div>${shortDateTime(sale!.createdAt)}</div>
-      <div>Served by: ${sale!.cashierName}</div>
+      <div>Served by: ${sale!.cashierName}${sale!.assignedToName ? ` (sale for ${sale!.assignedToName})` : ''}</div>
+      ${sale!.note ? `<div>Note: ${sale!.note}</div>` : ''}
       <hr/>
       <table>${rows}</table>
       <hr/>

@@ -21,6 +21,8 @@ function pickSlice(): SyncedState {
     locations: s.locations,
     transfers: s.transfers,
     returns: s.returns,
+    suppliers: s.suppliers,
+    supplierTxns: s.supplierTxns,
   }
 }
 

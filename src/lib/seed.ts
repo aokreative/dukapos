@@ -1,5 +1,5 @@
 // Demo data so the shop works the moment it opens. All prices in KES.
-import type { BusinessSettings, Customer, Debt, Product, ReminderRule, Sale, StaffMember, Subscription } from '../types'
+import type { BusinessSettings, Customer, Debt, Product, ReminderRule, Sale, StaffMember, Subscription, Supplier } from '../types'
 import { DEFAULT_TEMPLATE } from './reminders'
 import { TRIAL_DAYS } from './plans'
 import { uid } from './id'
@@ -107,6 +107,31 @@ export function seedCustomers(): Customer[] {
     c('John Otieno', '254723456789'),
     c('Grace Wanjiku', '254701234567', 'Salon next door'),
     c('Boda Boda Sacco', '254733222111', 'Group tab'),
+  ]
+}
+
+/** Demo suppliers — incl. one who is also a customer (Grace from the salon). */
+export function seedSuppliers(customers: Customer[]): Supplier[] {
+  const grace = customers.find((c) => c.name.includes('Grace'))
+  return [
+    {
+      id: uid('sup_'),
+      name: 'Kilimo Fresh Wholesalers',
+      phone: '254720111222',
+      supplies: 'Flour, sugar, rice, oil',
+      active: true,
+      createdAt: now - 60 * day,
+    },
+    {
+      id: uid('sup_'),
+      name: 'Grace Wanjiku (salon next door)',
+      phone: grace?.phone ?? '254701234567',
+      supplies: 'Eggs from her shamba',
+      customerId: grace?.id,
+      note: 'Also a customer — buys sodas & airtime',
+      active: true,
+      createdAt: now - 20 * day,
+    },
   ]
 }
 

@@ -161,6 +161,11 @@ function DebtorDetailsModal({
     return m
   }, [allDebts, summary.customer.id])
 
+  const addDebtComment = useStore((s) => s.addDebtComment)
+  const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({})
+  // The store updates live; read fresh copies so new comments show instantly.
+  const liveDebts = useStore((s) => s.debts)
+
   const METHOD: Record<string, string> = { cash: 'Cash', mpesa: 'M-PESA', airtel: 'Airtel', card: 'Card', credit: 'Credit' }
 
   return (
@@ -174,7 +179,8 @@ function DebtorDetailsModal({
         {summary.debts
           .slice()
           .sort((a, b) => a.createdAt - b.createdAt)
-          .map((d) => {
+          .map((stale) => {
+            const d = liveDebts.find((x) => x.id === stale.id) ?? stale
             const sale = sales.find((s) => s.id === d.saleId)
             const servedBy = d.cashierName || sale?.cashierName
             return (
@@ -192,6 +198,17 @@ function DebtorDetailsModal({
                     {sale.lines.map((l) => `${l.qty}× ${l.name}`).join(' · ')}
                   </div>
                 )}
+                <CommentThread
+                  comments={d.comments ?? []}
+                  draft={commentDrafts[d.id] ?? ''}
+                  setDraft={(v) => setCommentDrafts((m) => ({ ...m, [d.id]: v }))}
+                  onAdd={() => {
+                    const text = (commentDrafts[d.id] ?? '').trim()
+                    if (!text) return
+                    addDebtComment(d.id, text)
+                    setCommentDrafts((m) => ({ ...m, [d.id]: '' }))
+                  }}
+                />
                 <div className="mt-1.5 text-xs">
                   {d.payments.length === 0 ? (
                     <span className="text-brand-900/40 dark:text-white/40">No payments yet on this debt.</span>
@@ -202,6 +219,7 @@ function DebtorDetailsModal({
                           <span>
                             {shortDateTime(p.at)} · {METHOD[p.method] || p.method}
                             {p.ref ? ` (${p.ref})` : ''}
+                            {p.note ? <span className="italic"> — "{p.note}"</span> : ''}
                           </span>
                           <span className="font-semibold text-green-700 dark:text-green-400">-{money(p.amount, settings.currency)}</span>
                         </li>
@@ -241,7 +259,9 @@ function DebtorDetailsModal({
                   </span>
                 </div>
                 <div className="text-[11px] text-brand-900/50 dark:text-white/50">
-                  {shortDateTime(s.createdAt)} · served by {s.cashierName} · {s.lines.map((l) => `${l.qty}× ${l.name}`).join(', ')}
+                  {shortDateTime(s.createdAt)} · served by {s.cashierName}
+                  {s.assignedToName ? ` (for ${s.assignedToName})` : ''} · {s.lines.map((l) => `${l.qty}× ${l.name}`).join(', ')}
+                  {s.note ? <span className="italic"> · "{s.note}"</span> : ''}
                 </div>
               </div>
             )
@@ -256,6 +276,51 @@ function DebtorDetailsModal({
         <button className="btn-ghost" onClick={onClose}>Close</button>
       </div>
     </Modal>
+  )
+}
+
+/** Comments on a debt — "promised Friday", "Brian collected 500 at 9am"… */
+function CommentThread({
+  comments,
+  draft,
+  setDraft,
+  onAdd,
+}: {
+  comments: { id: string; text: string; at: number; byStaffName: string }[]
+  draft: string
+  setDraft: (v: string) => void
+  onAdd: () => void
+}) {
+  return (
+    <div className="mt-1.5">
+      {comments.length > 0 && (
+        <ul className="mb-1 space-y-0.5 text-xs">
+          {comments.map((c) => (
+            <li key={c.id} className="text-brand-900/70 dark:text-white/70">
+              <span className="italic">"{c.text}"</span>
+              <span className="text-brand-900/40 dark:text-white/40"> — {c.byStaffName}, {shortDateTime(c.at)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      <form
+        className="flex gap-1.5"
+        onSubmit={(e) => {
+          e.preventDefault()
+          onAdd()
+        }}
+      >
+        <input
+          className="input flex-1 py-1.5 text-xs"
+          placeholder="Add a comment…"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+        />
+        <button type="submit" className="btn-ghost px-3 py-1.5 text-xs" disabled={!draft.trim()}>
+          Add
+        </button>
+      </form>
+    </div>
   )
 }
 
@@ -301,10 +366,11 @@ function RepaymentModal({ summary, onClose }: { summary: DebtorSummary; onClose:
   const [amount, setAmount] = useState<number>(selected.balance)
   const [method, setMethod] = useState<PaymentMethod>('mpesa')
   const [ref, setRef] = useState('')
+  const [note, setNote] = useState('')
 
   function pay() {
     if (amount <= 0) return
-    recordDebtPayment(selected.id, Math.min(amount, selected.balance), method, ref || undefined)
+    recordDebtPayment(selected.id, Math.min(amount, selected.balance), method, ref || undefined, note.trim() || undefined)
     onClose()
   }
 
@@ -354,6 +420,10 @@ function RepaymentModal({ summary, onClose }: { summary: DebtorSummary; onClose:
           <input className="input" placeholder="e.g. RBG6X..." value={ref} onChange={(e) => setRef(e.target.value)} />
         </div>
       )}
+      <div className="mt-3">
+        <label className="label">Comment (optional)</label>
+        <input className="input" placeholder='e.g. "paid at the shop, 9am"' value={note} onChange={(e) => setNote(e.target.value)} />
+      </div>
 
       <div className="mt-2 flex gap-2 text-xs">
         <button className="chip bg-black/5 dark:bg-white/10" onClick={() => setAmount(selected.balance)}>
