@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
-import { useStore, selectRole } from './store/useStore'
+import { useStore, selectRole, selectCurrentStaff } from './store/useStore'
 import Layout from './components/Layout'
 import LockScreen from './components/LockScreen'
 import POS from './pages/POS'
@@ -13,10 +13,11 @@ import Subscription from './pages/Subscription'
 import Assistant from './pages/Assistant'
 import Branches from './pages/Branches'
 import Suppliers from './pages/Suppliers'
+import Expenses from './pages/Expenses'
 import { useAutomation } from './lib/useAutomation'
 import { useBillingSync } from './lib/useBillingSync'
 import { useCloudSync } from './lib/useCloudSync'
-import { can, type Capability } from './lib/permissions'
+import { canStaff, type Capability } from './lib/permissions'
 import type { ReactNode } from 'react'
 
 export default function App() {
@@ -67,6 +68,7 @@ export default function App() {
         <Route path="/products" element={<Guard cap="manageStock" role={role}><Products /></Guard>} />
         <Route path="/branches" element={<Guard cap="transferStock" role={role}><Branches /></Guard>} />
         <Route path="/suppliers" element={<Guard cap="receiveDeliveries" role={role}><Suppliers /></Guard>} />
+        <Route path="/expenses" element={<Guard cap="recordExpenses" role={role}><Expenses /></Guard>} />
         <Route path="/reports" element={<Guard cap="viewReports" role={role}><Reports /></Guard>} />
         <Route path="/assistant" element={<Guard cap="useAssistant" role={role}><Assistant /></Guard>} />
         <Route path="/subscription" element={<Guard cap="viewBilling" role={role}><Subscription /></Guard>} />
@@ -77,8 +79,10 @@ export default function App() {
   )
 }
 
-/** Redirects to the till if the signed-in role lacks a capability. */
-function Guard({ cap, role, children }: { cap: Capability; role: ReturnType<typeof selectRole>; children: ReactNode }) {
-  if (!can(role, cap)) return <Navigate to="/" replace />
+/** Redirects to the till if the signed-in staff member lacks a capability
+ *  (their role's powers plus any extra permissions the owner granted). */
+function Guard({ cap, children }: { cap: Capability; role: ReturnType<typeof selectRole>; children: ReactNode }) {
+  const staff = useStore(selectCurrentStaff)
+  if (!canStaff(staff, cap)) return <Navigate to="/" replace />
   return <>{children}</>
 }

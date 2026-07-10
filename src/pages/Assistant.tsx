@@ -4,9 +4,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { Send, Sparkles } from 'lucide-react'
 import { PageHeader } from '../components/ui'
-import { useStore } from '../store/useStore'
+import { useStore, selectRole } from '../store/useStore'
 import { askAssistant } from '../lib/api'
-import { buildShopSnapshot, localAnswer, SUGGESTED_QUESTIONS } from '../lib/assistant'
+import { buildShopSnapshot, localAnswer, SUGGESTED_QUESTIONS, SUGGESTED_QUESTIONS_CASHIER } from '../lib/assistant'
 
 interface ChatMsg {
   role: 'user' | 'ai'
@@ -18,6 +18,10 @@ export default function Assistant() {
   const [input, setInput] = useState('')
   const [busy, setBusy] = useState(false)
   const endRef = useRef<HTMLDivElement>(null)
+  const role = useStore(selectRole)
+  // Cashiers get a limited assistant: stock/availability & debts, never profit,
+  // margins, other cashiers' sales, or other branches.
+  const restricted = role === 'cashier'
 
   useEffect(() => {
     if (msgs.length) endRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -45,6 +49,7 @@ export default function Assistant() {
         transfers: s.transfers,
         returns: s.returns,
         businessType: s.settings.businessType,
+        restrictedFor: restricted ? s.staff.find((m) => m.id === s.currentStaffId)?.name : undefined,
       })
       // Claude via the backend when available (with chat memory for
       // follow-up questions); local rules otherwise.
@@ -69,7 +74,7 @@ export default function Assistant() {
               I know your sales, debts and stock. Ask me anything — or tap a question below.
             </p>
             <div className="mt-4 flex flex-wrap justify-center gap-2">
-              {SUGGESTED_QUESTIONS.map((q) => (
+              {(restricted ? SUGGESTED_QUESTIONS_CASHIER : SUGGESTED_QUESTIONS).map((q) => (
                 <button key={q} className="chip bg-brand-50 text-brand-800 hover:bg-brand-100 dark:bg-white/10 dark:text-white dark:hover:bg-white/20" onClick={() => ask(q)}>
                   {q}
                 </button>

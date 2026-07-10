@@ -37,6 +37,8 @@ export interface ShopSnapshot {
   suppliersOwed: { name: string; owed: number }[]
   productCount: number
   customerCount: number
+  /** True when this snapshot is a cashier's limited view. */
+  restricted?: boolean
   // Full context so AI answers ANY shop question, not just the common ones:
   businessType?: string
   staffNames?: string[]
@@ -73,6 +75,10 @@ export function buildShopSnapshot(input: {
   transfers?: StockTransfer[]
   returns?: ReturnRecord[]
   businessType?: string
+  /** When set (cashier name), the snapshot is stripped of profit/margins,
+   *  other staff's sales and other branches — cashiers only see stock &
+   *  their own debts/sales. */
+  restrictedFor?: string
 }): ShopSnapshot {
   const { sales, products, customers, debts, suppliers = [], supplierTxns = [] } = input
   const t0 = startOfToday()
@@ -235,7 +241,7 @@ export function buildShopSnapshot(input: {
     .slice(0, 10)
     .map((x) => ({ name: x.name, date: x.date, expired: x.t < Date.now() }))
 
-  return {
+  const full: ShopSnapshot = {
     businessType: input.businessType,
     staffNames: (input.staff ?? []).filter((m) => m.active).map((m) => `${m.name} (${m.role})`),
     expiringSoon: expiringSoon.length ? expiringSoon : undefined,
@@ -267,6 +273,34 @@ export function buildShopSnapshot(input: {
     productCount: products.filter((p) => p.active).length,
     customerCount: customers.length,
   }
+
+  // Cashier view: strip everything sensitive. They keep stock/availability,
+  // debts (who owes) and their OWN sales — nothing about profit, margins,
+  // other cashiers, other branches, suppliers or expenses.
+  if (input.restrictedFor) {
+    const me = input.restrictedFor
+    return {
+      restricted: true,
+      business: full.business,
+      currency: full.currency,
+      catalog: full.catalog, // stock & availability — allowed
+      lowStock: full.lowStock,
+      expiringSoon: full.expiringSoon,
+      debts: full.debts, // who owes the shop — allowed
+      // Only this cashier's own recent sales, with no profit anywhere.
+      recentSales: (full.recentSales ?? []).filter((s) => s.soldBy === me || s.forStaff === me),
+      today: { sales: 0, revenue: 0, profit: 0, byMethod: {} },
+      week: { sales: 0, revenue: 0 },
+      topProducts: [],
+      customersDetail: [],
+      buyersByProduct: [],
+      suppliersOwed: [],
+      productCount: full.productCount,
+      customerCount: full.customerCount,
+    }
+  }
+
+  return full
 }
 
 /** Find a customer mentioned by name inside the question text. */
@@ -283,6 +317,11 @@ function findMentioned(q: string, s: ShopSnapshot): CustomerInsight | undefined 
 export function localAnswer(question: string, s: ShopSnapshot): string {
   const q = question.toLowerCase()
   const cur = s.currency
+
+  // Cashiers may never see profit/margins/revenue or other staff's numbers.
+  if (s.restricted && /(profit|margin|revenue|how much (did|have) (we|i|the shop) (make|made|sell)|takings|earn|income|other cashier|fellow|colleague|branch)/.test(q)) {
+    return 'Sorry — sales totals, profit and other staff or branch figures are for the owner and manager only. I can help you with stock availability and customer debts.'
+  }
 
   // --- "How much do X and I owe each other?" (two-way balances) ------------
   const mentioned = findMentioned(q, s)
@@ -398,4 +437,12 @@ export const SUGGESTED_QUESTIONS = [
   'What should I restock?',
   'What are my best sellers?',
   "What's my profit today?",
+]
+
+/** Cashier chips — stock & debts only, no sensitive figures. */
+export const SUGGESTED_QUESTIONS_CASHIER = [
+  'Do we have Sugar 1kg in stock?',
+  'What is running low?',
+  'Who owes the shop money?',
+  'What is expiring soon?',
 ]

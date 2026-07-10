@@ -16,7 +16,9 @@ import type {
   Debt,
   DebtPayment,
   DeliveryLine,
+  Expense,
   PaymentMethod,
+  Shift,
   PlanId,
   Product,
   ReminderLogEntry,
@@ -50,25 +52,51 @@ import {
 } from '../lib/seed'
 import { MAIN_LOCATION_ID, defaultLocations, normalizeProduct, stockAt, withStockDelta } from '../lib/stock'
 
-// Fail-soft storage: some browsers (in-app webviews, strict private modes)
-// block IndexedDB. If that happens the app must still open — it just runs as
-// a fresh session for that visit instead of hanging on the splash screen.
+// Durable storage. We write to BOTH IndexedDB and localStorage and read from
+// whichever has data. This survives the awkward environments Kenyan shop
+// owners actually open the app in — Gmail/WhatsApp in-app browsers, private
+// modes, and partitioned webviews — where one store or the other is blocked.
+// Whichever succeeds keeps the shop's data; the app never silently resets.
+const LS = typeof localStorage !== 'undefined' ? localStorage : null
+
 const idbStorage: StateStorage = {
   getItem: async (name) => {
+    let fromIdb: string | null = null
     try {
-      return (await idbGet(name)) ?? null
+      fromIdb = (await idbGet(name)) ?? null
     } catch {
-      return null
+      /* idb blocked — fall back to localStorage */
     }
+    let fromLs: string | null = null
+    try {
+      fromLs = LS?.getItem(name) ?? null
+    } catch {
+      /* ls blocked too */
+    }
+    // Prefer whichever exists; if both do, prefer the longer (usually newer)
+    // blob so a stale empty value never wins.
+    if (fromIdb && fromLs) return fromIdb.length >= fromLs.length ? fromIdb : fromLs
+    return fromIdb ?? fromLs
   },
   setItem: async (name, value) => {
+    // Mirror to localStorage first (synchronous, most reliable), then IndexedDB.
+    try {
+      LS?.setItem(name, value)
+    } catch {
+      /* quota or blocked — idb may still take it */
+    }
     try {
       await idbSet(name, value)
     } catch {
-      /* storage unavailable — keep running in memory */
+      /* idb blocked — localStorage mirror carries us */
     }
   },
   removeItem: async (name) => {
+    try {
+      LS?.removeItem(name)
+    } catch {
+      /* ignore */
+    }
     try {
       await idbDel(name)
     } catch {
@@ -113,6 +141,10 @@ interface State {
 
   /** Waiting sales on THIS device — park one customer, serve the next. */
   parkedCarts: { id: string; lines: CartLine[]; discount: number; at: number }[]
+
+  // running costs & cashier shifts
+  expenses: Expense[]
+  shifts: Shift[]
 
   // staff & access
   staff: StaffMember[]
@@ -182,6 +214,15 @@ interface State {
   parkCart: (lines: CartLine[], discount: number) => void
   removeParkedCart: (id: string) => void
 
+  // expenses
+  addExpense: (e: Omit<Expense, 'id' | 'at' | 'byStaffName' | 'locationId'>) => void
+  removeExpense: (id: string) => void
+
+  // shifts
+  openShift: (openingCash: number) => void
+  /** Close the signed-in cashier's open shift at this branch; reconciles cash. */
+  closeShift: (countedCash: number) => Shift | null
+
   // customers
   addCustomer: (c: Omit<Customer, 'id' | 'createdAt'>) => Customer
   updateCustomer: (id: string, patch: Partial<Customer>) => void
@@ -230,6 +271,8 @@ function buildSeed() {
     suppliers: seedSuppliers(customers),
     supplierTxns: [] as SupplierTxn[],
     parkedCarts: [] as { id: string; lines: CartLine[]; discount: number; at: number }[],
+    expenses: [] as Expense[],
+    shifts: [] as Shift[],
     subscription: defaultSubscription(),
     reminderRule: defaultReminderRule,
     reminderLog: [] as ReminderLogEntry[],
@@ -457,6 +500,70 @@ export const useStore = create<State>()(
           return { products, supplierTxns: [...txns, ...s.supplierTxns] }
         }),
 
+      addExpense: (e) =>
+        set((s) => ({
+          expenses: [
+            {
+              ...e,
+              id: uid('exp_'),
+              at: Date.now(),
+              byStaffName: s.staff.find((m) => m.id === s.currentStaffId)?.name || 'Staff',
+              locationId: s.currentLocationId,
+            },
+            ...s.expenses,
+          ],
+        })),
+      removeExpense: (id) => set((s) => ({ expenses: s.expenses.filter((e) => e.id !== id) })),
+
+      openShift: (openingCash) =>
+        set((s) => {
+          const staff = s.staff.find((m) => m.id === s.currentStaffId)
+          if (!staff) return s
+          // One open shift per person per branch.
+          const already = s.shifts.some((sh) => sh.staffId === staff.id && sh.locationId === s.currentLocationId && !sh.closedAt)
+          if (already) return s
+          const shift: Shift = {
+            id: uid('shift_'),
+            staffId: staff.id,
+            staffName: staff.name,
+            locationId: s.currentLocationId,
+            openedAt: Date.now(),
+            openingCash: Math.max(0, openingCash || 0),
+          }
+          return { shifts: [shift, ...s.shifts] }
+        }),
+
+      closeShift: (countedCash) => {
+        const s = get()
+        const staff = s.staff.find((m) => m.id === s.currentStaffId)
+        if (!staff) return null
+        const open = s.shifts.find((sh) => sh.staffId === staff.id && sh.locationId === s.currentLocationId && !sh.closedAt)
+        if (!open) return null
+        // Everything this cashier rang up during the shift at this branch.
+        const mySales = s.sales.filter(
+          (x) => x.createdAt >= open.openedAt && x.cashierName === staff.name && (x.locationId ?? s.currentLocationId) === open.locationId,
+        )
+        const cashIn = mySales.reduce((a, x) => a + x.tenders.filter((t) => t.method === 'cash').reduce((b, t) => b + t.amount, 0), 0)
+        const cashExpenses = s.expenses
+          .filter((e) => e.at >= open.openedAt && e.byStaffName === staff.name && e.method === 'cash')
+          .reduce((a, e) => a + e.amount, 0)
+        const cashRefunds = s.returns
+          .filter((r) => r.at >= open.openedAt && r.byStaffName === staff.name && r.resolution === 'refund' && r.method === 'cash')
+          .reduce((a, r) => a + r.amount, 0)
+        const expectedCash = Math.round((open.openingCash + cashIn - cashExpenses - cashRefunds) * 100) / 100
+        const closed: Shift = {
+          ...open,
+          closedAt: Date.now(),
+          countedCash,
+          expectedCash,
+          variance: Math.round((countedCash - expectedCash) * 100) / 100,
+          totalSales: Math.round(mySales.reduce((a, x) => a + x.total, 0) * 100) / 100,
+          txCount: mySales.length,
+        }
+        set((st) => ({ shifts: st.shifts.map((sh) => (sh.id === open.id ? closed : sh)) }))
+        return closed
+      },
+
       parkCart: (lines, discount) =>
         set((s) => ({
           parkedCarts: [...s.parkedCarts, { id: uid('park_'), lines, discount, at: Date.now() }].slice(-10),
@@ -673,11 +780,13 @@ export const useStore = create<State>()(
           exchangeCredit: 0,
           suppliers: [],
           supplierTxns: [],
+          expenses: [],
+          shifts: [],
         }),
     }),
     {
       name: 'duka-pos-v1',
-      version: 3,
+      version: 4,
       migrate: (persisted, version) => {
         const s = persisted as Record<string, unknown> | undefined
         // v1 → v2: single-number stock becomes per-location stock; new
@@ -697,6 +806,12 @@ export const useStore = create<State>()(
         if (s && version < 3) {
           s.suppliers ??= []
           s.supplierTxns ??= []
+        }
+        // v3 → v4: expenses, shifts, parked carts.
+        if (s && version < 4) {
+          s.expenses ??= []
+          s.shifts ??= []
+          s.parkedCarts ??= []
         }
         return persisted as State
       },
@@ -766,6 +881,13 @@ export function selectCurrentStaff(state: State): StaffMember | undefined {
 
 export function selectCurrentLocation(state: State): BizLocation | undefined {
   return state.locations.find((l) => l.id === state.currentLocationId) ?? state.locations[0]
+}
+
+/** The signed-in cashier's open shift at this branch, if any. */
+export function selectOpenShift(state: State): Shift | undefined {
+  const staff = selectCurrentStaff(state)
+  if (!staff) return undefined
+  return state.shifts.find((sh) => sh.staffId === staff.id && sh.locationId === state.currentLocationId && !sh.closedAt)
 }
 
 /** What the shop still owes a supplier: deliveries − payments − credit notes. */

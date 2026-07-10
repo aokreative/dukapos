@@ -10,7 +10,7 @@
 // app simply stays local-only (no cloud section shown as connected).
 // ---------------------------------------------------------------------------
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-import type { BizLocation, Customer, Debt, Product, ReminderLogEntry, ReturnRecord, Sale, StaffMember, StockTransfer, Supplier, SupplierTxn } from '../types'
+import type { BizLocation, BusinessSettings, Customer, Debt, Expense, Product, ReminderLogEntry, ReturnRecord, Sale, Shift, StaffMember, StockTransfer, Supplier, SupplierTxn } from '../types'
 import { normalizeProduct } from './stock'
 
 const url = (import.meta.env.VITE_SUPABASE_URL as string | undefined) || ''
@@ -39,6 +39,11 @@ export interface SyncedState {
   returns: ReturnRecord[]
   suppliers: Supplier[]
   supplierTxns: SupplierTxn[]
+  expenses: Expense[]
+  shifts: Shift[]
+  /** Shop configuration — name, business type, payment details… (optional so
+   *  older cloud rows without it don't wipe a device's settings). */
+  settings?: BusinessSettings
 }
 
 /** Fill defaults & migrate legacy shapes on state coming from the cloud. */
@@ -56,6 +61,9 @@ export function normalizeSynced(s: Partial<SyncedState>): SyncedState {
     returns: s.returns ?? [],
     suppliers: s.suppliers ?? [],
     supplierTxns: s.supplierTxns ?? [],
+    expenses: s.expenses ?? [],
+    shifts: s.shifts ?? [],
+    settings: s.settings,
   }
 }
 
@@ -125,6 +133,19 @@ export function mergeState(local: SyncedState, remote: SyncedState, remoteIsNewe
     locations: lwwUnion(prefP.locations, otherP.locations),
     suppliers: lwwUnion(prefP.suppliers, otherP.suppliers),
     supplierTxns: unionAppendOnly(local.supplierTxns, remote.supplierTxns).sort((a, b) => b.at - a.at),
+    expenses: unionAppendOnly(local.expenses, remote.expenses).sort((a, b) => b.at - a.at),
+    // Shifts: union by id; a closed shift always beats its open version.
+    shifts: (() => {
+      const m = byId(local.shifts)
+      for (const sh of remote.shifts) {
+        const cur = m.get(sh.id)
+        if (!cur || (sh.closedAt && !cur.closedAt)) m.set(sh.id, sh)
+      }
+      return [...m.values()].sort((a, b) => b.openedAt - a.openedAt)
+    })(),
+    // Settings: whole-object last-writer-wins (shop config, not a list).
+    // Never let a cloud row without settings blank out this device's config.
+    settings: remoteIsNewer ? remote.settings ?? local.settings : local.settings ?? remote.settings,
     receiptCounter: Math.max(local.receiptCounter, remote.receiptCounter),
   }
 }

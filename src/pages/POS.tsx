@@ -87,7 +87,7 @@ export default function POS() {
           price,
           qty: 1,
           wholesale,
-          unit: features.units && p.unit && p.unit !== 'pc' ? p.unit : undefined,
+          unit: p.unit && p.unit !== 'pc' ? p.unit : undefined,
           warrantyMonths: features.warranty ? p.warrantyMonths : undefined,
         },
       ]
@@ -212,12 +212,15 @@ export default function POS() {
             const here = stockAt(p, locId)
             const tracked = p.trackStock !== false
             const low = tracked && here <= p.reorderLevel
-            const unitTag = features.units && p.unit && p.unit !== 'pc' ? `/${p.unit}` : ''
+            const unitTag = p.unit && p.unit !== 'pc' ? `/${p.unit}` : ''
             return (
               <button key={p.id} onClick={() => add(p)} className="card flex flex-col p-3 text-left transition active:scale-[0.97]">
-                <div className="flex-1">
-                  <div className="line-clamp-2 font-semibold text-brand-900 dark:text-white">{p.name}</div>
-                  <div className="mt-0.5 text-xs text-brand-900/40 dark:text-white/40">{p.category}</div>
+                <div className="flex flex-1 gap-2">
+                  {p.thumb && <img src={p.thumb} alt="" className="h-10 w-10 shrink-0 rounded-lg object-cover" />}
+                  <div className="min-w-0">
+                    <div className="line-clamp-2 font-semibold text-brand-900 dark:text-white">{p.name}</div>
+                    <div className="mt-0.5 text-xs text-brand-900/40 dark:text-white/40">{p.category}</div>
+                  </div>
                 </div>
                 <div className="mt-2 flex items-end justify-between">
                   <span className="font-black text-brand-700 dark:text-gold-400">

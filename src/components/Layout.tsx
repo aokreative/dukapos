@@ -18,10 +18,11 @@ import {
 import { useStore, selectTotalOwed, selectCurrentStaff, selectRole, selectCurrentLocation } from '../store/useStore'
 import { money } from '../lib/format'
 import { useOnline } from '../lib/useOnline'
-import { can, ROLE_LABEL, type Capability } from '../lib/permissions'
-import { bizLabels } from '../lib/labels'
-import { Building2, Truck } from 'lucide-react'
+import { canStaff, ROLE_LABEL, type Capability } from '../lib/permissions'
+import { bizLabels, getFeatures } from '../lib/labels'
+import { Building2, Truck, ReceiptText } from 'lucide-react'
 import { BillingBanner, Paywall, useBilling } from './Billing'
+import ShiftBar from './ShiftBar'
 
 const NAV: { to: string; label: string; icon: typeof ShoppingCart; cap?: Capability }[] = [
   { to: '/', label: 'Sell', icon: ShoppingCart },
@@ -30,6 +31,7 @@ const NAV: { to: string; label: string; icon: typeof ShoppingCart; cap?: Capabil
   { to: '/products', label: 'Stock', icon: Package, cap: 'manageStock' },
   { to: '/branches', label: 'Branches', icon: Building2, cap: 'transferStock' },
   { to: '/suppliers', label: 'Suppliers', icon: Truck, cap: 'receiveDeliveries' },
+  { to: '/expenses', label: 'Expenses', icon: ReceiptText, cap: 'recordExpenses' },
   { to: '/reports', label: 'Reports', icon: BarChart3, cap: 'viewReports' },
   { to: '/assistant', label: 'Duka AI', icon: Sparkles, cap: 'useAssistant' },
   { to: '/subscription', label: 'Billing', icon: CreditCard, cap: 'viewBilling' },
@@ -48,19 +50,22 @@ export default function Layout({ children }: { children: ReactNode }) {
   const role = useStore(selectRole)
   const currentStaff = useStore(selectCurrentStaff)
   const logout = useStore((s) => s.logout)
-  const labels = bizLabels(useStore((s) => s.settings.businessType))
+  const settings = useStore((s) => s.settings)
+  const labels = bizLabels(settings.businessType)
+  const features = getFeatures(settings)
   const location = useStore(selectCurrentLocation)
   const multiLoc = useStore((s) => s.locations.length > 1)
-  const nav = NAV.filter((n) => !n.cap || can(role, n.cap)).map((n) =>
-    n.to === '/products' ? { ...n, label: labels.stock } : n,
-  )
+  const currentStaffFull = useStore(selectCurrentStaff)
+  const nav = NAV.filter((n) => !n.cap || canStaff(currentStaffFull, n.cap))
+    .filter((n) => n.to !== '/branches' || features.branches)
+    .map((n) => (n.to === '/products' ? { ...n, label: labels.stock } : n))
 
   return (
     <div className="mx-auto flex min-h-full max-w-6xl flex-col md:flex-row">
       {/* Desktop side rail */}
       <aside className="sticky top-0 hidden h-screen w-56 shrink-0 flex-col border-r border-black/5 bg-white px-3 py-5 dark:border-white/10 dark:bg-brand-900 md:flex">
         <Brand shopName={shopName} />
-        {multiLoc && location && (
+        {features.branches && multiLoc && location && (
           <NavLink to="/branches" className="mt-2 flex items-center gap-1.5 rounded-lg bg-black/5 px-2.5 py-1.5 text-[11px] font-semibold text-brand-900/60 hover:bg-black/10 dark:bg-white/10 dark:text-white/60 dark:hover:bg-white/15">
             <Building2 size={12} /> At: {location.name}
           </NavLink>
@@ -118,6 +123,7 @@ export default function Layout({ children }: { children: ReactNode }) {
         </header>
 
         <BillingBanner />
+        <ShiftBar />
 
         {/* Content */}
         <main className="flex-1 px-4 pb-24 pt-4 md:px-8 md:pb-10" key={loc.pathname}>

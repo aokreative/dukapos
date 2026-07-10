@@ -16,20 +16,25 @@ export type BusinessType =
   | 'agrovet'
   | 'spices' // spices, herbs, cereals — anything weighed out
   | 'wholesale' // Kamukunji-style wholesale & distribution
+  | 'babyshop'
+  | 'autospares'
 
 /** Optional feature switches — presets set them per business type, and the
  *  owner can toggle any of them in Settings. Everything stays simple: a
  *  feature that's off never appears anywhere. */
 export interface FeatureFlags {
-  /** Sell by kg/g/litre/metre… with decimal quantities at the till. */
-  units: boolean
   /** Expiry dates on products + expiring-soon warnings (pharmacy, agrovet). */
   expiry: boolean
   /** Warranty months on products, printed on receipts (electronics, hardware). */
   warranty: boolean
   /** Second price tier that kicks in automatically at a minimum quantity. */
   wholesale: boolean
+  /** Branches & warehouse: hidden entirely for simple single-shop businesses. */
+  branches: boolean
 }
+// NOTE: selling by weight/measure (kg/g/L/m/…) is a CORE capability for every
+// business type — any item can be given a unit, e.g. an electronics shop sells
+// coaxial cable per metre AND as a full roll (two catalog entries).
 
 // Branches, warehouses & stock movement ---------------------------------------
 export type LocationType = 'branch' | 'warehouse'
@@ -117,6 +122,42 @@ export interface SupplierTxn {
   byStaffName: string
 }
 
+// Expenses ---------------------------------------------------------------------
+/** A running cost: electricity tokens, tissue, tape, receipt rolls, rent… */
+export interface Expense {
+  id: string
+  name: string
+  amount: number
+  category: string
+  method: PaymentMethod
+  note?: string
+  at: number
+  byStaffName: string
+  locationId: string
+}
+
+// Shifts (cash at hand → close desk) --------------------------------------------
+/** One cashier's working session at a branch: opens with the float ("cash at
+ *  hand"), closes with a count — sales & expected cash are reconciled. */
+export interface Shift {
+  id: string
+  staffId: string
+  staffName: string
+  locationId: string
+  openedAt: number
+  /** The float the cashier starts the day/shift with. */
+  openingCash: number
+  closedAt?: number
+  /** What the cashier counted in the drawer at close. */
+  countedCash?: number
+  /** openingCash + cash taken during the shift (computed at close). */
+  expectedCash?: number
+  /** countedCash − expectedCash (negative = short). */
+  variance?: number
+  totalSales?: number
+  txCount?: number
+}
+
 export type ReturnResolution = 'refund' | 'exchange'
 
 /** A customer bringing goods back — refunded or exchanged; stock goes back in. */
@@ -147,6 +188,10 @@ export interface StaffMember {
   phone?: string
   active: boolean
   createdAt: number
+  /** Extra permissions granted by the OWNER on top of the role — lets a
+   * trusted manager run the business owner-style. The owner account itself
+   * can never be edited, paused or removed by anyone else. */
+  extraCaps?: string[]
 }
 
 export interface Product {
@@ -156,6 +201,8 @@ export interface Product {
   category: string
   price: number // selling price, KES
   cost: number // buying price, KES (for profit)
+  /** Brand/make, e.g. HikVision, Panadol, Simba Cement. */
+  brand?: string
   /** Units on hand per location id (branches + warehouses). */
   stockByLocation: Record<string, number>
   reorderLevel: number
@@ -171,6 +218,8 @@ export interface Product {
   expiryDate?: string
   /** Printed on the receipt for electronics/hardware. */
   warrantyMonths?: number
+  /** Tiny product photo (compressed data URL, ~64px) shown at the till. */
+  thumb?: string
 }
 
 export interface Customer {

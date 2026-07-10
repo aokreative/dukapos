@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Search, PackagePlus, Pencil, Plus, Minus, AlertTriangle, Trash2, MapPin, Copy, CalendarClock } from 'lucide-react'
+import { Search, PackagePlus, Pencil, Plus, Minus, AlertTriangle, Trash2, MapPin, Copy, CalendarClock, Image as ImageIcon } from 'lucide-react'
 import { useStore, selectCurrentLocation } from '../store/useStore'
 import { money } from '../lib/format'
 import { PageHeader, Modal, Badge, EmptyState } from '../components/ui'
@@ -8,6 +8,29 @@ import { bizLabels, getFeatures, UNITS } from '../lib/labels'
 import type { FeatureFlags, Product } from '../types'
 
 const DAY = 24 * 60 * 60 * 1000
+
+/** Downscale a photo to a tiny thumbnail (≈72px JPEG data URL, a few KB) so
+ *  product images stay fast and sync-friendly. */
+export function shrinkImage(file: File): Promise<string> {
+  return new Promise((resolve) => {
+    const img = new Image()
+    const url = URL.createObjectURL(file)
+    img.onload = () => {
+      const size = 72
+      const canvas = document.createElement('canvas')
+      canvas.width = size
+      canvas.height = size
+      const ctx = canvas.getContext('2d')!
+      // cover-crop to square
+      const s = Math.min(img.width, img.height)
+      ctx.drawImage(img, (img.width - s) / 2, (img.height - s) / 2, s, s, 0, 0, size, size)
+      URL.revokeObjectURL(url)
+      resolve(canvas.toDataURL('image/jpeg', 0.6))
+    }
+    img.onerror = () => resolve('')
+    img.src = url
+  })
+}
 /** 'expired' | 'soon' (≤90 days) | null */
 function expiryState(p: Product): 'expired' | 'soon' | null {
   if (!p.expiryDate) return null
@@ -97,6 +120,13 @@ export default function Products() {
             const exp = features.expiry ? expiryState(p) : null
             return (
               <div key={p.id} className="card flex items-center gap-3 p-3">
+                {p.thumb ? (
+                  <img src={p.thumb} alt="" className="h-10 w-10 shrink-0 rounded-lg object-cover" />
+                ) : (
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-xs font-black text-brand-600 dark:bg-white/10 dark:text-gold-400">
+                    {p.name.charAt(0).toUpperCase()}
+                  </div>
+                )}
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <span className="truncate font-semibold text-brand-900 dark:text-white">{p.name}</span>
@@ -106,8 +136,8 @@ export default function Products() {
                     {p.trackStock === false && <Badge color="amber">no stock count</Badge>}
                   </div>
                   <div className="text-xs text-brand-900/50 dark:text-white/50">
-                    {p.category} · SKU {p.sku} · {money(p.price, currency)}
-                    {features.units && p.unit && p.unit !== 'pc' ? `/${p.unit}` : ''}
+                    {p.brand ? `${p.brand} · ` : ''}{p.category}{p.sku ? ` · SKU ${p.sku}` : ''} · {money(p.price, currency)}
+                    {p.unit && p.unit !== 'pc' ? `/${p.unit}` : ''}
                     {features.wholesale && p.wholesalePrice ? ` · WS ${money(p.wholesalePrice, currency)}@${p.wholesaleMinQty ?? 12}+` : ''}
                     {locations.length > 1 && elsewhere > 0 && p.trackStock !== false && (
                       <span className="ml-1 inline-flex items-center gap-0.5 text-brand-600 dark:text-gold-400"><MapPin size={10} /> +{elsewhere} elsewhere</span>
@@ -206,6 +236,8 @@ function ProductForm({
     reorderLevel: number
     trackStock: boolean
     unit?: string
+    thumb?: string
+    brand?: string
     wholesalePrice?: number
     wholesaleMinQty?: number
     expiryDate?: string
@@ -222,6 +254,11 @@ function ProductForm({
   const [reorderLevel, setReorder] = useState<number>(product?.reorderLevel ?? 5)
   const [trackStock, setTrackStock] = useState<boolean>(product?.trackStock !== false)
   const [unit, setUnit] = useState<string>(product?.unit ?? 'pc')
+  const [thumb, setThumb] = useState<string>(product?.thumb ?? '')
+  const [brand, setBrand] = useState<string>(product?.brand ?? '')
+  const all = useStore((s) => s.products)
+  const existingCategories = useMemo(() => [...new Set(all.map((p) => p.category).filter(Boolean))].sort(), [all])
+  const existingBrands = useMemo(() => [...new Set(all.map((p) => p.brand).filter((b): b is string => !!b))].sort(), [all])
   const [wholesalePrice, setWholesalePrice] = useState<number>(product?.wholesalePrice ?? 0)
   const [wholesaleMinQty, setWholesaleMinQty] = useState<number>(product?.wholesaleMinQty ?? 12)
   const [expiryDate, setExpiryDate] = useState<string>(product?.expiryDate ?? '')
@@ -241,9 +278,23 @@ function ProductForm({
             <input className="input" value={sku} onChange={(e) => setSku(e.target.value)} placeholder="6001" />
           </div>
           <div>
-            <label className="label">Category</label>
-            <input className="input" value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Groceries" />
+            <label className="label">Brand (optional)</label>
+            <input className="input" list="duka-brands" value={brand} onChange={(e) => setBrand(e.target.value)} placeholder="e.g. HikVision" />
+            <datalist id="duka-brands">
+              {existingBrands.map((b) => (
+                <option key={b} value={b} />
+              ))}
+            </datalist>
           </div>
+        </div>
+        <div>
+          <label className="label">Category (pick one or type a new one)</label>
+          <input className="input" list="duka-categories" value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Groceries" />
+          <datalist id="duka-categories">
+            {existingCategories.map((c) => (
+              <option key={c} value={c} />
+            ))}
+          </datalist>
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
@@ -255,21 +306,46 @@ function ProductForm({
             <input className="input" inputMode="decimal" value={cost || ''} onChange={(e) => setCost(parseFloat(e.target.value) || 0)} />
           </div>
         </div>
-        {features.units && (
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="label">Sold by</label>
-              <select className="input" value={unit} onChange={(e) => setUnit(e.target.value)}>
-                {UNITS.map((u) => (
-                  <option key={u} value={u}>{u === 'pc' ? 'piece (pc)' : u}</option>
-                ))}
-              </select>
-            </div>
-            <div className="self-end pb-2 text-xs text-brand-900/40 dark:text-white/40">
-              {unit !== 'pc' ? `Price is per ${unit}; the till accepts decimals (e.g. 0.5 ${unit}).` : 'Whole pieces at the till.'}
-            </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="label">Sold by</label>
+            <select className="input" value={unit} onChange={(e) => setUnit(e.target.value)}>
+              {UNITS.map((u) => (
+                <option key={u} value={u}>{u === 'pc' ? 'piece (pc)' : u}</option>
+              ))}
+            </select>
           </div>
-        )}
+          <div className="self-end pb-2 text-xs text-brand-900/40 dark:text-white/40">
+            {unit !== 'pc' ? `Price is per ${unit}; the till accepts decimals (e.g. 0.5 ${unit}).` : 'Whole pieces at the till. Sell by kg/m/L by picking a unit.'}
+          </div>
+        </div>
+        <div>
+          <label className="label">Photo (optional)</label>
+          <div className="flex items-center gap-3">
+            {thumb ? (
+              <img src={thumb} alt="" className="h-12 w-12 rounded-lg object-cover" />
+            ) : (
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-black/5 text-brand-900/30 dark:bg-white/10 dark:text-white/30">
+                <ImageIcon size={18} />
+              </div>
+            )}
+            <label className="btn-ghost cursor-pointer py-2 text-sm">
+              {thumb ? 'Change photo' : 'Add photo'}
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={async (e) => {
+                  const f = e.target.files?.[0]
+                  if (f) setThumb(await shrinkImage(f))
+                }}
+              />
+            </label>
+            {thumb && (
+              <button className="text-xs text-red-500 underline" onClick={() => setThumb('')}>remove</button>
+            )}
+          </div>
+        </div>
         {features.wholesale && (
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -334,7 +410,9 @@ function ProductForm({
               stock,
               reorderLevel,
               trackStock,
-              unit: features.units && unit !== 'pc' ? unit : undefined,
+              unit: unit !== 'pc' ? unit : undefined,
+              thumb: thumb || undefined,
+              brand: brand.trim() || undefined,
               wholesalePrice: features.wholesale && wholesalePrice > 0 ? wholesalePrice : undefined,
               wholesaleMinQty: features.wholesale && wholesalePrice > 0 ? wholesaleMinQty || 12 : undefined,
               expiryDate: features.expiry && expiryDate ? expiryDate : undefined,

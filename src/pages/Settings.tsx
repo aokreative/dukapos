@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react'
-import { Store, Smartphone, MessageSquareText, Database, RotateCcw, Trash2, Check, Users, UserPlus, Pencil, Cloud, CloudOff, LogOut, UtensilsCrossed } from 'lucide-react'
+import { Store, Smartphone, MessageSquareText, Database, RotateCcw, Trash2, Check, Users, UserPlus, Pencil, Cloud, CloudOff, LogOut, UtensilsCrossed, FileSpreadsheet } from 'lucide-react'
+import { importProductsCSV, importCustomersCSV, downloadCSV, productsToCSV, customersToCSV, salesToCSV } from '../lib/csv'
+import { totalStock } from '../lib/stock'
+import { demoProductsFor, demoProductsWithIds } from '../lib/demo'
 import { supabase, cloudConfigured } from '../lib/cloud'
 import { useStore } from '../store/useStore'
 import { PageHeader, Modal, Badge } from '../components/ui'
 import { DEFAULT_TEMPLATE, buildReminderMessage } from '../lib/reminders'
 import { displayPhone, normalizePhone } from '../lib/format'
-import { ROLE_LABEL, ROLE_BLURB } from '../lib/permissions'
+import { ROLE_LABEL, ROLE_BLURB, GRANTABLE, CAP_LABEL } from '../lib/permissions'
 import { BUSINESS_TYPE_LABEL, PRESET_FEATURES, FEATURE_LABEL, getFeatures } from '../lib/labels'
 import type { BusinessSettings, BusinessType, Customer, Debt, FeatureFlags, Role, StaffMember } from '../types'
 
@@ -18,6 +21,7 @@ export default function Settings() {
   const [confirmReset, setConfirmReset] = useState(false)
   const [confirmClear, setConfirmClear] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [demoOffer, setDemoOffer] = useState<BusinessType | null>(null)
 
   function set<K extends keyof BusinessSettings>(key: K, value: BusinessSettings[K]) {
     updateSettings({ [key]: value })
@@ -41,7 +45,10 @@ export default function Settings() {
             {(Object.keys(BUSINESS_TYPE_LABEL) as BusinessType[]).map((t) => (
               <button
                 key={t}
-                onClick={() => updateSettings({ businessType: t, features: PRESET_FEATURES[t] })}
+                onClick={() => {
+                  updateSettings({ businessType: t, features: PRESET_FEATURES[t] })
+                  if (demoProductsFor(t)) setDemoOffer(t)
+                }}
                 className={`chip justify-center py-2.5 text-center text-xs sm:text-sm ${(settings.businessType ?? 'shop') === t ? 'bg-brand-600 text-white' : 'bg-black/5 text-brand-900/70 dark:bg-white/10 dark:text-white/70'}`}
               >
                 {t === 'restaurant' ? <UtensilsCrossed size={13} /> : <Store size={13} />} {BUSINESS_TYPE_LABEL[t]}
@@ -175,6 +182,9 @@ export default function Settings() {
         </p>
       </Section>
 
+      {/* QuickBooks / CSV import-export */}
+      <ImportExportSection />
+
       {/* Data */}
       <Section icon={<Database size={18} />} title="Data">
         <p className="-mt-1 mb-2 text-sm text-brand-900/50 dark:text-white/50">Everything is stored on this device and works offline.</p>
@@ -189,6 +199,28 @@ export default function Settings() {
       </Section>
 
       <p className="py-6 text-center text-xs text-brand-900/40 dark:text-white/40">Duka POS · works offline · built for Kenyan shops</p>
+
+      {demoOffer && (
+        <Modal open onClose={() => setDemoOffer(null)} title={`Load ${BUSINESS_TYPE_LABEL[demoOffer]} sample products?`}>
+          <p className="text-sm text-brand-900/70 dark:text-white/70">
+            Perfect for demos: replaces the current product list with realistic {BUSINESS_TYPE_LABEL[demoOffer].toLowerCase()} items
+            (with brands, categories, prices{demoOffer === 'electronics' ? ', warranties, per-metre cables' : ''}). Sales, customers and debts are kept.
+          </p>
+          <div className="mt-4 flex gap-2">
+            <button className="btn-ghost flex-1" onClick={() => setDemoOffer(null)}>Keep my products</button>
+            <button
+              className="btn-primary flex-1"
+              onClick={() => {
+                const demo = demoProductsWithIds(demoOffer)
+                if (demo) useStore.setState({ products: demo })
+                setDemoOffer(null)
+              }}
+            >
+              Load samples
+            </button>
+          </div>
+        </Modal>
+      )}
 
       <Modal open={confirmReset} onClose={() => setConfirmReset(false)} title="Reset demo data?">
         <p className="text-sm text-brand-900/70 dark:text-white/70">This replaces current products, customers and debts with the starter demo set.</p>
@@ -206,6 +238,61 @@ export default function Settings() {
         </div>
       </Modal>
     </div>
+  )
+}
+
+/** QuickBooks-friendly CSV import & export — switch from QuickBooks in a minute. */
+function ImportExportSection() {
+  const products = useStore((s) => s.products)
+  const customers = useStore((s) => s.customers)
+  const sales = useStore((s) => s.sales)
+  const addProduct = useStore((s) => s.addProduct)
+  const updateProduct = useStore((s) => s.updateProduct)
+  const addCustomer = useStore((s) => s.addCustomer)
+  const currentLocationId = useStore((s) => s.currentLocationId)
+  const [msg, setMsg] = useState('')
+
+  async function onProductsFile(f: File) {
+    const text = await f.text()
+    const { result, toAdd, toUpdate } = importProductsCSV(text, products, currentLocationId)
+    toAdd.forEach((p) => addProduct(p))
+    toUpdate.forEach((u) => updateProduct(u.id, u.patch))
+    setMsg(`Products: ${result.added} added, ${result.updated} updated, ${result.skipped} skipped (duplicates/empty).`)
+  }
+  async function onCustomersFile(f: File) {
+    const text = await f.text()
+    const { result, toAdd } = importCustomersCSV(text, customers)
+    toAdd.forEach((c) => addCustomer(c))
+    setMsg(`Customers: ${result.added} added, ${result.skipped} skipped (duplicates/empty).`)
+  }
+
+  return (
+    <Section icon={<FileSpreadsheet size={18} />} title="QuickBooks / CSV import & export">
+      <p className="-mt-1 mb-2 text-sm text-brand-900/50 dark:text-white/50">
+        Moving from QuickBooks? Export your products & customers there as CSV and import them here —
+        cleaned and de-duplicated automatically. Exports below open in Excel and import into QuickBooks.
+      </p>
+      <div className="grid grid-cols-2 gap-2">
+        <label className="btn-ghost cursor-pointer justify-center py-2 text-sm">
+          Import products CSV
+          <input type="file" accept=".csv,text/csv" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void onProductsFile(f); e.target.value = '' }} />
+        </label>
+        <label className="btn-ghost cursor-pointer justify-center py-2 text-sm">
+          Import customers CSV
+          <input type="file" accept=".csv,text/csv" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void onCustomersFile(f); e.target.value = '' }} />
+        </label>
+        <button className="btn-ghost justify-center py-2 text-sm" onClick={() => downloadCSV('duka-products.csv', productsToCSV(products, (p) => totalStock(p)))}>
+          Export products
+        </button>
+        <button className="btn-ghost justify-center py-2 text-sm" onClick={() => downloadCSV('duka-customers.csv', customersToCSV(customers))}>
+          Export customers
+        </button>
+        <button className="btn-ghost col-span-2 justify-center py-2 text-sm" onClick={() => downloadCSV('duka-sales.csv', salesToCSV(sales, (id) => customers.find((c) => c.id === id)?.name ?? ''))}>
+          Export all sales (for QuickBooks / accountant)
+        </button>
+      </div>
+      {msg && <p className="mt-2 rounded-xl bg-green-50 px-3 py-2 text-sm font-medium text-green-800 dark:bg-green-500/10 dark:text-green-300">{msg}</p>}
+    </Section>
   )
 }
 
@@ -312,6 +399,7 @@ function StaffSection() {
   const [editing, setEditing] = useState<StaffMember | null>(null)
   const [creating, setCreating] = useState(false)
 
+  const viewerIsOwner = staff.find((m) => m.id === currentStaffId)?.role === 'owner'
   const roleColor: Record<Role, 'gold' | 'blue' | 'gray'> = { owner: 'gold', manager: 'blue', cashier: 'gray' }
 
   return (
@@ -342,9 +430,13 @@ function StaffSection() {
               </div>
               <div className="text-xs text-brand-900/50 dark:text-white/50">{ROLE_BLURB[m.role]}</div>
             </div>
-            <button className="rounded-lg p-2 text-brand-900/50 hover:bg-black/5 dark:text-white/50 dark:hover:bg-white/10" onClick={() => setEditing(m)}>
-              <Pencil size={16} />
-            </button>
+            {/* The owner account can never be edited/paused/removed by anyone
+                but an owner — a manager, however empowered, cannot touch it. */}
+            {(viewerIsOwner || m.role !== 'owner') && (
+              <button className="rounded-lg p-2 text-brand-900/50 hover:bg-black/5 dark:text-white/50 dark:hover:bg-white/10" onClick={() => setEditing(m)}>
+                <Pencil size={16} />
+              </button>
+            )}
           </div>
         ))}
       </div>
@@ -353,6 +445,7 @@ function StaffSection() {
         <StaffForm
           member={editing}
           isSelf={editing?.id === currentStaffId}
+          viewerIsOwner={viewerIsOwner}
           onClose={() => {
             setCreating(false)
             setEditing(null)
@@ -380,22 +473,30 @@ function StaffSection() {
 function StaffForm({
   member,
   isSelf,
+  viewerIsOwner,
   onClose,
   onSave,
   onDelete,
 }: {
   member: StaffMember | null
   isSelf: boolean
+  viewerIsOwner: boolean
   onClose: () => void
-  onSave: (data: { name: string; role: Role; pin: string; active: boolean }) => void
+  onSave: (data: { name: string; role: Role; pin: string; active: boolean; extraCaps?: string[] }) => void
   onDelete?: () => void
 }) {
   const [name, setName] = useState(member?.name ?? '')
   const [role, setRole] = useState<Role>(member?.role ?? 'cashier')
   const [pin, setPin] = useState(member?.pin ?? '')
   const [active, setActive] = useState(member?.active ?? true)
+  const [extraCaps, setExtraCaps] = useState<string[]>(member?.extraCaps ?? [])
   const validPin = /^\d{4,6}$/.test(pin)
   const valid = name.trim() && validPin
+  // Only the owner can hand out extra powers, and never to another owner
+  // (owners already have everything). This is how a manager gets owner-like
+  // rights without ever being able to overrule or suspend the owner.
+  const showGrants = viewerIsOwner && role !== 'owner'
+  const toggleCap = (c: string) => setExtraCaps((cs) => (cs.includes(c) ? cs.filter((x) => x !== c) : [...cs, c]))
 
   return (
     <Modal open onClose={onClose} title={member ? 'Edit staff member' : 'New staff member'}>
@@ -427,9 +528,30 @@ function StaffForm({
         </div>
         {member && (
           <label className="flex items-center justify-between rounded-xl bg-black/5 px-3 py-3 dark:bg-white/10">
-            <span className="text-sm font-medium text-brand-900 dark:text-white">Active (can log in)</span>
+            <span className="text-sm font-medium text-brand-900 dark:text-white">Active (can log in) <span className="text-brand-900/50 dark:text-white/50">— uncheck to pause when on leave</span></span>
             <input type="checkbox" className="h-5 w-5 accent-brand-600" checked={active} disabled={isSelf} onChange={(e) => setActive(e.target.checked)} />
           </label>
+        )}
+        {showGrants && (
+          <div>
+            <label className="label">Extra permissions (grant owner-style powers)</label>
+            <p className="-mt-1 mb-2 text-xs text-brand-900/50 dark:text-white/50">
+              Give this {ROLE_LABEL[role].toLowerCase()} access beyond their role. A manager with all of these runs the shop like you —
+              but can never edit, pause or remove the owner.
+            </p>
+            <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+              {GRANTABLE.map((c) => (
+                <label key={c} className="flex items-center gap-2 rounded-lg bg-black/5 px-2.5 py-2 text-sm dark:bg-white/10">
+                  <input type="checkbox" className="h-4 w-4 accent-brand-600" checked={extraCaps.includes(c)} onChange={() => toggleCap(c)} />
+                  <span className="text-brand-900 dark:text-white">{CAP_LABEL[c]}</span>
+                </label>
+              ))}
+            </div>
+            <div className="mt-2 flex gap-3 text-xs font-semibold">
+              <button className="text-brand-600 dark:text-gold-400" onClick={() => setExtraCaps([...GRANTABLE])}>Grant all (run like owner)</button>
+              <button className="text-brand-900/50 dark:text-white/50" onClick={() => setExtraCaps([])}>Clear</button>
+            </div>
+          </div>
         )}
       </div>
       <div className="mt-5 flex gap-2">
@@ -438,7 +560,7 @@ function StaffForm({
             <Trash2 size={18} />
           </button>
         )}
-        <button className="btn-primary flex-1" disabled={!valid} onClick={() => onSave({ name: name.trim(), role, pin, active })}>
+        <button className="btn-primary flex-1" disabled={!valid} onClick={() => onSave({ name: name.trim(), role, pin, active, extraCaps: role === 'owner' ? undefined : extraCaps })}>
           Save
         </button>
       </div>

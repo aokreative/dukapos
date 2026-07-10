@@ -23,6 +23,9 @@ function pickSlice(): SyncedState {
     returns: s.returns,
     suppliers: s.suppliers,
     supplierTxns: s.supplierTxns,
+    expenses: s.expenses,
+    shifts: s.shifts,
+    settings: s.settings,
   }
 }
 
@@ -68,6 +71,8 @@ export function useCloudSync() {
         const merged = mergeState(pickSlice(), normalizeSynced(remote), remoteIsNewer)
         // Never let an empty cloud locations list wipe this device's branches.
         if (!merged.locations.length) merged.locations = useStore.getState().locations
+        // Never blank out shop settings from a row that didn't carry them.
+        if (!merged.settings) merged.settings = useStore.getState().settings
         version.current = Math.max(version.current, remoteVersion)
         useStore.setState(merged)
       } finally {
