@@ -104,24 +104,66 @@ export async function checkPayment(checkoutId: string): Promise<{ status: 'pendi
  * should be produced locally instead (no backend, or AI key not configured).
  * `history` carries the conversation so follow-up questions make sense.
  */
+export interface AssistantReply {
+  answer: string | null
+  /** Set when the backend declined: 'addon' (AI not on this plan) or 'quota'. */
+  locked?: 'addon' | 'quota'
+  detail?: string
+}
+
 export async function askAssistant(
   question: string,
   context: unknown,
   history?: { role: 'user' | 'ai'; text: string }[],
-): Promise<string | null> {
-  if (!BASE) return null
+  opts?: { tenantId?: string; persona?: 'manager' | 'cashier' },
+): Promise<AssistantReply> {
+  if (!BASE) return { answer: null }
   try {
     const res = await fetch(`${BASE}/api/ai/ask`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ question, context, history }),
+      body: JSON.stringify({ question, context, history, tenantId: opts?.tenantId, persona: opts?.persona }),
+    })
+    if (!res.ok) return { answer: null }
+    const data = await res.json()
+    if (data.locked) return { answer: null, locked: data.reason, detail: data.detail }
+    if (data.simulated || !data.answer) return { answer: null }
+    return { answer: data.answer as string }
+  } catch {
+    return { answer: null }
+  }
+}
+
+// --- M-PESA prompt at the till (customer purchase) --------------------------
+
+/** Prompt a customer's phone to pay for a sale. Returns a checkoutId to poll. */
+export async function mpesaCollect(phone: string, amount: number, reference?: string): Promise<{ checkoutId: string; simulated: boolean } | null> {
+  if (!BASE) {
+    await wait(1500)
+    return { checkoutId: fakeRef('ws_CO_'), simulated: true }
+  }
+  try {
+    const res = await fetch(`${BASE}/api/mpesa/collect`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ phone, amount, reference }),
     })
     if (!res.ok) return null
     const data = await res.json()
-    if (data.simulated || !data.answer) return null
-    return data.answer as string
+    return { checkoutId: data.checkoutId, simulated: !!data.simulated }
   } catch {
     return null
+  }
+}
+
+export async function mpesaCollectStatus(checkoutId: string): Promise<'pending' | 'success' | 'failed'> {
+  if (!BASE) return 'success'
+  try {
+    const res = await fetch(`${BASE}/api/mpesa/collect/status/${encodeURIComponent(checkoutId)}`)
+    if (!res.ok) return 'pending'
+    return (await res.json()).status
+  } catch {
+    return 'pending'
   }
 }
 

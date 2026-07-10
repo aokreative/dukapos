@@ -1,61 +1,80 @@
-// Duka AI — the in-POS assistant, powered by Claude.
-// The app sends a question plus a compact snapshot of the shop's numbers
-// (today's sales, debts, low stock...). We ask Claude and return the answer.
-// Without ANTHROPIC_API_KEY the endpoint reports configured:false and the
-// app answers locally with its built-in rules — the feature always works.
+// Duka AI — the in-POS assistant, powered by Google Gemini (gemini-2.5-flash).
+// Migrated from Anthropic to the modern Google Gen AI SDK (@google/genai) for
+// speed and unit economics. The app sends a question plus a compact snapshot
+// of the shop's numbers; we ask Gemini and return the answer. Without a key the
+// endpoint reports configured:false and the app answers locally — always works.
+//
+// The API key is read from the environment (GEMINI_API_KEY or GOOGLE_API_KEY)
+// and NEVER hardcoded. Set it on the server (Render → Environment).
+import { GoogleGenAI } from '@google/genai'
 
-const API_KEY = process.env.ANTHROPIC_API_KEY || ''
-const MODEL = process.env.AI_MODEL || 'claude-opus-4-8'
+const API_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || ''
+// "gemini-flash-latest" is Google's maintained alias for the current fast/cheap
+// Flash model — always available and always current. Override with AI_MODEL.
+const MODEL = process.env.AI_MODEL || 'gemini-flash-latest'
 
+let client = null
 export function aiConfigured() {
   return !!API_KEY
 }
+function genai() {
+  if (!aiConfigured()) return null
+  if (!client) client = new GoogleGenAI({ apiKey: API_KEY })
+  return client
+}
 
-const SYSTEM = `You are Duka AI, the assistant inside Duka POS — a point-of-sale app for Kenyan shops.
-You help the shopkeeper understand their business and answer ANY question about it: sales, profit, debts (mkopo), stock, customers, suppliers, staff performance, branches, returns — and combinations of these.
+// Two personas. The AI MANAGER persona (owner/manager) emphasises operational
+// visibility — comparing branches, flagging overdue balances, stock turnaround —
+// in a digestible, actionable format, not dry accounting jargon. The CASHIER
+// persona is strictly limited to stock availability and customer debts.
+const SYSTEM_MANAGER = `You are Duka AI, the business manager's assistant inside Duka POS — a point-of-sale app for Kenyan shops.
+Speak to the OWNER/MANAGER. Give clear operational visibility, not accounting jargon.
 Rules:
-- Be brief and practical. Short sentences. No jargon.
-- Use the shop snapshot JSON provided with each question; it is the truth about the business. Amounts are KES.
-- The snapshot is comprehensive: recentSales (who bought what, when, served by which cashier), catalog (all items with prices, costs & stock), customersDetail (what each customer owes the shop, what the shop owes THEM when they are also a supplier, buying habits, payment promptness), buyersByProduct, suppliersOwed, staffNames, locations (branches & warehouse), recentTransfers and recentReturns. Cross-reference freely — comparisons, trends, "who/what/when" questions, and follow-ups are all fair game.
-- Do arithmetic carefully. If a precise answer needs data outside the snapshot (e.g. older than the recent lists), say so and give the best available answer.
-- A little friendly Kiswahili is welcome (e.g. "Asante", "mkopo") but keep answers in simple English.`
+- Be brief, practical and action-oriented. Short sentences. Amounts are KES.
+- Use the shop snapshot JSON as the single source of truth. It includes recentSales, catalog (prices/cost/stock), customersDetail (balances both ways, buying habits, payment promptness), buyersByProduct, suppliersOwed, staffNames, locations, recentTransfers, recentReturns, and a day close view.
+- Highlight what matters: compare branch performance, flag overdue debtors, call out slow/fast-moving stock, expiring items, and margins. Suggest the next action.
+- Do arithmetic carefully. If precise data is outside the snapshot, say so and give the best available answer.
+- A little friendly Kiswahili is welcome ("Asante", "mkopo") but answer in simple English.`
+
+const SYSTEM_CASHIER = `You are Duka AI, the cashier's helper inside Duka POS.
+You may ONLY discuss stock availability, what is low or expiring, and which customers owe the shop money (mkopo).
+You must NEVER reveal profit, margins, revenue totals, other cashiers' sales, or any branch's performance — that is for the owner and manager only. If asked, politely refuse and offer stock or debt help instead.
+Be brief and friendly. Amounts are KES. A little Kiswahili is welcome.`
 
 /**
- * Ask Claude a question about the shop.
- * context: the shop snapshot; history: prior chat turns for follow-ups.
+ * Ask Gemini a question about the shop.
+ * @param question  the shopkeeper's question
+ * @param context   the shop snapshot (already stripped by role on the client;
+ *                  a cashier snapshot has `restricted:true` and no profit data)
+ * @param history   prior chat turns for follow-ups
+ * @param persona   'cashier' locks the model to the limited persona
  */
-export async function askAI({ question, context, history }) {
-  if (!aiConfigured()) return { configured: false }
-  const messages = []
+export async function askAI({ question, context, history, persona }) {
+  const ai = genai()
+  if (!ai) return { configured: false }
+
+  const restricted = persona === 'cashier' || context?.restricted === true
+  const systemInstruction = restricted ? SYSTEM_CASHIER : SYSTEM_MANAGER
+
+  // Build multi-turn contents (Gemini roles: 'user' | 'model').
+  const contents = []
   for (const h of (history || []).slice(-10)) {
-    if (h && h.text) messages.push({ role: h.role === 'ai' ? 'assistant' : 'user', content: String(h.text).slice(0, 2000) })
+    if (h && h.text) contents.push({ role: h.role === 'ai' ? 'model' : 'user', parts: [{ text: String(h.text).slice(0, 2000) }] })
   }
-  messages.push({
+  contents.push({
     role: 'user',
-    content: `Shop snapshot (JSON):\n${JSON.stringify(context || {}, null, 1)}\n\nQuestion: ${question}`,
+    parts: [{ text: `Shop snapshot (JSON):\n${JSON.stringify(context || {}, null, 1)}\n\nQuestion: ${question}` }],
   })
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      'x-api-key': API_KEY,
-      'anthropic-version': '2023-06-01',
+
+  const response = await ai.models.generateContent({
+    model: MODEL,
+    contents,
+    config: {
+      systemInstruction,
+      maxOutputTokens: 800,
+      temperature: 0.3,
     },
-    body: JSON.stringify({
-      model: MODEL,
-      max_tokens: 800,
-      system: SYSTEM,
-      messages,
-    }),
   })
-  const data = await res.json().catch(() => ({}))
-  if (!res.ok) {
-    throw new Error(data?.error?.message || `AI request failed: HTTP ${res.status}`)
-  }
-  const answer = (data.content || [])
-    .filter((b) => b.type === 'text')
-    .map((b) => b.text)
-    .join('\n')
-    .trim()
+  const answer = (response.text || '').trim()
   return { configured: true, answer: answer || 'I could not produce an answer — please try rephrasing.' }
 }

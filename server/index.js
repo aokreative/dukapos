@@ -24,6 +24,7 @@ import { stkPush, mpesaConfigured } from './lib/mpesa.js'
 import { airtelPush, airtelStatus, airtelConfigured } from './lib/airtel.js'
 import { etimsSubmitSale, etimsConfigured } from './lib/etims.js'
 import { askAI, aiConfigured } from './lib/ai.js'
+import { gate as aiGate, record as aiRecord, meterSummary, DEFAULT_DAILY_QUOTA } from './lib/aimeter.js'
 import { priceFor } from './lib/plans.js'
 import {
   initSubscriptions,
@@ -32,6 +33,8 @@ import {
   getTenant,
   findByPhone,
   renew,
+  applyPayment,
+  setAiAddon,
   publicView,
   allTenants,
   simulateAge,
@@ -70,7 +73,7 @@ app.get('/api/health', (_req, res) => {
       mpesa: mpesaConfigured() ? 'live' : 'simulation',
       airtel: airtelConfigured() ? 'live' : 'simulation',
       etims: etimsConfigured() ? 'live' : 'simulation',
-      ai: aiConfigured() ? 'live' : 'local rules',
+      ai: aiConfigured() ? `live (${process.env.AI_MODEL || 'gemini-flash-latest'})` : 'local rules',
     },
     storage: storeKind(),
     billing: 'auto-charge scheduler running',
@@ -236,6 +239,61 @@ app.get('/api/airtel/status/:txId', async (req, res) => {
   res.json({ status: now.status, ref: now.ref })
 })
 
+// --- M-PESA prompt at the till (customer purchase) ---------------------------
+// A cashier can prompt the customer's phone for the sale amount instead of
+// typing the code manually. Simulates when Daraja isn't configured, so demos
+// and the manual-code flow both keep working.
+app.post('/api/mpesa/collect', async (req, res) => {
+  const { phone, amount, reference } = req.body || {}
+  if (!phone || !amount) return res.status(400).json({ error: 'phone and amount are required' })
+  try {
+    const out = await stkPush({
+      phone,
+      amount,
+      accountRef: (reference || 'Sale').slice(0, 12),
+      description: 'Duka POS sale',
+      callbackUrl: `${PUBLIC_URL}/api/mpesa/collect/callback`,
+    })
+    if (!out.configured) {
+      const checkoutId = rand('ws_CO_')
+      payments.set(checkoutId, { status: 'pending', amount, phone, kind: 'sale' })
+      setTimeout(() => {
+        const p = payments.get(checkoutId)
+        if (p) payments.set(checkoutId, { ...p, status: 'success', ref: rand('Q') })
+      }, 2500)
+      return res.json({ simulated: true, checkoutId, detail: 'Simulated STK prompt — confirming…' })
+    }
+    payments.set(out.checkoutId, { status: 'pending', amount, phone, kind: 'sale' })
+    return res.json({ simulated: false, checkoutId: out.checkoutId, detail: 'STK prompt sent — customer confirms on phone' })
+  } catch (e) {
+    return res.status(502).json({ error: e.message })
+  }
+})
+
+// The sale STK callback just marks the payment; the till polls /status.
+app.post('/api/mpesa/collect/callback', (req, res) => {
+  try {
+    const cb = req.body?.Body?.stkCallback
+    if (cb) {
+      const p = payments.get(cb.CheckoutRequestID)
+      if (p) {
+        const ok = cb.ResultCode === 0
+        const receipt = (cb.CallbackMetadata?.Item || []).find((i) => i.Name === 'MpesaReceiptNumber')?.Value
+        payments.set(cb.CheckoutRequestID, { ...p, status: ok ? 'success' : 'failed', ref: receipt })
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+  res.json({ ResultCode: 0, ResultDesc: 'Accepted' })
+})
+
+app.get('/api/mpesa/collect/status/:checkoutId', (req, res) => {
+  const p = payments.get(req.params.checkoutId)
+  if (!p) return res.status(404).json({ status: 'unknown' })
+  res.json({ status: p.status, ref: p.ref })
+})
+
 // --- KRA eTIMS ---------------------------------------------------------------
 // The app posts each sale here when the shop enables eTIMS in Settings.
 app.post('/api/etims/invoice', async (req, res) => {
@@ -249,14 +307,37 @@ app.post('/api/etims/invoice', async (req, res) => {
   }
 })
 
-// --- Duka AI ------------------------------------------------------------------
+// --- Duka AI (Gemini) — gated by the AI add-on, metered & rate-limited --------
 app.post('/api/ai/ask', async (req, res) => {
-  const { question, context, history } = req.body || {}
+  const { question, context, history, tenantId, persona } = req.body || {}
   if (!question) return res.status(400).json({ error: 'question is required' })
   try {
-    const out = await askAI({ question, context, history })
+    if (!aiConfigured()) return res.json({ simulated: true, detail: 'AI not configured — the app answers locally' })
+
+    // The full (Gemini-powered) assistant is a paid add-on toggled per client
+    // in the Super-Admin portal. Without it, the app falls back to local answers.
+    const t = tenantId ? await getTenant(tenantId) : null
+    if (t && !t.aiEnabled) {
+      return res.json({ locked: true, reason: 'addon', detail: 'Full AI is not enabled for this shop. Ask the owner to add Duka AI to the subscription.' })
+    }
+
+    const meterId = tenantId || 'anon'
+    // 5-minute dedupe + daily quota guardrail (default 50/day per shop).
+    const g = aiGate(meterId, question, DEFAULT_DAILY_QUOTA)
+    if (g.cached) return res.json({ simulated: false, answer: g.cached, cached: true, meter: meterSummary(meterId) })
+    if (!g.allow) {
+      return res.json({
+        locked: true,
+        reason: 'quota',
+        detail: 'Daily AI limit reached. Upgrade your subscription to unlock unlimited insights.',
+        meter: meterSummary(meterId),
+      })
+    }
+
+    const out = await askAI({ question, context, history, persona })
     if (!out.configured) return res.json({ simulated: true, detail: 'AI not configured — the app answers locally' })
-    res.json({ simulated: false, answer: out.answer })
+    aiRecord(meterId, question, out.answer)
+    res.json({ simulated: false, answer: out.answer, meter: meterSummary(meterId) })
   } catch (e) {
     res.status(502).json({ error: e.message })
   }
@@ -299,14 +380,19 @@ app.post('/api/mpesa/callback', async (req, res) => {
 })
 
 // --- Daraja C2B confirmation (Paybill/Till auto-detect) --------------------
+// A shop pays YOU via the platform till. The amount is applied to their cycle:
+// full payment unlocks/renews; a SHORT payment leaves them owing the balance
+// (and still held if overdue) until it's cleared.
 app.post('/api/mpesa/c2b/confirmation', async (req, res) => {
   try {
     const b = req.body || {}
     const phone = b.MSISDN || b.phone
+    const amount = Number(b.TransAmount || b.amount || 0)
     const t = (b.BillRefNumber && (await getTenant(b.BillRefNumber))) || (phone && (await findByPhone(phone)))
     if (t) {
-      await renew(t.id, { ref: b.TransID || b.ref, method: 'mpesa' })
-      console.log(`[billing] C2B payment matched -> renewed ${t.business}`)
+      const out = await applyPayment(t.id, { amount, ref: b.TransID || b.ref, method: 'mpesa' })
+      if (out?.renewed) console.log(`[billing] C2B ${amount} matched -> renewed ${t.business}`)
+      else console.log(`[billing] C2B short payment for ${t.business}: paid ${out?.paid}, still owes ${out?.balanceDue}`)
     }
   } catch {
     /* ignore */
@@ -322,6 +408,31 @@ const scheduler = startScheduler({
 app.post('/api/admin/run-billing', requireAdmin, async (_req, res) => {
   await scheduler.runOnce()
   res.json({ ok: true, tenants: await allTenants() })
+})
+
+// Admin: toggle the AI add-on for a client and set its (adjustable) price.
+app.post('/api/admin/tenants/:id/ai', requireAdmin, async (req, res) => {
+  const t = await setAiAddon(req.params.id, {
+    enabled: typeof req.body?.enabled === 'boolean' ? req.body.enabled : undefined,
+    price: typeof req.body?.price === 'number' ? req.body.price : undefined,
+  })
+  if (!t) return res.status(404).json({ error: 'not found' })
+  res.json(publicView(t))
+})
+
+// Admin: record a payment against a client's cycle (manual, or reconciling a
+// till payment). Full amount unlocks; short amount leaves the balance owing.
+app.post('/api/admin/tenants/:id/record-payment', requireAdmin, async (req, res) => {
+  const amount = Number(req.body?.amount || 0)
+  if (amount <= 0) return res.status(400).json({ error: 'amount must be > 0' })
+  const out = await applyPayment(req.params.id, { amount, ref: req.body?.ref, method: req.body?.method || 'manual' })
+  if (!out) return res.status(404).json({ error: 'not found' })
+  res.json({ ...out, tenant: publicView(out.tenant) })
+})
+
+// Admin: AI usage for a client (today's count vs quota).
+app.get('/api/admin/tenants/:id/ai-usage', requireAdmin, (req, res) => {
+  res.json(meterSummary(req.params.id, DEFAULT_DAILY_QUOTA))
 })
 
 // Super-Admin portal (static page; talks to the protected APIs with your token).

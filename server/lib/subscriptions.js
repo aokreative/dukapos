@@ -48,8 +48,17 @@ export function evaluateStatus(t, now = Date.now()) {
   return { status: 'suspended', due, overdueDays: over }
 }
 
+/** What a tenant owes for the current cycle: plan price + AI add-on (if on). */
+export function cycleAmount(t) {
+  const base = priceFor(t.planId, t.cycle)
+  const addon = t.aiEnabled ? (t.aiAddonPrice ?? 2500) : 0
+  return base + addon
+}
+
 export function publicView(t) {
   const s = evaluateStatus(t)
+  const owed = cycleAmount(t)
+  const paidTowards = t.paidTowardsCycle || 0
   return {
     id: t.id,
     business: t.business,
@@ -64,7 +73,13 @@ export function publicView(t) {
     currentPeriodEnd: t.currentPeriodEnd,
     trialEndsAt: t.trialEndsAt,
     lastPaymentAt: t.lastPaymentAt || null,
-    amountDue: priceFor(t.planId, t.cycle),
+    amountDue: owed,
+    // AI add-on (controlled from the Super-Admin portal).
+    aiEnabled: !!t.aiEnabled,
+    aiAddonPrice: t.aiAddonPrice ?? 2500,
+    // Partial-payment tracking: what's still outstanding for the current cycle.
+    paidTowardsCycle: paidTowards,
+    balanceDue: Math.max(0, owed - paidTowards),
     invoices: t.invoices || [],
   }
 }
@@ -101,11 +116,50 @@ export async function registerTenant({ business, phone, planId = 'standard', cyc
       currentPeriodEnd: now + TRIAL_DAYS * DAY,
       lastPaymentAt: null,
       lastChargeAttemptAt: null,
+      aiEnabled: false,
+      aiAddonPrice: 2500,
+      paidTowardsCycle: 0,
       invoices: [],
     }
   }
   await store.put(t)
   return t
+}
+
+/** Admin: turn the AI add-on on/off for a client and set its (adjustable) price. */
+export async function setAiAddon(id, { enabled, price } = {}) {
+  const t = await store.getById(id)
+  if (!t) return null
+  if (typeof enabled === 'boolean') t.aiEnabled = enabled
+  if (typeof price === 'number' && price >= 0) t.aiAddonPrice = price
+  await store.put(t)
+  return t
+}
+
+/**
+ * Apply a payment towards the current cycle (manual admin entry, or a matched
+ * M-PESA till payment). Full payment renews & unlocks; a SHORT payment leaves
+ * the shop owing the balance (and, if overdue, still locked) until it's cleared.
+ * Returns { renewed, owed, paid, balanceDue }.
+ */
+export async function applyPayment(id, { amount = 0, ref, method = 'mpesa' } = {}) {
+  const t = await store.getById(id)
+  if (!t) return null
+  const owed = cycleAmount(t)
+  const paid = (t.paidTowardsCycle || 0) + Math.max(0, amount)
+  if (paid + 1 >= owed) {
+    // Fully covered — renew the period and carry any overpayment forward.
+    const carryover = Math.max(0, Math.round((paid - owed) * 100) / 100)
+    await renew(id, { ref, method }) // resets paidTowardsCycle to 0
+    const fresh = await store.getById(id)
+    fresh.paidTowardsCycle = carryover
+    await store.put(fresh)
+    return { renewed: true, owed, paid, balanceDue: 0, tenant: fresh }
+  }
+  // Short payment — record it, keep the balance outstanding.
+  t.paidTowardsCycle = paid
+  await store.put(t)
+  return { renewed: false, owed, paid, balanceDue: Math.max(0, owed - paid), tenant: t }
 }
 
 /** Mark a successful payment — extends the paid period. */
@@ -120,6 +174,7 @@ export async function renew(id, { ref, method = 'mpesa', cycle } = {}) {
   t.cycle = useCycle
   t.lastPaymentAt = now
   t.currentPeriodEnd = periodEnd
+  t.paidTowardsCycle = 0 // cycle fully covered; partial-payment bucket resets
   t.invoices = [
     { id: randomUUID(), planId: t.planId, cycle: useCycle, amount, method, ref: ref || null, periodStart: from, periodEnd, paidAt: now, status: 'paid' },
     ...(t.invoices || []),

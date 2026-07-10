@@ -51,10 +51,15 @@ export default function Assistant() {
         businessType: s.settings.businessType,
         restrictedFor: restricted ? s.staff.find((m) => m.id === s.currentStaffId)?.name : undefined,
       })
-      // Claude via the backend when available (with chat memory for
-      // follow-up questions); local rules otherwise.
-      const remote = await askAssistant(q, snapshot, msgs.slice(-10))
-      const answer = remote ?? localAnswer(q, snapshot)
+      // Gemini via the backend when available (with chat memory for follow-ups
+      // and role persona); local rules otherwise or when the add-on is off.
+      const remote = await askAssistant(q, snapshot, msgs.slice(-10), {
+        tenantId: s.tenantId,
+        persona: restricted ? 'cashier' : 'manager',
+      })
+      const answer =
+        remote.answer ??
+        (remote.locked ? `${remote.detail}\n\n(Here's what I can tell you from your device:)\n\n${localAnswer(q, snapshot)}` : localAnswer(q, snapshot))
       setMsgs((m) => [...m, { role: 'ai', text: answer }])
     } finally {
       setBusy(false)

@@ -1,10 +1,51 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
+import { useMemo } from 'react'
 import { Banknote, Smartphone, CreditCard, HandCoins, Trash2, User, UserCheck, StickyNote } from 'lucide-react'
 import { Modal } from './ui'
 import CustomerPicker from './CustomerPicker'
 import { useStore, selectCurrentStaff } from '../store/useStore'
-import { money } from '../lib/format'
+import { money, displayPhone } from '../lib/format'
+import { mpesaCollect, mpesaCollectStatus } from '../lib/api'
 import type { Customer, PaymentMethod, Tender } from '../types'
+
+/** Prompt the customer's phone with an STK push instead of typing the code. */
+function MpesaPrompt({ amount, defaultPhone, onConfirmed }: { amount: number; defaultPhone?: string; onConfirmed: (ref: string) => void }) {
+  const [phone, setPhone] = useState(defaultPhone ? displayPhone(defaultPhone) : '')
+  const [state, setState] = useState<'idle' | 'sending' | 'waiting' | 'done' | 'failed'>('idle')
+
+  async function prompt() {
+    if (!phone.trim() || amount <= 0) return
+    setState('sending')
+    const out = await mpesaCollect(phone, amount, 'Sale')
+    if (!out) return setState('failed')
+    setState('waiting')
+    for (let i = 0; i < 20; i++) {
+      await new Promise((r) => setTimeout(r, 3000))
+      const s = await mpesaCollectStatus(out.checkoutId)
+      if (s === 'success') {
+        setState('done')
+        onConfirmed('STK-' + out.checkoutId.slice(-6).toUpperCase())
+        return
+      }
+      if (s === 'failed') return setState('failed')
+    }
+    setState('failed')
+  }
+
+  if (state === 'done') return <div className="mt-2 text-xs font-semibold text-green-600 dark:text-green-400">✓ Customer paid via M-PESA prompt</div>
+  return (
+    <div className="mt-2 flex items-center gap-2">
+      <input className="input py-1.5 text-sm" inputMode="tel" placeholder="Customer phone for STK prompt" value={phone} onChange={(e) => setPhone(e.target.value)} disabled={state === 'sending' || state === 'waiting'} />
+      <button
+        className="shrink-0 rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50"
+        disabled={!phone.trim() || state === 'sending' || state === 'waiting'}
+        onClick={prompt}
+      >
+        {state === 'sending' ? 'Sending…' : state === 'waiting' ? 'Waiting…' : state === 'failed' ? 'Retry prompt' : '📲 Prompt'}
+      </button>
+    </div>
+  )
+}
 
 export interface SaleExtras {
   assignedToName?: string
@@ -126,6 +167,13 @@ export default function PaymentModal({
               </div>
               {(t.method === 'mpesa' || t.method === 'airtel' || t.method === 'card') && (
                 <input className="input mt-2 py-2 text-sm" placeholder={t.method === 'mpesa' ? 'M-PESA code (e.g. RBG6X...)' : t.method === 'airtel' ? 'Airtel Money ref (optional)' : 'Card ref (optional)'} value={t.ref || ''} onChange={(e) => setRef(i, e.target.value)} />
+              )}
+              {t.method === 'mpesa' && (
+                <MpesaPrompt
+                  amount={t.amount}
+                  defaultPhone={customer?.phone}
+                  onConfirmed={(ref) => setRef(i, ref)}
+                />
               )}
             </div>
           ))}

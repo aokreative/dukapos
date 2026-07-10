@@ -90,9 +90,13 @@ async function render(){
       + '<td class="muted">'+esc(t.phone||'')+'</td>'
       + '<td>'+cap(t.planId)+' · '+t.cycle+'</td>'
       + '<td><span class="pill s-'+t.status+'">'+t.status+(t.overdueDays?(' '+t.overdueDays+'d'):'')+'</span></td>'
-      + '<td class="amt">'+money(monthly(t))+'/mo</td>'
+      + '<td class="amt">'+money(t.amountDue||monthly(t))+'/mo'+(t.balanceDue?('<br><span class="pill s-restricted">owes '+money(t.balanceDue)+'</span>'):'')+'</td>'
       + '<td class="muted">'+due+'</td>'
-      + '<td><button class="btn sm ghost" onclick="charge(\''+t.id+'\',this)">Charge now</button></td>'
+      + '<td>'
+        + '<button class="btn sm ghost" onclick="charge(\''+t.id+'\',this)">Charge</button> '
+        + '<button class="btn sm ghost" onclick="pay(\''+t.id+'\')">Record pay</button> '
+        + '<button class="btn sm '+(t.aiEnabled?'':'ghost')+'" onclick="toggleAi(\''+t.id+'\','+(!t.aiEnabled)+','+(t.aiAddonPrice||2500)+')" title="AI add-on '+money(t.aiAddonPrice||2500)+'/mo">'+(t.aiEnabled?'AI ✓':'AI off')+'</button>'
+      + '</td>'
       + '</tr>'
   }).join('')
 
@@ -107,7 +111,7 @@ async function render(){
     + '<div><button class="btn sm" onclick="sweep(this)">Run billing sweep now</button> '
     + '<button class="btn sm ghost" onclick="render()">Refresh</button></div></div>'
     + '<div class="tablewrap"><table><thead><tr>'
-    + '<th>Shop</th><th>Phone</th><th>Plan</th><th>Status</th><th>Fee</th><th>Renews</th><th></th>'
+    + '<th>Shop</th><th>Phone</th><th>Plan</th><th>Status</th><th>Fee / owing</th><th>Renews</th><th>Actions</th>'
     + '</tr></thead><tbody>'+(rows||'<tr><td colspan="7" class="muted" style="padding:20px">No shops yet. They appear here once a shop opens the app (connected to this backend).</td></tr>')+'</tbody></table></div>'
 }
 
@@ -115,8 +119,10 @@ function kpi(l,v){ return '<div class="kpi"><div class="l">'+l+'</div><div class
 function cap(s){ return ({micro:'Starter',standard:'Standard',growth:'Growth',chain:'Chain'})[s]||s }
 function esc(s){ return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])) }
 
-async function charge(id,btn){ btn.disabled=true; btn.textContent='Charging…'; try{ await api('/api/tenants/'+id+'/charge',{method:'POST'}); await render() }catch(e){ alert(e.message); btn.disabled=false; btn.textContent='Charge now' } }
+async function charge(id,btn){ btn.disabled=true; btn.textContent='Charging…'; try{ await api('/api/tenants/'+id+'/charge',{method:'POST'}); await render() }catch(e){ alert(e.message); btn.disabled=false; btn.textContent='Charge' } }
 async function sweep(btn){ btn.disabled=true; btn.textContent='Running…'; try{ await api('/api/admin/run-billing',{method:'POST'}); await render() }catch(e){ alert(e.message); btn.disabled=false } }
+async function pay(id){ const a=prompt('Record a payment for this shop.\nEnter the amount received (KES):'); if(!a)return; const amount=parseFloat(a); if(!(amount>0))return; try{ const r=await api('/api/admin/tenants/'+id+'/record-payment',{method:'POST',body:JSON.stringify({amount})}); alert(r.renewed?('Paid in full — shop renewed & unlocked.'):('Short payment recorded. Shop still owes '+money(r.balanceDue)+'.')); await render() }catch(e){ alert(e.message) } }
+async function toggleAi(id,enabled,price){ let p=price; if(enabled){ const v=prompt('Enable Duka AI add-on for this shop.\nMonthly AI price (KES):', String(price)); if(v===null)return; p=parseFloat(v)||price } try{ await api('/api/admin/tenants/'+id+'/ai',{method:'POST',body:JSON.stringify({enabled,price:p})}); await render() }catch(e){ alert(e.message) } }
 
 render()
 </script>
