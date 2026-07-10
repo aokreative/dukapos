@@ -38,6 +38,8 @@ export default function Assistant() {
         products: s.products,
         customers: s.customers,
         debts: s.debts,
+        suppliers: s.suppliers,
+        supplierTxns: s.supplierTxns,
       })
       // Claude via the backend when available; local rules otherwise.
       const remote = await askAssistant(q, snapshot)
