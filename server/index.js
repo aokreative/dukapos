@@ -21,6 +21,9 @@ import { fileURLToPath } from 'node:url'
 import { sendWhatsApp, whatsappConfigured } from './lib/whatsapp.js'
 import { sendSMS, smsConfigured } from './lib/sms.js'
 import { stkPush, mpesaConfigured } from './lib/mpesa.js'
+import { airtelPush, airtelStatus, airtelConfigured } from './lib/airtel.js'
+import { etimsSubmitSale, etimsConfigured } from './lib/etims.js'
+import { askAI, aiConfigured } from './lib/ai.js'
 import { priceFor } from './lib/plans.js'
 import {
   initSubscriptions,
@@ -65,6 +68,9 @@ app.get('/api/health', (_req, res) => {
       whatsapp: whatsappConfigured() ? 'live' : 'simulation',
       sms: smsConfigured() ? 'live' : 'simulation',
       mpesa: mpesaConfigured() ? 'live' : 'simulation',
+      airtel: airtelConfigured() ? 'live' : 'simulation',
+      etims: etimsConfigured() ? 'live' : 'simulation',
+      ai: aiConfigured() ? 'live' : 'local rules',
     },
     storage: storeKind(),
     billing: 'auto-charge scheduler running',
@@ -182,6 +188,78 @@ app.get('/api/subscription/status/:checkoutId', (req, res) => {
   const p = payments.get(req.params.checkoutId)
   if (!p) return res.status(404).json({ status: 'unknown' })
   res.json({ status: p.status, ref: p.ref })
+})
+
+// --- Airtel Money -----------------------------------------------------------
+// Same idea as the STK push: the customer approves on their phone. Works for
+// subscription payments (tenantId links the renewal) and simulates without keys.
+app.post('/api/airtel/pay', async (req, res) => {
+  const { phone, amount, planId, tenantId, cycle } = req.body || {}
+  if (!phone || !amount) return res.status(400).json({ error: 'phone and amount are required' })
+  try {
+    const out = await airtelPush({ phone, amount, reference: `Duka ${planId || ''}`.trim() })
+    if (!out.configured) {
+      const txId = rand('AIRTEL_')
+      payments.set(txId, { status: 'pending', tenantId, amount, planId, cycle, phone, provider: 'airtel' })
+      setTimeout(async () => {
+        const p = payments.get(txId)
+        if (!p) return
+        const ref = rand('AM')
+        payments.set(txId, { ...p, status: 'success', ref })
+        if (p.tenantId) await renew(p.tenantId, { ref, cycle: p.cycle, method: 'airtel' })
+      }, 1500)
+      return res.json({ simulated: true, checkoutId: txId, ref: rand('AM'), detail: 'Simulated Airtel Money payment confirmed' })
+    }
+    payments.set(out.transactionId, { status: 'pending', tenantId, amount, planId, cycle, phone, provider: 'airtel' })
+    return res.json({ simulated: false, checkoutId: out.transactionId, detail: 'Airtel Money prompt sent — confirm on phone' })
+  } catch (e) {
+    return res.status(502).json({ error: e.message })
+  }
+})
+
+// Poll a live Airtel payment; renews the tenant the moment it succeeds.
+app.get('/api/airtel/status/:txId', async (req, res) => {
+  const p = payments.get(req.params.txId)
+  if (!p) return res.status(404).json({ status: 'unknown' })
+  if (p.status === 'pending' && airtelConfigured()) {
+    try {
+      const out = await airtelStatus(req.params.txId)
+      if (out.status !== 'pending') {
+        payments.set(req.params.txId, { ...p, status: out.status })
+        if (out.status === 'success' && p.tenantId) await renew(p.tenantId, { ref: req.params.txId, cycle: p.cycle, method: 'airtel' })
+      }
+    } catch {
+      /* keep pending */
+    }
+  }
+  const now = payments.get(req.params.txId)
+  res.json({ status: now.status, ref: now.ref })
+})
+
+// --- KRA eTIMS ---------------------------------------------------------------
+// The app posts each sale here when the shop enables eTIMS in Settings.
+app.post('/api/etims/invoice', async (req, res) => {
+  const { sale } = req.body || {}
+  if (!sale?.receiptNo) return res.status(400).json({ error: 'sale with receiptNo is required' })
+  try {
+    const out = await etimsSubmitSale(sale)
+    res.json(out)
+  } catch (e) {
+    res.status(502).json({ error: e.message })
+  }
+})
+
+// --- Duka AI ------------------------------------------------------------------
+app.post('/api/ai/ask', async (req, res) => {
+  const { question, context } = req.body || {}
+  if (!question) return res.status(400).json({ error: 'question is required' })
+  try {
+    const out = await askAI({ question, context })
+    if (!out.configured) return res.json({ simulated: true, detail: 'AI not configured — the app answers locally' })
+    res.json({ simulated: false, answer: out.answer })
+  } catch (e) {
+    res.status(502).json({ error: e.message })
+  }
 })
 
 // M-PESA Ratiba — set up a STANDING ORDER for true zero-touch monthly billing.

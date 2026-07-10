@@ -3,7 +3,7 @@
 // A deliberately small, flat model that runs entirely offline on the device.
 // ---------------------------------------------------------------------------
 
-export type PaymentMethod = 'cash' | 'mpesa' | 'card' | 'credit'
+export type PaymentMethod = 'cash' | 'mpesa' | 'airtel' | 'card' | 'credit'
 
 // Staff & access control -----------------------------------------------------
 export type Role = 'owner' | 'manager' | 'cashier'
@@ -102,6 +102,8 @@ export interface BusinessSettings {
   mpesaTill: string
   mpesaPaybill: string
   mpesaAccount: string
+  /** Airtel Money number/till — shown in reminders when set. */
+  airtelNumber: string
   acceptCash: boolean
   currency: string // 'KES'
   cashierName: string
@@ -110,6 +112,10 @@ export interface BusinessSettings {
   vatEnabled: boolean
   vatRate: number // e.g. 16
   lowStockNudge: boolean
+  // KRA eTIMS (electronic tax invoicing). When on, receipts carry the KRA PIN
+  // and (with a live backend) each sale is submitted to eTIMS.
+  etimsEnabled: boolean
+  kraPin: string
 }
 
 // ---------------------------------------------------------------------------

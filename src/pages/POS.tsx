@@ -9,6 +9,7 @@ import { EmptyState } from '../components/ui'
 import { useBilling } from '../components/Billing'
 import { selectRole } from '../store/useStore'
 import { can } from '../lib/permissions'
+import { submitEtimsInvoice } from '../lib/api'
 
 export default function POS() {
   const products = useStore((s) => s.products)
@@ -60,6 +61,18 @@ export default function POS() {
   }
   function onComplete(tenders: Tender[], customerId?: string) {
     const sale = completeSale({ lines: cart, discount, tenders, customerId })
+    // KRA eTIMS: submit the invoice in the background when enabled.
+    const st = useStore.getState().settings
+    if (st.etimsEnabled) {
+      const vat = st.vatEnabled ? Math.round((sale.total * st.vatRate) / (100 + st.vatRate)) : 0
+      void submitEtimsInvoice({
+        receiptNo: sale.receiptNo,
+        total: sale.total,
+        vat,
+        at: sale.createdAt,
+        lines: sale.lines.map((l) => ({ name: l.name, qty: l.qty, price: l.price })),
+      })
+    }
     setLastSale(sale)
     setPayOpen(false)
     setCartOpen(false)

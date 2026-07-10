@@ -24,7 +24,7 @@ export default function Reports() {
     const todayRevenue = todaySales.reduce((a, s) => a + s.total, 0)
 
     // Payment method split (today), by tender.
-    const methodSplit: Record<PaymentMethod, number> = { cash: 0, mpesa: 0, card: 0, credit: 0 }
+    const methodSplit: Record<PaymentMethod, number> = { cash: 0, mpesa: 0, airtel: 0, card: 0, credit: 0 }
     for (const s of todaySales) for (const t of s.tenders) methodSplit[t.method] += t.amount
 
     // Last 7 days revenue.
@@ -98,6 +98,7 @@ export default function Reports() {
           <div className="space-y-2">
             {([
               ['mpesa', 'M-PESA', <Smartphone size={16} key="m" />],
+              ['airtel', 'Airtel Money', <Smartphone size={16} key="a" />],
               ['cash', 'Cash', <Banknote size={16} key="c" />],
               ['card', 'Card', <CreditCard size={16} key="cc" />],
               ['credit', 'Credit (Mkopo)', <HandCoins size={16} key="cr" />],

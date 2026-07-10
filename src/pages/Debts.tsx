@@ -204,6 +204,7 @@ function RepaymentModal({ summary, onClose }: { summary: DebtorSummary; onClose:
           <label className="label">Method</label>
           <select className="input" value={method} onChange={(e) => setMethod(e.target.value as PaymentMethod)}>
             <option value="mpesa">M-PESA</option>
+            <option value="airtel">Airtel Money</option>
             <option value="cash">Cash</option>
             <option value="card">Card</option>
           </select>

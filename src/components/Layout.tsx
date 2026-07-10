@@ -13,6 +13,7 @@ import {
   Wifi,
   WifiOff,
   Lock,
+  Sparkles,
 } from 'lucide-react'
 import { useStore, selectTotalOwed, selectCurrentStaff, selectRole } from '../store/useStore'
 import { money } from '../lib/format'
@@ -26,6 +27,7 @@ const NAV: { to: string; label: string; icon: typeof ShoppingCart; cap?: Capabil
   { to: '/customers', label: 'Customers', icon: Users, cap: 'manageCustomers' },
   { to: '/products', label: 'Stock', icon: Package, cap: 'manageStock' },
   { to: '/reports', label: 'Reports', icon: BarChart3, cap: 'viewReports' },
+  { to: '/assistant', label: 'Duka AI', icon: Sparkles, cap: 'useAssistant' },
   { to: '/subscription', label: 'Billing', icon: CreditCard, cap: 'viewBilling' },
   { to: '/settings', label: 'Settings', icon: SettingsIcon, cap: 'editSettings' },
 ]

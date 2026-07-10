@@ -10,8 +10,10 @@ import Products from './pages/Products'
 import Reports from './pages/Reports'
 import Settings from './pages/Settings'
 import Subscription from './pages/Subscription'
+import Assistant from './pages/Assistant'
 import { useAutomation } from './lib/useAutomation'
 import { useBillingSync } from './lib/useBillingSync'
+import { useCloudSync } from './lib/useCloudSync'
 import { can, type Capability } from './lib/permissions'
 import type { ReactNode } from 'react'
 
@@ -24,6 +26,8 @@ export default function App() {
   useAutomation()
   // Keeps subscription status in step with the platform backend (when connected).
   useBillingSync()
+  // Live multi-device cloud sync (when Supabase is configured + shop signed in).
+  useCloudSync()
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', dark)
@@ -51,6 +55,7 @@ export default function App() {
         <Route path="/customers" element={<Guard cap="manageCustomers" role={role}><Customers /></Guard>} />
         <Route path="/products" element={<Guard cap="manageStock" role={role}><Products /></Guard>} />
         <Route path="/reports" element={<Guard cap="viewReports" role={role}><Reports /></Guard>} />
+        <Route path="/assistant" element={<Guard cap="useAssistant" role={role}><Assistant /></Guard>} />
         <Route path="/subscription" element={<Guard cap="viewBilling" role={role}><Subscription /></Guard>} />
         <Route path="/settings" element={<Guard cap="editSettings" role={role}><Settings /></Guard>} />
         <Route path="*" element={<Navigate to="/" replace />} />

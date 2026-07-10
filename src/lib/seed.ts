@@ -13,6 +13,7 @@ export const defaultSettings: BusinessSettings = {
   mpesaTill: '832909',
   mpesaPaybill: '',
   mpesaAccount: '',
+  airtelNumber: '',
   acceptCash: true,
   currency: 'KES',
   cashierName: 'Owner',
@@ -20,6 +21,8 @@ export const defaultSettings: BusinessSettings = {
   vatEnabled: false,
   vatRate: 16,
   lowStockNudge: true,
+  etimsEnabled: false,
+  kraPin: '',
 }
 
 const now = Date.now()

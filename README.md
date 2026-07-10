@@ -93,6 +93,27 @@ Asante sana!
 - **Settings** — shop profile, **how customers pay you** (drives receipts + reminders),
   editable **reminder template** with live preview, VAT toggle, and data reset/clear
 
+### Duka AI — the in-app assistant
+- Every shop gets a **Duka AI** tab: ask questions in plain language — *"Who owes me money?"*,
+  *"What should I restock?"*, *"What's my profit today?"* — answered from the shop's own data.
+- Works out of the box with **built-in local answers** (even offline). With the backend +
+  `ANTHROPIC_API_KEY`, answers come from **Claude** with the shop snapshot as context.
+
+### Multi-device cloud sync (online POS)
+- Sign the shop in once per device (**Settings → Cloud sync**) and products, customers, sales,
+  debts and staff stay in step on all devices, **live** — powered by Supabase (free tier).
+- Offline-safe merge: concurrent offline sales on two devices are **both kept**.
+- One-time setup in **[CLOUD-SYNC.md](./CLOUD-SYNC.md)** (run one SQL script, paste two env vars).
+
+### Payments & tax integrations (built in)
+- **M-PESA Daraja** — STK push subscription collection, Paybill auto-detect, auto-billing.
+- **Airtel Money** — an Airtel tender at the till, Airtel number in reminders/receipts, and
+  Airtel Money push payments for subscriptions.
+- **KRA eTIMS** — KRA PIN on receipts (Settings toggle) and automatic background submission of
+  each sale once eTIMS onboarding is done.
+- All three simulate with no credentials and go live by pasting keys — the non-technical
+  walkthrough is **[INTEGRATIONS.md](./INTEGRATIONS.md)**.
+
 ### Kenya-first
 - Prices in **KES**, Kenyan phone handling (`07…`, `+254…` → normalised for WhatsApp/SMS)
 - M-PESA Till / Paybill payment details

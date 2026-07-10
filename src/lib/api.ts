@@ -97,6 +97,53 @@ export async function checkPayment(checkoutId: string): Promise<{ status: 'pendi
   }
 }
 
+// --- Duka AI ----------------------------------------------------------------
+
+/**
+ * Ask the backend AI a question about the shop. Returns null when the answer
+ * should be produced locally instead (no backend, or AI key not configured).
+ */
+export async function askAssistant(question: string, context: unknown): Promise<string | null> {
+  if (!BASE) return null
+  try {
+    const res = await fetch(`${BASE}/api/ai/ask`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ question, context }),
+    })
+    if (!res.ok) return null
+    const data = await res.json()
+    if (data.simulated || !data.answer) return null
+    return data.answer as string
+  } catch {
+    return null
+  }
+}
+
+// --- KRA eTIMS ---------------------------------------------------------------
+
+export interface EtimsSaleInput {
+  receiptNo: string
+  total: number
+  vat: number
+  at: number
+  lines: { name: string; qty: number; price: number }[]
+}
+
+/** Fire-and-forget submission of a sale to eTIMS via the backend. */
+export async function submitEtimsInvoice(sale: EtimsSaleInput): Promise<void> {
+  if (!BASE) return
+  try {
+    await fetch(`${BASE}/api/etims/invoice`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ sale }),
+    })
+  } catch {
+    /* offline or backend down — the sale is still safe locally */
+  }
+}
+
 // --- Server-authoritative subscription (tenant registry) -------------------
 
 export interface TenantView {

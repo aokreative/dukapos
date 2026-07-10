@@ -9,6 +9,7 @@ import type { Customer, PaymentMethod, Tender } from '../types'
 const METHODS: { key: PaymentMethod; label: string; icon: typeof Banknote }[] = [
   { key: 'cash', label: 'Cash', icon: Banknote },
   { key: 'mpesa', label: 'M-PESA', icon: Smartphone },
+  { key: 'airtel', label: 'Airtel', icon: Smartphone },
   { key: 'card', label: 'Card', icon: CreditCard },
   { key: 'credit', label: 'Credit', icon: HandCoins },
 ]
@@ -78,7 +79,7 @@ export default function PaymentModal({
         </div>
 
         {/* Method buttons */}
-        <div className="mt-4 grid grid-cols-4 gap-2">
+        <div className="mt-4 grid grid-cols-5 gap-2">
           {METHODS.map((m) => (
             <button key={m.key} className="flex flex-col items-center gap-1 rounded-xl bg-black/5 py-3 text-xs font-semibold text-brand-900 hover:bg-black/10 dark:bg-white/10 dark:text-white dark:hover:bg-white/20" onClick={() => addMethod(m.key)}>
               <m.icon size={20} />
@@ -103,8 +104,8 @@ export default function PaymentModal({
                   <Trash2 size={16} />
                 </button>
               </div>
-              {(t.method === 'mpesa' || t.method === 'card') && (
-                <input className="input mt-2 py-2 text-sm" placeholder={t.method === 'mpesa' ? 'M-PESA code (e.g. RBG6X...)' : 'Card ref (optional)'} value={t.ref || ''} onChange={(e) => setRef(i, e.target.value)} />
+              {(t.method === 'mpesa' || t.method === 'airtel' || t.method === 'card') && (
+                <input className="input mt-2 py-2 text-sm" placeholder={t.method === 'mpesa' ? 'M-PESA code (e.g. RBG6X...)' : t.method === 'airtel' ? 'Airtel Money ref (optional)' : 'Card ref (optional)'} value={t.ref || ''} onChange={(e) => setRef(i, e.target.value)} />
               )}
             </div>
           ))}

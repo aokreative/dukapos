@@ -22,6 +22,7 @@ export function paymentInstructions(s: BusinessSettings): string {
     const acc = s.mpesaAccount.trim()
     lines.push(`M-PESA Paybill: ${s.mpesaPaybill.trim()}${acc ? ` (Acc: ${acc})` : ''}`)
   }
+  if (s.airtelNumber?.trim()) lines.push(`Airtel Money: ${s.airtelNumber.trim()}`)
   if (s.acceptCash) lines.push('Or pay cash at the shop')
   if (lines.length === 0) lines.push('Please contact the shop to arrange payment')
   return lines.join('\n')

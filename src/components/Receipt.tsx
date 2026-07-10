@@ -8,6 +8,7 @@ import { paymentInstructionsShort, smsLink, whatsappLink } from '../lib/reminder
 const METHOD_LABEL: Record<string, string> = {
   cash: 'Cash',
   mpesa: 'M-PESA',
+  airtel: 'Airtel Money',
   card: 'Card',
   credit: 'Credit (Mkopo)',
 }
@@ -72,6 +73,7 @@ export default function Receipt({
       </style></head><body>
       <h1>${settings.name}</h1>
       <div class="muted">${settings.location || ''}</div>
+      ${settings.etimsEnabled && settings.kraPin ? `<div class="muted">KRA PIN: ${settings.kraPin} · eTIMS</div>` : ''}
       <div class="muted">${paymentInstructionsShort(settings)}</div>
       <hr/>
       <div>Receipt: ${sale!.receiptNo}</div>

@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Duka POS — The simple POS for Kenyan shops</title>
+<meta name="description" content="Duka POS: sell offline, track mkopo debts, remind customers on WhatsApp & SMS with your payment details included, and get paid via M-PESA and Airtel Money. From KES 1,900/month. 14-day free trial." />
+<meta property="og:title" content="Duka POS — The simple POS for Kenyan shops" />
+<meta property="og:description" content="Sell offline. Track debts. Remind customers on WhatsApp & SMS. Get paid via M-PESA. From KES 1,900/month." />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23166534'/><text x='50' y='68' font-size='52' text-anchor='middle' font-family='Arial' font-weight='900' fill='%23f0c14b'>D</text></svg>" />
+<style>
+  :root{
+    --green:#166534; --green-dark:#0b1f16; --green-mid:#0f4425; --green-soft:#effaf3;
+    --gold:#d4af37; --gold-bright:#f0c14b; --ink:#0b1f16; --muted:rgba(11,31,22,.62);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{font-family:system-ui,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:var(--ink);background:#fff;line-height:1.6}
+  img{max-width:100%}
+  a{color:inherit}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 20px}
+  .btn{display:inline-block;padding:14px 28px;border-radius:14px;font-weight:800;text-decoration:none;font-size:16px;transition:transform .15s,box-shadow .15s}
+  .btn:hover{transform:translateY(-2px)}
+  .btn-gold{background:var(--gold-bright);color:var(--green-dark);box-shadow:0 6px 20px rgba(212,175,55,.35)}
+  .btn-ghost{border:2px solid rgba(255,255,255,.35);color:#fff}
+  .btn-green{background:var(--green);color:#fff}
+  header{position:sticky;top:0;z-index:10;background:rgba(11,31,22,.92);backdrop-filter:blur(8px)}
+  .nav{display:flex;align-items:center;justify-content:space-between;padding:14px 0;color:#fff}
+  .logo{display:flex;align-items:center;gap:10px;font-weight:900;font-size:20px;text-decoration:none}
+  .logo .mark{width:36px;height:36px;border-radius:10px;background:var(--green);display:grid;place-items:center;color:var(--gold-bright);font-size:20px}
+  .nav-links{display:flex;gap:22px;font-size:14px;font-weight:600}
+  .nav-links a{text-decoration:none;opacity:.85}
+  .nav-links a:hover{opacity:1}
+  .hero{background:linear-gradient(160deg,var(--green-dark) 0%,var(--green-mid) 55%,var(--green) 100%);color:#fff;padding:72px 0 84px;text-align:center}
+  .hero h1{font-size:clamp(32px,6vw,56px);line-height:1.1;font-weight:900;letter-spacing:-.5px}
+  .hero h1 em{color:var(--gold-bright);font-style:normal}
+  .hero p.sub{margin:18px auto 0;max-width:640px;font-size:clamp(16px,2.5vw,20px);opacity:.9}
+  .hero .cta{margin-top:32px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
+  .hero .note{margin-top:14px;font-size:13px;opacity:.7}
+  .badges{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:28px}
+  .badge{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);border-radius:999px;padding:7px 15px;font-size:13px;font-weight:600}
+  section{padding:72px 0}
+  .kicker{color:var(--green);font-weight:800;text-transform:uppercase;letter-spacing:.12em;font-size:13px}
+  h2{font-size:clamp(26px,4vw,38px);font-weight:900;letter-spacing:-.3px;margin-top:6px}
+  .lead{color:var(--muted);max-width:620px;margin-top:10px}
+  .grid{display:grid;gap:20px;margin-top:36px}
+  @media(min-width:720px){.grid-3{grid-template-columns:repeat(3,1fr)}.grid-2{grid-template-columns:repeat(2,1fr)}}
+  .card{background:#fff;border:1px solid rgba(11,31,22,.08);border-radius:20px;padding:26px;box-shadow:0 2px 10px rgba(11,31,22,.04)}
+  .card .ico{width:44px;height:44px;border-radius:12px;background:var(--green-soft);display:grid;place-items:center;font-size:22px;margin-bottom:14px}
+  .card h3{font-size:18px;font-weight:800}
+  .card p{color:var(--muted);font-size:15px;margin-top:6px}
+  .alt{background:var(--green-soft)}
+  .steps{counter-reset:step}
+  .step{display:flex;gap:18px;align-items:flex-start;margin-top:26px}
+  .step .n{flex:none;width:40px;height:40px;border-radius:12px;background:var(--green);color:var(--gold-bright);font-weight:900;display:grid;place-items:center;font-size:18px}
+  .step h3{font-size:17px;font-weight:800}
+  .step p{color:var(--muted);font-size:15px}
+  .plans{align-items:stretch}
+  .plan{position:relative;display:flex;flex-direction:column}
+  .plan .name{font-weight:900;font-size:18px}
+  .plan .sw{color:var(--muted);font-size:13px}
+  .plan .price{margin:14px 0 2px;font-size:34px;font-weight:900;color:var(--green)}
+  .plan .price span{font-size:14px;color:var(--muted);font-weight:600}
+  .plan ul{list-style:none;margin:16px 0 22px;display:grid;gap:9px;font-size:14.5px}
+  .plan li::before{content:"✓";color:var(--green);font-weight:900;margin-right:9px}
+  .plan .btn{margin-top:auto;text-align:center}
+  .plan.hot{border:2px solid var(--gold);box-shadow:0 10px 30px rgba(212,175,55,.18)}
+  .plan .tag{position:absolute;top:-13px;left:50%;transform:translateX(-50%);background:var(--gold);color:var(--green-dark);font-size:12px;font-weight:900;padding:4px 14px;border-radius:999px;white-space:nowrap}
+  .faq details{border:1px solid rgba(11,31,22,.1);border-radius:14px;padding:18px 20px;margin-top:12px;background:#fff}
+  .faq summary{font-weight:800;cursor:pointer;font-size:16px}
+  .faq p{color:var(--muted);margin-top:10px;font-size:15px}
+  .cta-final{background:linear-gradient(160deg,var(--green-dark),var(--green));color:#fff;text-align:center;border-radius:28px;padding:56px 24px;margin:0 20px}
+  .cta-final h2{color:#fff}
+  .cta-final p{opacity:.85;margin-top:10px}
+  footer{padding:36px 0 48px;color:var(--muted);font-size:14px;text-align:center}
+  @media(max-width:719px){.nav-links{display:none}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap nav">
+    <a class="logo" href="#"><span class="mark">D</span> Duka POS</a>
+    <nav class="nav-links">
+      <a href="#features">Features</a>
+      <a href="#how">How it works</a>
+      <a href="#pricing">Pricing</a>
+      <a href="#faq">FAQ</a>
+    </nav>
+    <a class="btn btn-gold" style="padding:10px 20px;font-size:14px" href="#pricing">Start free trial</a>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="wrap">
+    <h1>The simple POS that<br/><em>collects your money</em> for you.</h1>
+    <p class="sub">Sell even when the internet is down. Track every mkopo. Remind customers on WhatsApp &amp; SMS — with your M-PESA till included — and watch debts get paid.</p>
+    <div class="cta">
+      <a class="btn btn-gold" href="#pricing">Start 14-day free trial</a>
+      <a class="btn btn-ghost" href="#how">See how it works</a>
+    </div>
+    <div class="note">No card needed · Works on any phone, tablet or computer</div>
+    <div class="badges">
+      <span class="badge">📶 Offline-first</span>
+      <span class="badge">📲 M-PESA &amp; Airtel Money</span>
+      <span class="badge">💬 WhatsApp debt reminders</span>
+      <span class="badge">🧾 KRA eTIMS ready</span>
+      <span class="badge">🤖 Duka AI inside</span>
+    </div>
+  </div>
+</section>
+
+<section id="features">
+  <div class="wrap">
+    <div class="kicker">Everything a duka needs</div>
+    <h2>Built for how Kenyan shops actually run</h2>
+    <p class="lead">No training needed. If you can use WhatsApp, you can use Duka POS.</p>
+    <div class="grid grid-3">
+      <div class="card"><div class="ico">🛒</div><h3>Sell in seconds</h3><p>Tap the product, take the money, done. Cash, M-PESA, Airtel Money, card or credit — even split payments.</p></div>
+      <div class="card"><div class="ico">📶</div><h3>Works offline</h3><p>Power cut? No bundles? Keep selling. Everything is saved on your device and syncs when you're back online.</p></div>
+      <div class="card"><div class="ico">🤝</div><h3>Mkopo under control</h3><p>Every credit sale becomes a tracked debt with the customer's name, amount and age. Nothing gets forgotten.</p></div>
+      <div class="card"><div class="ico">💬</div><h3>Reminders that get you paid</h3><p>One tap sends a polite WhatsApp or SMS — with your till number inside, so paying you is easy. Or let auto-remind do it for you.</p></div>
+      <div class="card"><div class="ico">📊</div><h3>Know your numbers</h3><p>Today's sales, profit, best sellers and low-stock alerts — in language anyone understands.</p></div>
+      <div class="card"><div class="ico">🤖</div><h3>Duka AI</h3><p>Ask your shop questions: "Who owes me money?" "What should I restock?" Get instant answers from your own data.</p></div>
+      <div class="card"><div class="ico">👥</div><h3>Staff accounts</h3><p>Owner, manager and cashier roles with PINs. Cashiers sell; only you see profit and settings.</p></div>
+      <div class="card"><div class="ico">☁️</div><h3>Multi-device sync</h3><p>Sign in on your phone and the shop tablet — sales, stock and debts stay in step on both, live.</p></div>
+      <div class="card"><div class="ico">🧾</div><h3>KRA eTIMS ready</h3><p>Receipts carry your KRA PIN, and sales can be submitted to eTIMS automatically.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="how" class="alt">
+  <div class="wrap">
+    <div class="kicker">How it works</div>
+    <h2>From box to first sale in 5 minutes</h2>
+    <div class="steps">
+      <div class="step"><div class="n">1</div><div><h3>Open the link, install the app</h3><p>Duka POS runs in the browser and installs to your home screen like a normal app. Any phone, tablet or computer.</p></div></div>
+      <div class="step"><div class="n">2</div><div><h3>Add your products</h3><p>Name and price is enough to start. Add buying price later to see profit.</p></div></div>
+      <div class="step"><div class="n">3</div><div><h3>Sell — and give credit safely</h3><p>Credit sales attach to a customer automatically. Their balance is always one tap away.</p></div></div>
+      <div class="step"><div class="n">4</div><div><h3>Get your money back</h3><p>Duka reminds debtors on WhatsApp/SMS with your payment details inside. You just watch payments come in.</p></div></div>
+    </div>
+  </div>
+</section>
+
+<section id="pricing">
+  <div class="wrap">
+    <div class="kicker">Pricing</div>
+    <h2>Plans that fit your business size</h2>
+    <p class="lead">Every plan starts with a <strong>14-day free trial</strong>. Pay monthly via M-PESA — or pay yearly and get <strong>2 months free</strong>.</p>
+    <div class="grid grid-2 plans" style="grid-template-columns:repeat(auto-fit,minmax(230px,1fr))">
+      <div class="card plan">
+        <div class="name">Starter</div><div class="sw">Duka ndogo — kiosks &amp; stalls</div>
+        <div class="price">KES 1,900<span>/month</span></div>
+        <ul><li>1 device · 1 user</li><li>300 products</li><li>Debt tracking &amp; reminders</li><li>Works offline</li></ul>
+        <a class="btn btn-green" href="#demo">Start free</a>
+      </div>
+      <div class="card plan hot">
+        <div class="tag">MOST POPULAR</div>
+        <div class="name">Standard</div><div class="sw">Shops &amp; mini-marts</div>
+        <div class="price">KES 4,900<span>/month</span></div>
+        <ul><li>2 devices · 5 staff with PINs</li><li>3,000 products</li><li>Auto-reminders &amp; reports</li><li>Duka AI assistant</li></ul>
+        <a class="btn btn-gold" href="#demo">Start free</a>
+      </div>
+      <div class="card plan">
+        <div class="name">Growth</div><div class="sw">Busy retail &amp; wholesale</div>
+        <div class="price">KES 9,900<span>/month</span></div>
+        <ul><li>4 devices · 15 staff</li><li>Unlimited products</li><li>Multi-device cloud sync</li><li>Priority support</li></ul>
+        <a class="btn btn-green" href="#demo">Start free</a>
+      </div>
+      <div class="card plan">
+        <div class="name">Chain</div><div class="sw">Multiple branches</div>
+        <div class="price">KES 24,900<span>/month</span></div>
+        <ul><li>Up to 5 branches</li><li>Unlimited staff &amp; products</li><li>Consolidated reporting</li><li>Dedicated onboarding</li></ul>
+        <a class="btn btn-green" href="#demo">Talk to us</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="faq" class="alt">
+  <div class="wrap faq">
+    <div class="kicker">Questions</div>
+    <h2>Asked all the time</h2>
+    <details><summary>Do I need internet to sell?</summary><p>No. Duka POS is offline-first — selling, debts and receipts all work with zero connection. The internet is only needed for WhatsApp/SMS sending, cloud sync and updates.</p></details>
+    <details><summary>How do the debt reminders work?</summary><p>Each credit customer has a balance. Tap "Remind" and Duka opens WhatsApp or SMS with a polite message already written — including the amount and YOUR M-PESA till/Paybill (or Airtel number), so the customer can pay immediately. You can also switch on automatic reminders on a schedule you choose.</p></details>
+    <details><summary>What happens after the 14-day trial?</summary><p>You pay for your plan via M-PESA inside the app (or set up auto-pay). If payment lapses, the POS politely holds until it's sorted — your data is never deleted.</p></details>
+    <details><summary>Which devices does it run on?</summary><p>Any phone, tablet, laptop or desktop with a browser. It installs to the home screen like a normal app — Android, iPhone and Windows all work.</p></details>
+    <details><summary>Is my data safe?</summary><p>Your data lives on your device and — with cloud sync on — in your own secure cloud account that only your shop's login can access. Staff PINs keep cashiers out of your settings and profit numbers.</p></details>
+    <details><summary>Can it do KRA eTIMS?</summary><p>Yes. Turn it on in Settings to print your KRA PIN on receipts; with eTIMS onboarding completed, sales are submitted to KRA automatically.</p></details>
+  </div>
+</section>
+
+<section id="demo">
+  <div class="cta-final">
+    <h2>See it with your own shop's eyes</h2>
+    <p>Try the live demo — it's loaded with sample products, sales and debts. Or start your free trial now.</p>
+    <div class="cta" style="margin-top:26px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap">
+      <a class="btn btn-gold" href="https://duka-pos.vercel.app" target="_blank" rel="noopener">Open the live demo</a>
+      <a class="btn btn-ghost" href="https://wa.me/254712000000?text=Habari!%20I%20want%20Duka%20POS%20for%20my%20shop." target="_blank" rel="noopener">WhatsApp us to get started</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <strong>Duka POS</strong> · The simple POS for Kenyan shops<br/>
+    Offline-first · M-PESA &amp; Airtel Money · WhatsApp debt reminders · KRA eTIMS ready
+  </div>
+</footer>
+
+</body>
+</html>

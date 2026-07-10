@@ -13,14 +13,15 @@ export type Capability =
   | 'manageStaff'
   | 'editSettings'
   | 'viewBilling' // the subscription/billing screen
+  | 'useAssistant' // Duka AI — sees sales/profit/debt numbers
 
 const ROLE_CAPS: Record<Role, Capability[]> = {
   owner: [
     'sell', 'viewDebts', 'manageCustomers', 'manageStock', 'applyDiscount', 'voidRefund',
-    'viewReports', 'manageStaff', 'editSettings', 'viewBilling',
+    'viewReports', 'manageStaff', 'editSettings', 'viewBilling', 'useAssistant',
   ],
   manager: [
-    'sell', 'viewDebts', 'manageCustomers', 'manageStock', 'applyDiscount', 'voidRefund', 'viewReports',
+    'sell', 'viewDebts', 'manageCustomers', 'manageStock', 'applyDiscount', 'voidRefund', 'viewReports', 'useAssistant',
   ],
   cashier: ['sell', 'viewDebts', 'manageCustomers'],
 }

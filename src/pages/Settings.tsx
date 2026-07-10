@@ -1,5 +1,6 @@
-import { useState } from 'react'
-import { Store, Smartphone, MessageSquareText, Database, RotateCcw, Trash2, Check, Users, UserPlus, Pencil } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Store, Smartphone, MessageSquareText, Database, RotateCcw, Trash2, Check, Users, UserPlus, Pencil, Cloud, CloudOff, LogOut } from 'lucide-react'
+import { supabase, cloudConfigured } from '../lib/cloud'
 import { useStore } from '../store/useStore'
 import { PageHeader, Modal, Badge } from '../components/ui'
 import { DEFAULT_TEMPLATE, buildReminderMessage } from '../lib/reminders'
@@ -80,6 +81,9 @@ export default function Settings() {
             </Field>
           </div>
         )}
+        <Field label="Airtel Money number (optional)">
+          <input className="input" inputMode="tel" value={settings.airtelNumber || ''} onChange={(e) => set('airtelNumber', e.target.value)} placeholder="e.g. 0733 000 000" />
+        </Field>
         <label className="flex items-center gap-3 rounded-xl bg-black/5 px-3 py-3 dark:bg-white/10">
           <input type="checkbox" className="h-5 w-5 accent-brand-600" checked={settings.acceptCash} onChange={(e) => set('acceptCash', e.target.checked)} />
           <span className="text-sm font-medium text-brand-900 dark:text-white">Accept cash at the shop</span>
@@ -107,15 +111,30 @@ export default function Settings() {
         </div>
       </Section>
 
+      {/* Cloud sync */}
+      <CloudSection />
+
       {/* Staff & roles */}
       <StaffSection />
 
-      {/* VAT */}
-      <Section icon={<Store size={18} />} title="Tax">
+      {/* VAT + eTIMS */}
+      <Section icon={<Store size={18} />} title="Tax & KRA eTIMS">
         <label className="flex items-center justify-between rounded-xl bg-black/5 px-3 py-3 dark:bg-white/10">
           <span className="text-sm font-medium text-brand-900 dark:text-white">Charge VAT ({settings.vatRate}%)</span>
           <input type="checkbox" className="h-5 w-5 accent-brand-600" checked={settings.vatEnabled} onChange={(e) => set('vatEnabled', e.target.checked)} />
         </label>
+        <label className="mt-2 flex items-center justify-between rounded-xl bg-black/5 px-3 py-3 dark:bg-white/10">
+          <span className="text-sm font-medium text-brand-900 dark:text-white">eTIMS tax invoices (show KRA PIN on receipts)</span>
+          <input type="checkbox" className="h-5 w-5 accent-brand-600" checked={!!settings.etimsEnabled} onChange={(e) => set('etimsEnabled', e.target.checked)} />
+        </label>
+        {settings.etimsEnabled && (
+          <Field label="KRA PIN">
+            <input className="input font-mono uppercase" value={settings.kraPin || ''} onChange={(e) => set('kraPin', e.target.value.toUpperCase())} placeholder="e.g. P051234567X" />
+          </Field>
+        )}
+        <p className="mt-1 text-xs text-brand-900/50 dark:text-white/50">
+          Receipts show your KRA PIN. With the Duka backend connected and eTIMS onboarding done, each sale is also submitted to KRA automatically — see INTEGRATIONS.md.
+        </p>
       </Section>
 
       {/* Data */}
@@ -168,6 +187,80 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     <div>
       <label className="label">{label}</label>
       {children}
+    </div>
+  )
+}
+
+function CloudSection() {
+  const [sessionEmail, setSessionEmail] = useState<string | null>(null)
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState('')
+
+  useEffect(() => {
+    const sb = supabase()
+    if (!sb) return
+    sb.auth.getSession().then(({ data }) => setSessionEmail(data.session?.user?.email ?? null))
+    const { data } = sb.auth.onAuthStateChange((_e, s) => setSessionEmail(s?.user?.email ?? null))
+    return () => data.subscription.unsubscribe()
+  }, [])
+
+  async function signIn(create: boolean) {
+    const sb = supabase()
+    if (!sb || !email || password.length < 6) return
+    setBusy(true)
+    setMsg('')
+    const { error } = create
+      ? await sb.auth.signUp({ email, password })
+      : await sb.auth.signInWithPassword({ email, password })
+    setBusy(false)
+    if (error) setMsg(error.message)
+    else setMsg(create ? 'Account created — this shop now syncs across devices.' : 'Signed in — syncing.')
+  }
+
+  return (
+    <div className="card mb-4 p-5">
+      <h2 className="mb-2 flex items-center gap-2 font-bold text-brand-900 dark:text-white">
+        <span className="text-brand-600 dark:text-gold-400">{cloudConfigured ? <Cloud size={18} /> : <CloudOff size={18} />}</span>
+        Cloud sync (multi-device)
+      </h2>
+      {!cloudConfigured ? (
+        <p className="text-sm text-brand-900/50 dark:text-white/50">
+          Not configured on this deployment. Set <code className="rounded bg-black/10 px-1 dark:bg-white/10">VITE_SUPABASE_URL</code> and{' '}
+          <code className="rounded bg-black/10 px-1 dark:bg-white/10">VITE_SUPABASE_ANON_KEY</code>, redeploy, and this shop can share live
+          data across many phones. See CLOUD-SYNC.md.
+        </p>
+      ) : sessionEmail ? (
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <div className="text-sm font-semibold text-green-700 dark:text-green-400">● Live — synced across devices</div>
+            <div className="text-xs text-brand-900/50 dark:text-white/50">Signed in as {sessionEmail}. Sign in with the same account on any phone to share this shop.</div>
+          </div>
+          <button className="btn-ghost py-2 text-sm" onClick={() => supabase()?.auth.signOut()}>
+            <LogOut size={15} /> Sign out
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <p className="-mt-1 text-sm text-brand-900/50 dark:text-white/50">
+            Sign in once and this shop's sales, stock, customers and debts stay in the cloud — shared live by every device that signs in.
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            <input className="input" type="email" placeholder="shop@email.com" value={email} onChange={(e) => setEmail(e.target.value)} />
+            <input className="input" type="password" placeholder="Password (6+ chars)" value={password} onChange={(e) => setPassword(e.target.value)} />
+          </div>
+          {msg && <p className="text-xs font-medium text-brand-900/60 dark:text-white/60">{msg}</p>}
+          <div className="flex gap-2">
+            <button className="btn-primary flex-1" disabled={busy || !email || password.length < 6} onClick={() => signIn(false)}>
+              Sign in
+            </button>
+            <button className="btn-ghost flex-1" disabled={busy || !email || password.length < 6} onClick={() => signIn(true)}>
+              Create shop account
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
