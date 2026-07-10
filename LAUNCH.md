@@ -39,13 +39,23 @@ free. Don't pay for anything else until you have ~50 shops.
 1. Go to **https://render.com** → sign up with GitHub.
 2. **New → Web Service** → choose **duka-pos** → set **Root Directory** to
    `server` → the included `render.yaml` fills in the rest → Create.
-3. In **Environment**, add at minimum:
-   - `ADMIN_TOKEN` = a long secret password (this is your master key)
-   - `DATABASE_URL` = your Supabase connection string (Supabase dashboard →
-     Project Settings → Database → Connection string → URI)
-4. Copy your backend URL, e.g. `https://duka-pos-api.onrender.com`.
-5. Back on Vercel: **Settings → Environment Variables** →
-   `VITE_API_URL` = that URL → Redeploy.
+3. In **Environment**, add these (Name then Value, one per row):
+   - `ADMIN_TOKEN` = a long secret password you invent (your master key — save it)
+   - `DATABASE_URL` = your Supabase connection string (Supabase → Connect →
+     Transaction pooler → paste, replacing `[YOUR-PASSWORD]` with your db password)
+   - `GEMINI_API_KEY` = your Google AI key (get one free at
+     https://aistudio.google.com → "Get API key"). This powers Duka AI.
+   - (later, for live money) the M-PESA `MPESA_*` and eTIMS/Airtel keys —
+     see `INTEGRATIONS.md`.
+4. Choose the **Starter ($7/mo)** instance so it never sleeps (the auto-biller
+   must stay awake), then **Deploy Web Service**. Wait for "Live".
+5. Copy your backend URL, e.g. `https://duka-pos-api.onrender.com`. Add one more
+   env var `PUBLIC_URL` = that same URL (Environment → Add → Save).
+6. Test it: open `https://YOUR-BACKEND.onrender.com/api/health` — you should see
+   `"ai":"live (...)"` once the Gemini key is set.
+7. Back on Vercel: **Settings → Environment Variables** →
+   `VITE_API_URL` = your backend URL → Redeploy. Your **Super-Admin portal** is
+   now at `https://YOUR-BACKEND.onrender.com/admin` (unlock with `ADMIN_TOKEN`).
 
 ### C. Cloud sync on Supabase (10 min)
 Follow `CLOUD-SYNC.md` (run one script, paste two values into Vercel).
