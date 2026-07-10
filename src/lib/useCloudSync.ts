@@ -3,7 +3,7 @@
 //   local change → debounced push (version+1)
 //   remote change (another device) → merge into local
 import { useEffect, useRef, useState } from 'react'
-import { supabase, cloudConfigured, mergeState, type SyncedState } from './cloud'
+import { supabase, cloudConfigured, mergeState, normalizeSynced, type SyncedState } from './cloud'
 import { useStore } from '../store/useStore'
 
 export type CloudStatus = 'off' | 'signedOut' | 'syncing' | 'live' | 'error'
@@ -18,6 +18,9 @@ function pickSlice(): SyncedState {
     staff: s.staff,
     reminderLog: s.reminderLog,
     receiptCounter: s.receiptCounter,
+    locations: s.locations,
+    transfers: s.transfers,
+    returns: s.returns,
   }
 }
 
@@ -60,7 +63,9 @@ export function useCloudSync() {
     function applyRemote(remote: SyncedState, remoteVersion: number, remoteIsNewer: boolean) {
       applying.current = true
       try {
-        const merged = mergeState(pickSlice(), remote, remoteIsNewer)
+        const merged = mergeState(pickSlice(), normalizeSynced(remote), remoteIsNewer)
+        // Never let an empty cloud locations list wipe this device's branches.
+        if (!merged.locations.length) merged.locations = useStore.getState().locations
         version.current = Math.max(version.current, remoteVersion)
         useStore.setState(merged)
       } finally {

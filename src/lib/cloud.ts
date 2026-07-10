@@ -10,7 +10,8 @@
 // app simply stays local-only (no cloud section shown as connected).
 // ---------------------------------------------------------------------------
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-import type { Customer, Debt, Product, ReminderLogEntry, Sale, StaffMember } from '../types'
+import type { BizLocation, Customer, Debt, Product, ReminderLogEntry, ReturnRecord, Sale, StaffMember, StockTransfer } from '../types'
+import { normalizeProduct } from './stock'
 
 const url = (import.meta.env.VITE_SUPABASE_URL as string | undefined) || ''
 const key = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined) || ''
@@ -33,6 +34,25 @@ export interface SyncedState {
   staff: StaffMember[]
   reminderLog: ReminderLogEntry[]
   receiptCounter: number
+  locations: BizLocation[]
+  transfers: StockTransfer[]
+  returns: ReturnRecord[]
+}
+
+/** Fill defaults & migrate legacy shapes on state coming from the cloud. */
+export function normalizeSynced(s: Partial<SyncedState>): SyncedState {
+  return {
+    products: (s.products ?? []).map((p) => normalizeProduct(p as Product & { stock?: number })),
+    customers: s.customers ?? [],
+    sales: s.sales ?? [],
+    debts: s.debts ?? [],
+    staff: s.staff ?? [],
+    reminderLog: s.reminderLog ?? [],
+    receiptCounter: s.receiptCounter ?? 1,
+    locations: s.locations ?? [],
+    transfers: s.transfers ?? [],
+    returns: s.returns ?? [],
+  }
 }
 
 /**
@@ -76,14 +96,29 @@ export function mergeState(local: SyncedState, remote: SyncedState, remoteIsNewe
     return [...m.values()]
   }
 
+  // Transfers: union by id; if both sides have one, the more "final" status
+  // wins (received/cancelled beats pending) so a receive is never undone.
+  const mergeTransfers = (a: StockTransfer[], b: StockTransfer[]) => {
+    const rank = { pending: 0, cancelled: 1, received: 2 } as const
+    const m = byId(a)
+    for (const t of b) {
+      const cur = m.get(t.id)
+      if (!cur || rank[t.status] > rank[cur.status]) m.set(t.id, t)
+    }
+    return [...m.values()].sort((x, y) => y.createdAt - x.createdAt)
+  }
+
   const [prefP, otherP] = remoteIsNewer ? [remote, local] : [local, remote]
   return {
     sales: unionAppendOnly(local.sales, remote.sales).sort((a, b) => b.createdAt - a.createdAt),
     reminderLog: unionAppendOnly(local.reminderLog, remote.reminderLog).sort((a, b) => b.at - a.at).slice(0, 500),
+    returns: unionAppendOnly(local.returns, remote.returns).sort((a, b) => b.at - a.at),
+    transfers: mergeTransfers(local.transfers, remote.transfers),
     debts: mergeDebts(remoteIsNewer ? remote.debts : local.debts, remoteIsNewer ? local.debts : remote.debts),
     customers: lwwUnion(prefP.customers, otherP.customers),
     products: lwwUnion(prefP.products, otherP.products),
     staff: lwwUnion(prefP.staff, otherP.staff),
+    locations: lwwUnion(prefP.locations, otherP.locations),
     receiptCounter: Math.max(local.receiptCounter, remote.receiptCounter),
   }
 }

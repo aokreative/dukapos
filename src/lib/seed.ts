@@ -3,10 +3,12 @@ import type { BusinessSettings, Customer, Debt, Product, ReminderRule, Sale, Sta
 import { DEFAULT_TEMPLATE } from './reminders'
 import { TRIAL_DAYS } from './plans'
 import { uid } from './id'
+import { MAIN_LOCATION_ID } from './stock'
 
 export const defaultSettings: BusinessSettings = {
   name: 'Duka',
   tagline: 'Your neighbourhood shop',
+  businessType: 'shop',
   phone: '254712000000',
   location: 'Nairobi',
   mpesaType: 'till',
@@ -60,6 +62,8 @@ export const defaultReminderRule: ReminderRule = {
 }
 
 export function seedProducts(): Product[] {
+  // Shop-floor stock at the main branch; a healthy buffer in the warehouse so
+  // the transfer feature is demoable immediately.
   const p = (name: string, sku: string, category: string, price: number, cost: number, stock: number, reorder: number): Product => ({
     id: uid('p_'),
     name,
@@ -67,7 +71,7 @@ export function seedProducts(): Product[] {
     category,
     price,
     cost,
-    stock,
+    stockByLocation: { [MAIN_LOCATION_ID]: stock, loc_wh: Math.round(stock * 1.5) },
     reorderLevel: reorder,
     active: true,
   })
@@ -126,6 +130,7 @@ export function seedDebtsAndSales(customers: Customer[]): { debts: Debt[]; sales
       creditAmount: amount,
       customerId: cust.id,
       cashierName: 'Owner',
+      locationId: MAIN_LOCATION_ID,
     })
     debts.push({
       id: uid('d_'),
@@ -137,6 +142,7 @@ export function seedDebtsAndSales(customers: Customer[]): { debts: Debt[]; sales
       createdAt,
       status: 'open',
       payments: [],
+      cashierName: 'Owner',
     })
   }
 

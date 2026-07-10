@@ -15,10 +15,12 @@ import {
   Lock,
   Sparkles,
 } from 'lucide-react'
-import { useStore, selectTotalOwed, selectCurrentStaff, selectRole } from '../store/useStore'
+import { useStore, selectTotalOwed, selectCurrentStaff, selectRole, selectCurrentLocation } from '../store/useStore'
 import { money } from '../lib/format'
 import { useOnline } from '../lib/useOnline'
 import { can, ROLE_LABEL, type Capability } from '../lib/permissions'
+import { bizLabels } from '../lib/labels'
+import { Building2 } from 'lucide-react'
 import { BillingBanner, Paywall, useBilling } from './Billing'
 
 const NAV: { to: string; label: string; icon: typeof ShoppingCart; cap?: Capability }[] = [
@@ -26,6 +28,7 @@ const NAV: { to: string; label: string; icon: typeof ShoppingCart; cap?: Capabil
   { to: '/debts', label: 'Debts', icon: HandCoins, cap: 'viewDebts' },
   { to: '/customers', label: 'Customers', icon: Users, cap: 'manageCustomers' },
   { to: '/products', label: 'Stock', icon: Package, cap: 'manageStock' },
+  { to: '/branches', label: 'Branches', icon: Building2, cap: 'transferStock' },
   { to: '/reports', label: 'Reports', icon: BarChart3, cap: 'viewReports' },
   { to: '/assistant', label: 'Duka AI', icon: Sparkles, cap: 'useAssistant' },
   { to: '/subscription', label: 'Billing', icon: CreditCard, cap: 'viewBilling' },
@@ -44,13 +47,23 @@ export default function Layout({ children }: { children: ReactNode }) {
   const role = useStore(selectRole)
   const currentStaff = useStore(selectCurrentStaff)
   const logout = useStore((s) => s.logout)
-  const nav = NAV.filter((n) => !n.cap || can(role, n.cap))
+  const labels = bizLabels(useStore((s) => s.settings.businessType))
+  const location = useStore(selectCurrentLocation)
+  const multiLoc = useStore((s) => s.locations.length > 1)
+  const nav = NAV.filter((n) => !n.cap || can(role, n.cap)).map((n) =>
+    n.to === '/products' ? { ...n, label: labels.stock } : n,
+  )
 
   return (
     <div className="mx-auto flex min-h-full max-w-6xl flex-col md:flex-row">
       {/* Desktop side rail */}
       <aside className="sticky top-0 hidden h-screen w-56 shrink-0 flex-col border-r border-black/5 bg-white px-3 py-5 dark:border-white/10 dark:bg-brand-900 md:flex">
         <Brand shopName={shopName} />
+        {multiLoc && location && (
+          <NavLink to="/branches" className="mt-2 flex items-center gap-1.5 rounded-lg bg-black/5 px-2.5 py-1.5 text-[11px] font-semibold text-brand-900/60 hover:bg-black/10 dark:bg-white/10 dark:text-white/60 dark:hover:bg-white/15">
+            <Building2 size={12} /> At: {location.name}
+          </NavLink>
+        )}
         <nav className="mt-6 flex flex-1 flex-col gap-1">
           {nav.map((n) => (
             <NavLink key={n.to} to={n.to} className={({ isActive }) => railClass(isActive)} end={n.to === '/'}>

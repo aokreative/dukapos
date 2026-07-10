@@ -111,16 +111,46 @@ export default function PaymentModal({
           ))}
         </div>
 
-        {/* Credit needs a customer */}
-        {hasCredit && (
-          <button className={`mt-3 flex w-full items-center gap-3 rounded-xl border p-3 text-left ${customer ? 'border-brand-500 bg-brand-50 dark:bg-brand-900' : 'border-red-300 bg-red-50 dark:border-red-500/40 dark:bg-red-500/10'}`} onClick={() => setPickerOpen(true)}>
-            <User size={18} className="text-brand-600 dark:text-gold-400" />
-            <div className="flex-1">
-              <div className="text-sm font-semibold text-brand-900 dark:text-white">{customer ? customer.name : 'Select customer for credit'}</div>
-              <div className="text-xs text-brand-900/50 dark:text-white/50">{customer ? 'Debt will be recorded & reminded' : 'Required for Mkopo / credit sales'}</div>
+        {/* Customer — required for credit, optional otherwise. Attaching a paying
+            customer records the sale in their history as PAID, so there is never
+            an argument later about what was paid and what is still owed. */}
+        <button
+          className={`mt-3 flex w-full items-center gap-3 rounded-xl border p-3 text-left ${
+            customer
+              ? 'border-brand-500 bg-brand-50 dark:bg-brand-900'
+              : hasCredit
+                ? 'border-red-300 bg-red-50 dark:border-red-500/40 dark:bg-red-500/10'
+                : 'border-black/10 dark:border-white/10'
+          }`}
+          onClick={() => setPickerOpen(true)}
+        >
+          <User size={18} className="text-brand-600 dark:text-gold-400" />
+          <div className="flex-1">
+            <div className="text-sm font-semibold text-brand-900 dark:text-white">
+              {customer ? customer.name : hasCredit ? 'Select customer for credit' : 'Attach customer (optional)'}
             </div>
-          </button>
-        )}
+            <div className="text-xs text-brand-900/50 dark:text-white/50">
+              {customer
+                ? hasCredit
+                  ? 'Debt will be recorded & reminded'
+                  : 'Will show in their history as PAID ✓'
+                : hasCredit
+                  ? 'Required for Mkopo / credit sales'
+                  : 'Keeps their purchase record clear — no debt disputes'}
+            </div>
+          </div>
+          {customer && (
+            <span
+              className="rounded-lg px-2 py-1 text-xs font-semibold text-brand-900/50 hover:bg-black/10 dark:text-white/50 dark:hover:bg-white/10"
+              onClick={(e) => {
+                e.stopPropagation()
+                setCustomer(null)
+              }}
+            >
+              remove
+            </span>
+          )}
+        </button>
 
         {/* Status line */}
         <div className="mt-4 flex items-center justify-between text-sm">

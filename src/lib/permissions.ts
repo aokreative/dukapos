@@ -14,14 +14,18 @@ export type Capability =
   | 'editSettings'
   | 'viewBilling' // the subscription/billing screen
   | 'useAssistant' // Duka AI — sees sales/profit/debt numbers
+  | 'transferStock' // send/receive stock between branches & warehouse
+  | 'manageLocations' // create/edit branches & warehouses
 
 const ROLE_CAPS: Record<Role, Capability[]> = {
   owner: [
     'sell', 'viewDebts', 'manageCustomers', 'manageStock', 'applyDiscount', 'voidRefund',
     'viewReports', 'manageStaff', 'editSettings', 'viewBilling', 'useAssistant',
+    'transferStock', 'manageLocations',
   ],
   manager: [
     'sell', 'viewDebts', 'manageCustomers', 'manageStock', 'applyDiscount', 'voidRefund', 'viewReports', 'useAssistant',
+    'transferStock',
   ],
   cashier: ['sell', 'viewDebts', 'manageCustomers'],
 }

@@ -4,6 +4,7 @@
 // backend/AI key (and fully offline).
 import type { Customer, Debt, Product, Sale } from '../types'
 import { money } from './format'
+import { totalStock } from './stock'
 
 export interface ShopSnapshot {
   business: string
@@ -59,10 +60,10 @@ export function buildShopSnapshot(input: {
   const topProducts = [...qtyByProduct.values()].sort((a, b) => b.qty - a.qty).slice(0, 5)
 
   const lowStock = products
-    .filter((p) => p.active && p.stock <= p.reorderLevel)
-    .sort((a, b) => a.stock - b.stock)
+    .filter((p) => p.active && p.trackStock !== false && totalStock(p) <= p.reorderLevel)
+    .sort((a, b) => totalStock(a) - totalStock(b))
     .slice(0, 8)
-    .map((p) => ({ name: p.name, stock: p.stock, reorderLevel: p.reorderLevel }))
+    .map((p) => ({ name: p.name, stock: totalStock(p), reorderLevel: p.reorderLevel }))
 
   const open = debts.filter((d) => d.status === 'open' && d.balance > 0)
   const owedByCustomer = new Map<string, number>()

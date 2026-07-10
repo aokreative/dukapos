@@ -9,6 +9,7 @@ import { get as idbGet, set as idbSet, del as idbDel } from 'idb-keyval'
 
 import type {
   BillingCycle,
+  BizLocation,
   BusinessSettings,
   CartLine,
   Customer,
@@ -19,12 +20,15 @@ import type {
   Product,
   ReminderLogEntry,
   ReminderRule,
+  ReturnRecord,
   Role,
   Sale,
   StaffMember,
+  StockTransfer,
   SubInvoice,
   Subscription,
   Tender,
+  TransferLine,
 } from '../types'
 import type { TenantView } from '../lib/api'
 import { uid } from '../lib/id'
@@ -40,6 +44,7 @@ import {
   seedProducts,
   seedStaff,
 } from '../lib/seed'
+import { MAIN_LOCATION_ID, defaultLocations, normalizeProduct, stockAt, withStockDelta } from '../lib/stock'
 
 // Fail-soft storage: some browsers (in-app webviews, strict private modes)
 // block IndexedDB. If that happens the app must still open — it just runs as
@@ -86,6 +91,15 @@ interface State {
   debts: Debt[]
   receiptCounter: number
 
+  // branches / warehouses & stock movement
+  locations: BizLocation[]
+  /** Which location THIS device is selling from (not synced to other devices). */
+  currentLocationId: string
+  transfers: StockTransfer[]
+  returns: ReturnRecord[]
+  /** Credit from an exchange-return, auto-applied to the next sale as discount. */
+  exchangeCredit: number
+
   // staff & access
   staff: StaffMember[]
   currentStaffId: string | null
@@ -116,7 +130,21 @@ interface State {
   addProduct: (p: Omit<Product, 'id'>) => void
   updateProduct: (id: string, patch: Partial<Product>) => void
   removeProduct: (id: string) => void
+  /** Adjust stock at THIS device's current location. */
   adjustStock: (id: string, delta: number) => void
+
+  // locations & transfers
+  addLocation: (l: Omit<BizLocation, 'id' | 'createdAt'>) => void
+  updateLocation: (id: string, patch: Partial<BizLocation>) => void
+  removeLocation: (id: string) => void
+  setCurrentLocation: (id: string) => void
+  createTransfer: (input: { fromId: string; toId: string; lines: TransferLine[]; note?: string }) => void
+  receiveTransfer: (id: string) => void
+  cancelTransfer: (id: string) => void
+
+  // returns
+  recordReturn: (input: Omit<ReturnRecord, 'id' | 'at' | 'byStaffName' | 'locationId'>) => void
+  clearExchangeCredit: () => void
 
   // customers
   addCustomer: (c: Omit<Customer, 'id' | 'createdAt'>) => Customer
@@ -158,6 +186,11 @@ function buildSeed() {
     receiptCounter: 4, // seeds used R-00001..R-00003
     staff: seedStaff(),
     currentStaffId: 'staff_owner' as string | null,
+    locations: defaultLocations(),
+    currentLocationId: MAIN_LOCATION_ID,
+    transfers: [] as StockTransfer[],
+    returns: [] as ReturnRecord[],
+    exchangeCredit: 0,
     subscription: defaultSubscription(),
     reminderRule: defaultReminderRule,
     reminderLog: [] as ReminderLogEntry[],
@@ -203,9 +236,116 @@ export const useStore = create<State>()(
       adjustStock: (id, delta) =>
         set((s) => ({
           products: s.products.map((p) =>
-            p.id === id ? { ...p, stock: Math.max(0, p.stock + delta) } : p,
+            p.id === id ? { ...p, stockByLocation: withStockDelta(p, s.currentLocationId, delta) } : p,
           ),
         })),
+
+      // --- Branches, warehouses & stock movement ---------------------------
+      addLocation: (l) =>
+        set((s) => ({ locations: [...s.locations, { ...l, id: uid('loc_'), createdAt: Date.now() }] })),
+      updateLocation: (id, patch) =>
+        set((s) => ({ locations: s.locations.map((l) => (l.id === id ? { ...l, ...patch } : l)) })),
+      removeLocation: (id) =>
+        set((s) => {
+          if (s.locations.length <= 1) return s // always keep at least one
+          // Any stock left there moves to the first remaining location.
+          const fallback = s.locations.find((l) => l.id !== id)!
+          const products = s.products.map((p) => {
+            const qty = stockAt(p, id)
+            if (!qty) return p
+            const moved = withStockDelta(p, fallback.id, qty)
+            delete moved[id]
+            return { ...p, stockByLocation: moved }
+          })
+          return {
+            locations: s.locations.filter((l) => l.id !== id),
+            products,
+            currentLocationId: s.currentLocationId === id ? fallback.id : s.currentLocationId,
+          }
+        }),
+      setCurrentLocation: (id) => set({ currentLocationId: id }),
+
+      createTransfer: ({ fromId, toId, lines, note }) =>
+        set((s) => {
+          const clean = lines.filter((l) => l.qty > 0)
+          if (!clean.length || fromId === toId) return s
+          const staffName = s.staff.find((m) => m.id === s.currentStaffId)?.name || 'Staff'
+          // Stock leaves the source immediately (it's on the road).
+          const products = s.products.map((p) => {
+            const line = clean.find((l) => l.productId === p.id)
+            return line ? { ...p, stockByLocation: withStockDelta(p, fromId, -line.qty) } : p
+          })
+          const transfer: StockTransfer = {
+            id: uid('tr_'),
+            fromId,
+            toId,
+            lines: clean,
+            status: 'pending',
+            note,
+            createdBy: staffName,
+            createdAt: Date.now(),
+          }
+          return { products, transfers: [transfer, ...s.transfers] }
+        }),
+
+      receiveTransfer: (id) =>
+        set((s) => {
+          const t = s.transfers.find((x) => x.id === id)
+          if (!t || t.status !== 'pending') return s
+          const staffName = s.staff.find((m) => m.id === s.currentStaffId)?.name || 'Staff'
+          const products = s.products.map((p) => {
+            const line = t.lines.find((l) => l.productId === p.id)
+            return line ? { ...p, stockByLocation: withStockDelta(p, t.toId, line.qty) } : p
+          })
+          return {
+            products,
+            transfers: s.transfers.map((x) =>
+              x.id === id ? { ...x, status: 'received' as const, receivedBy: staffName, receivedAt: Date.now() } : x,
+            ),
+          }
+        }),
+
+      cancelTransfer: (id) =>
+        set((s) => {
+          const t = s.transfers.find((x) => x.id === id)
+          if (!t || t.status !== 'pending') return s
+          // Goods go back to the source.
+          const products = s.products.map((p) => {
+            const line = t.lines.find((l) => l.productId === p.id)
+            return line ? { ...p, stockByLocation: withStockDelta(p, t.fromId, line.qty) } : p
+          })
+          return {
+            products,
+            transfers: s.transfers.map((x) => (x.id === id ? { ...x, status: 'cancelled' as const } : x)),
+          }
+        }),
+
+      // --- Returns ----------------------------------------------------------
+      recordReturn: (input) =>
+        set((s) => {
+          const staffName = s.staff.find((m) => m.id === s.currentStaffId)?.name || 'Staff'
+          // Returned goods go back on the shelf at this location.
+          const products = s.products.map((p) => {
+            const line = input.lines.find((l) => l.productId === p.id)
+            return line && p.trackStock !== false
+              ? { ...p, stockByLocation: withStockDelta(p, s.currentLocationId, line.qty) }
+              : p
+          })
+          const rec: ReturnRecord = {
+            ...input,
+            id: uid('ret_'),
+            at: Date.now(),
+            byStaffName: staffName,
+            locationId: s.currentLocationId,
+          }
+          return {
+            products,
+            returns: [rec, ...s.returns],
+            // Exchanges become credit that the till auto-applies to the next sale.
+            exchangeCredit: input.resolution === 'exchange' ? s.exchangeCredit + input.amount : s.exchangeCredit,
+          }
+        }),
+      clearExchangeCredit: () => set({ exchangeCredit: 0 }),
 
       addCustomer: (c) => {
         const customer: Customer = {
@@ -228,7 +368,9 @@ export const useStore = create<State>()(
       completeSale: (input) => {
         const state = get()
         const subtotal = input.lines.reduce((sum, l) => sum + l.price * l.qty, 0)
-        const discount = Math.min(input.discount || 0, subtotal)
+        // Exchange credit from a return is applied automatically as discount.
+        const credit = Math.min(state.exchangeCredit, subtotal)
+        const discount = Math.min((input.discount || 0) + credit, subtotal)
         const total = subtotal - discount
         const creditAmount = input.tenders
           .filter((t) => t.method === 'credit')
@@ -236,6 +378,7 @@ export const useStore = create<State>()(
 
         const counter = state.receiptCounter
         const currentStaff = state.staff.find((m) => m.id === state.currentStaffId)
+        const cashierName = currentStaff?.name || state.settings.cashierName || 'Cashier'
         const sale: Sale = {
           id: uid('s_'),
           receiptNo: fmtReceipt(counter),
@@ -247,13 +390,16 @@ export const useStore = create<State>()(
           tenders: input.tenders,
           creditAmount,
           customerId: input.customerId,
-          cashierName: currentStaff?.name || state.settings.cashierName || 'Cashier',
+          cashierName,
+          locationId: state.currentLocationId,
         }
 
-        // Deduct stock for real catalog items.
+        // Deduct stock at THIS branch (items flagged "don't track" are skipped).
         const products = state.products.map((p) => {
           const line = input.lines.find((l) => l.productId === p.id)
-          return line ? { ...p, stock: Math.max(0, p.stock - line.qty) } : p
+          return line && p.trackStock !== false
+            ? { ...p, stockByLocation: withStockDelta(p, state.currentLocationId, -line.qty) }
+            : p
         })
 
         // Create a debt if any credit was taken and a customer is attached.
@@ -269,6 +415,7 @@ export const useStore = create<State>()(
             createdAt: sale.createdAt,
             status: 'open',
             payments: [],
+            cashierName,
           })
         }
 
@@ -277,6 +424,7 @@ export const useStore = create<State>()(
           products,
           debts,
           receiptCounter: counter + 1,
+          exchangeCredit: credit > 0 ? state.exchangeCredit - credit : state.exchangeCredit,
         })
         return sale
       },
@@ -382,11 +530,31 @@ export const useStore = create<State>()(
           debts: [],
           receiptCounter: 1,
           reminderLog: [],
+          transfers: [],
+          returns: [],
+          exchangeCredit: 0,
         }),
     }),
     {
       name: 'duka-pos-v1',
-      version: 1,
+      version: 2,
+      migrate: (persisted, version) => {
+        // v1 → v2: single-number stock becomes per-location stock; new
+        // branches/transfers/returns state gets sensible defaults.
+        const s = persisted as Record<string, unknown> | undefined
+        if (s && version < 2) {
+          const locs = s.locations as BizLocation[] | undefined
+          s.locations = locs?.length ? locs : defaultLocations()
+          s.currentLocationId = (s.currentLocationId as string) || MAIN_LOCATION_ID
+          s.transfers ??= []
+          s.returns ??= []
+          s.exchangeCredit ??= 0
+          s.products = ((s.products as Product[]) || []).map((p) => normalizeProduct(p))
+          const oldSettings = s.settings as Partial<BusinessSettings>
+          s.settings = { businessType: 'shop' as const, ...oldSettings }
+        }
+        return persisted as State
+      },
       storage: createJSONStorage(() => idbStorage),
       partialize: (s) => {
         const { _hasHydrated, setHydrated, ...rest } = s as unknown as Record<string, unknown>
@@ -449,6 +617,10 @@ export function selectTotalOwed(state: State): number {
 
 export function selectCurrentStaff(state: State): StaffMember | undefined {
   return state.staff.find((m) => m.id === state.currentStaffId)
+}
+
+export function selectCurrentLocation(state: State): BizLocation | undefined {
+  return state.locations.find((l) => l.id === state.currentLocationId) ?? state.locations[0]
 }
 
 export function selectRole(state: State): Role | undefined {

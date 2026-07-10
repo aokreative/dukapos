@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
-import { Store, Smartphone, MessageSquareText, Database, RotateCcw, Trash2, Check, Users, UserPlus, Pencil, Cloud, CloudOff, LogOut } from 'lucide-react'
+import { Store, Smartphone, MessageSquareText, Database, RotateCcw, Trash2, Check, Users, UserPlus, Pencil, Cloud, CloudOff, LogOut, UtensilsCrossed } from 'lucide-react'
 import { supabase, cloudConfigured } from '../lib/cloud'
 import { useStore } from '../store/useStore'
 import { PageHeader, Modal, Badge } from '../components/ui'
 import { DEFAULT_TEMPLATE, buildReminderMessage } from '../lib/reminders'
 import { displayPhone, normalizePhone } from '../lib/format'
 import { ROLE_LABEL, ROLE_BLURB } from '../lib/permissions'
-import type { BusinessSettings, Customer, Debt, Role, StaffMember } from '../types'
+import { BUSINESS_TYPE_LABEL } from '../lib/labels'
+import type { BusinessSettings, BusinessType, Customer, Debt, Role, StaffMember } from '../types'
 
 export default function Settings() {
   const settings = useStore((s) => s.settings)
@@ -35,6 +36,22 @@ export default function Settings() {
 
       {/* Business profile */}
       <Section icon={<Store size={18} />} title="Business profile">
+        <Field label="What kind of business is this?">
+          <div className="flex gap-2">
+            {(Object.keys(BUSINESS_TYPE_LABEL) as BusinessType[]).map((t) => (
+              <button
+                key={t}
+                onClick={() => set('businessType', t)}
+                className={`chip flex-1 justify-center py-2.5 ${(settings.businessType ?? 'shop') === t ? 'bg-brand-600 text-white' : 'bg-black/5 text-brand-900/70 dark:bg-white/10 dark:text-white/70'}`}
+              >
+                {t === 'restaurant' ? <UtensilsCrossed size={14} /> : <Store size={14} />} {BUSINESS_TYPE_LABEL[t]}
+              </button>
+            ))}
+          </div>
+          <p className="mt-1 text-xs text-brand-900/40 dark:text-white/40">
+            Restaurant mode renames Stock to Menu and lets dishes skip stock counting (made-to-order).
+          </p>
+        </Field>
         <Field label="Shop name">
           <input className="input" value={settings.name} onChange={(e) => set('name', e.target.value)} />
         </Field>

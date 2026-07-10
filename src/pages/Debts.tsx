@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
-import { MessageCircle, Send, HandCoins, Wallet, Clock, ChevronRight, PartyPopper } from 'lucide-react'
+import { MessageCircle, Send, HandCoins, Wallet, Clock, ChevronRight, PartyPopper, ReceiptText, CheckCircle2 } from 'lucide-react'
 import { useStore, selectOpenDebtsByCustomer, type DebtorSummary } from '../store/useStore'
-import { money, displayPhone, agingBucket, relativeDays, shortDate } from '../lib/format'
+import { money, displayPhone, agingBucket, relativeDays, shortDate, shortDateTime } from '../lib/format'
 import { buildCombinedReminder, paymentInstructions, smsLink, whatsappLink } from '../lib/reminders'
 import { PageHeader, Modal, Badge, EmptyState } from '../components/ui'
 import AutomationPanel from '../components/AutomationPanel'
@@ -21,6 +21,7 @@ export default function Debts() {
 
   const [remindFor, setRemindFor] = useState<DebtorSummary | null>(null)
   const [payFor, setPayFor] = useState<DebtorSummary | null>(null)
+  const [detailsFor, setDetailsFor] = useState<DebtorSummary | null>(null)
 
   const totals = useMemo(() => {
     const totalOwed = debtors.reduce((s, d) => s + d.totalBalance, 0)
@@ -103,7 +104,7 @@ export default function Debts() {
                   <button className="btn-ghost py-2 text-sm" onClick={() => setPayFor(d)}>
                     <Wallet size={16} /> Record pay
                   </button>
-                  <button className="btn-ghost py-2 text-sm" onClick={() => setPayFor(d)}>
+                  <button className="btn-ghost py-2 text-sm" onClick={() => setDetailsFor(d)}>
                     Details <ChevronRight size={16} />
                   </button>
                 </div>
@@ -117,7 +118,144 @@ export default function Debts() {
         <ReminderModal summary={remindFor} onClose={() => setRemindFor(null)} onSend={sendReminder} />
       )}
       {payFor && <RepaymentModal summary={payFor} onClose={() => setPayFor(null)} />}
+      {detailsFor && (
+        <DebtorDetailsModal
+          summary={detailsFor}
+          onClose={() => setDetailsFor(null)}
+          onRecordPay={() => {
+            setPayFor(detailsFor)
+            setDetailsFor(null)
+          }}
+        />
+      )}
     </div>
+  )
+}
+
+/**
+ * The full story of one customer — every debt with its items, who served it,
+ * every payment made, AND their fully-paid purchases. This is the screen that
+ * settles "but I paid you!" arguments: paid purchases show as PAID ✓, debts
+ * show exactly what was taken, when, and what has been paid off.
+ */
+function DebtorDetailsModal({
+  summary,
+  onClose,
+  onRecordPay,
+}: {
+  summary: DebtorSummary
+  onClose: () => void
+  onRecordPay: () => void
+}) {
+  const settings = useStore((s) => s.settings)
+  const sales = useStore((s) => s.sales)
+  const allDebts = useStore((s) => s.debts)
+
+  const customerSales = useMemo(
+    () => sales.filter((s) => s.customerId === summary.customer.id).sort((a, b) => b.createdAt - a.createdAt),
+    [sales, summary.customer.id],
+  )
+  const debtBySaleId = useMemo(() => {
+    const m = new Map<string, (typeof allDebts)[number]>()
+    for (const d of allDebts) if (d.customerId === summary.customer.id) m.set(d.saleId, d)
+    return m
+  }, [allDebts, summary.customer.id])
+
+  const METHOD: Record<string, string> = { cash: 'Cash', mpesa: 'M-PESA', airtel: 'Airtel', card: 'Card', credit: 'Credit' }
+
+  return (
+    <Modal open onClose={onClose} title={`${summary.customer.name} — full record`}>
+      {/* Open debts, in detail */}
+      <div className="mb-1 flex items-center justify-between">
+        <h3 className="text-xs font-bold uppercase tracking-wide text-brand-900/50 dark:text-white/50">Unpaid debts</h3>
+        <span className="text-sm font-black text-red-600 dark:text-red-400">{money(summary.totalBalance, settings.currency)}</span>
+      </div>
+      <div className="space-y-2">
+        {summary.debts
+          .slice()
+          .sort((a, b) => a.createdAt - b.createdAt)
+          .map((d) => {
+            const sale = sales.find((s) => s.id === d.saleId)
+            const servedBy = d.cashierName || sale?.cashierName
+            return (
+              <div key={d.id} className="rounded-xl border border-black/10 p-3 dark:border-white/10">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-bold text-brand-900 dark:text-white">{d.receiptNo}</span>
+                  <span className="text-sm font-black text-red-600 dark:text-red-400">{money(d.balance, settings.currency)} left</span>
+                </div>
+                <div className="text-xs text-brand-900/50 dark:text-white/50">
+                  {shortDateTime(d.createdAt)}
+                  {servedBy ? ` · given out by ${servedBy}` : ''}
+                </div>
+                {sale && (
+                  <div className="mt-1.5 rounded-lg bg-black/5 px-2.5 py-1.5 text-xs text-brand-900/70 dark:bg-white/10 dark:text-white/70">
+                    {sale.lines.map((l) => `${l.qty}× ${l.name}`).join(' · ')}
+                  </div>
+                )}
+                <div className="mt-1.5 text-xs">
+                  {d.payments.length === 0 ? (
+                    <span className="text-brand-900/40 dark:text-white/40">No payments yet on this debt.</span>
+                  ) : (
+                    <ul className="space-y-0.5">
+                      {d.payments.map((p) => (
+                        <li key={p.id} className="flex justify-between text-brand-900/70 dark:text-white/70">
+                          <span>
+                            {shortDateTime(p.at)} · {METHOD[p.method] || p.method}
+                            {p.ref ? ` (${p.ref})` : ''}
+                          </span>
+                          <span className="font-semibold text-green-700 dark:text-green-400">-{money(p.amount, settings.currency)}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+      </div>
+
+      {/* Everything else they bought — incl. fully-paid purchases */}
+      <h3 className="mb-1 mt-4 text-xs font-bold uppercase tracking-wide text-brand-900/50 dark:text-white/50">
+        Purchase history (incl. paid)
+      </h3>
+      {customerSales.length === 0 ? (
+        <p className="text-sm text-brand-900/40 dark:text-white/40">No purchases recorded for this customer yet.</p>
+      ) : (
+        <div className="max-h-56 space-y-1.5 overflow-y-auto pr-1">
+          {customerSales.map((s) => {
+            const debt = debtBySaleId.get(s.id)
+            const status: 'paid' | 'open' | 'cleared' = !debt || s.creditAmount === 0 ? 'paid' : debt.status === 'settled' ? 'cleared' : 'open'
+            return (
+              <div key={s.id} className="rounded-xl bg-black/5 px-3 py-2 dark:bg-white/10">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="flex items-center gap-1.5 text-sm font-semibold text-brand-900 dark:text-white">
+                    <ReceiptText size={13} className="text-brand-900/40 dark:text-white/40" /> {s.receiptNo}
+                  </span>
+                  <span className="flex items-center gap-2">
+                    <span className="text-sm font-bold text-brand-900 dark:text-white">{money(s.total, settings.currency)}</span>
+                    {status === 'paid' && (
+                      <Badge color="green"><CheckCircle2 size={11} /> PAID</Badge>
+                    )}
+                    {status === 'cleared' && <Badge color="green">debt cleared ✓</Badge>}
+                    {status === 'open' && <Badge color="red">on credit</Badge>}
+                  </span>
+                </div>
+                <div className="text-[11px] text-brand-900/50 dark:text-white/50">
+                  {shortDateTime(s.createdAt)} · served by {s.cashierName} · {s.lines.map((l) => `${l.qty}× ${l.name}`).join(', ')}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      <div className="mt-4 grid grid-cols-2 gap-2">
+        <button className="btn-primary" onClick={onRecordPay}>
+          <Wallet size={16} /> Record payment
+        </button>
+        <button className="btn-ghost" onClick={onClose}>Close</button>
+      </div>
+    </Modal>
   )
 }
 

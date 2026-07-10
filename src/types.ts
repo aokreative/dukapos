@@ -5,6 +5,63 @@
 
 export type PaymentMethod = 'cash' | 'mpesa' | 'airtel' | 'card' | 'credit'
 
+/** What kind of business runs this POS — switches wording & behaviour. */
+export type BusinessType = 'shop' | 'restaurant'
+
+// Branches, warehouses & stock movement ---------------------------------------
+export type LocationType = 'branch' | 'warehouse'
+
+/** A place that holds stock: a branch that sells, or a warehouse/store. */
+export interface BizLocation {
+  id: string
+  name: string
+  type: LocationType
+  /** Optional salesperson/keeper responsible for this location. */
+  assignedStaffId?: string
+  createdAt: number
+}
+
+export interface TransferLine {
+  productId: string
+  name: string
+  qty: number
+}
+
+export type TransferStatus = 'pending' | 'received' | 'cancelled'
+
+/** Stock moving between locations (warehouse→branch or branch→branch). */
+export interface StockTransfer {
+  id: string
+  fromId: string
+  toId: string
+  lines: TransferLine[]
+  status: TransferStatus
+  note?: string
+  createdBy: string
+  createdAt: number
+  receivedBy?: string
+  receivedAt?: number
+}
+
+export type ReturnResolution = 'refund' | 'exchange'
+
+/** A customer bringing goods back — refunded or exchanged; stock goes back in. */
+export interface ReturnRecord {
+  id: string
+  saleId?: string
+  receiptNo: string
+  customerId?: string
+  lines: TransferLine[]
+  amount: number
+  resolution: ReturnResolution
+  /** For refunds: how the money went back (cash / mpesa / airtel). */
+  method?: PaymentMethod
+  note?: string
+  byStaffName: string
+  at: number
+  locationId: string
+}
+
 // Staff & access control -----------------------------------------------------
 export type Role = 'owner' | 'manager' | 'cashier'
 
@@ -25,9 +82,12 @@ export interface Product {
   category: string
   price: number // selling price, KES
   cost: number // buying price, KES (for profit)
-  stock: number
+  /** Units on hand per location id (branches + warehouses). */
+  stockByLocation: Record<string, number>
   reorderLevel: number
   active: boolean
+  /** false = don't deplete stock on sale (e.g. made-to-order restaurant dishes). */
+  trackStock?: boolean
 }
 
 export interface Customer {
@@ -65,6 +125,8 @@ export interface Sale {
   creditAmount: number
   customerId?: string
   cashierName: string
+  /** Which branch made the sale. */
+  locationId?: string
 }
 
 export type DebtStatus = 'open' | 'settled'
@@ -82,6 +144,8 @@ export interface Debt {
   lastReminderAt?: number
   lastReminderChannel?: 'whatsapp' | 'sms'
   payments: DebtPayment[]
+  /** Who served this credit sale — settles "who gave out this debt" disputes. */
+  cashierName?: string
 }
 
 export interface DebtPayment {
@@ -95,6 +159,8 @@ export interface DebtPayment {
 export interface BusinessSettings {
   name: string
   tagline: string
+  /** Chosen at onboarding: duka/shop or restaurant — switches wording & flow. */
+  businessType: BusinessType
   phone: string // shop contact, normalised
   location: string
   // How debtors can pay you back — included in every reminder.

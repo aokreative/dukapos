@@ -1,15 +1,18 @@
 import { useMemo, useState } from 'react'
-import { Search, Plus, Minus, Trash2, ShoppingCart, X, Tag } from 'lucide-react'
+import { Search, Plus, Minus, Trash2, ShoppingCart, X, Tag, RotateCcw } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { money } from '../lib/format'
 import type { CartLine, Product, Sale, Tender } from '../types'
 import PaymentModal from '../components/PaymentModal'
 import Receipt from '../components/Receipt'
+import ReturnModal from '../components/ReturnModal'
 import { EmptyState } from '../components/ui'
 import { useBilling } from '../components/Billing'
 import { selectRole } from '../store/useStore'
 import { can } from '../lib/permissions'
 import { submitEtimsInvoice } from '../lib/api'
+import { stockAt } from '../lib/stock'
+import { bizLabels } from '../lib/labels'
 
 export default function POS() {
   const products = useStore((s) => s.products)
@@ -19,6 +22,12 @@ export default function POS() {
   const held = !billing.canSell
   const role = useStore(selectRole)
   const canDiscount = can(role, 'applyDiscount')
+  const canRefund = can(role, 'voidRefund')
+  const locId = useStore((s) => s.currentLocationId)
+  const exchangeCredit = useStore((s) => s.exchangeCredit)
+  const clearExchangeCredit = useStore((s) => s.clearExchangeCredit)
+  const labels = bizLabels(useStore((s) => s.settings.businessType))
+  const [returnOpen, setReturnOpen] = useState(false)
 
   const [q, setQ] = useState('')
   const [cat, setCat] = useState<string>('All')
@@ -42,7 +51,8 @@ export default function POS() {
   }, [products, q, cat])
 
   const subtotal = cart.reduce((s, l) => s + l.price * l.qty, 0)
-  const total = Math.max(0, subtotal - discount)
+  // Exchange credit (from a return) reduces what the customer pays now.
+  const total = Math.max(0, subtotal - discount - exchangeCredit)
   const count = cart.reduce((s, l) => s + l.qty, 0)
 
   function add(p: Product) {
@@ -84,10 +94,23 @@ export default function POS() {
     <div className="md:grid md:grid-cols-[minmax(0,1fr)_360px] md:gap-6">
       {/* Products */}
       <div>
-        <div className="relative mb-3">
-          <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-brand-900/40 dark:text-white/40" size={18} />
-          <input autoFocus className="input pl-10" placeholder="Search product or scan barcode…" value={q} onChange={(e) => setQ(e.target.value)} />
+        <div className="mb-3 flex gap-2">
+          <div className="relative flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-brand-900/40 dark:text-white/40" size={18} />
+            <input autoFocus className="input pl-10" placeholder={labels.searchHint} value={q} onChange={(e) => setQ(e.target.value)} />
+          </div>
+          {canRefund && (
+            <button className="btn-ghost whitespace-nowrap px-3" title="Return / exchange goods" onClick={() => setReturnOpen(true)}>
+              <RotateCcw size={17} /> <span className="hidden sm:inline">Return</span>
+            </button>
+          )}
         </div>
+        {exchangeCredit > 0 && (
+          <div className="mb-3 flex items-center justify-between rounded-xl bg-gold-500/15 px-3 py-2 text-sm font-semibold text-gold-600 dark:text-gold-400">
+            <span>Exchange credit: {money(exchangeCredit, currency)} — applies to the next sale automatically</span>
+            <button className="text-xs underline" onClick={clearExchangeCredit}>dismiss</button>
+          </div>
+        )}
         <div className="mb-3 flex gap-2 overflow-x-auto pb-1">
           {categories.map((c) => (
             <button key={c} onClick={() => setCat(c)} className={`chip whitespace-nowrap ${cat === c ? 'bg-brand-600 text-white' : 'bg-black/5 text-brand-900/70 dark:bg-white/10 dark:text-white/70'}`}>
@@ -97,7 +120,9 @@ export default function POS() {
         </div>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
           {filtered.map((p) => {
-            const low = p.stock <= p.reorderLevel
+            const here = stockAt(p, locId)
+            const tracked = p.trackStock !== false
+            const low = tracked && here <= p.reorderLevel
             return (
               <button key={p.id} onClick={() => add(p)} className="card flex flex-col p-3 text-left transition active:scale-[0.97]">
                 <div className="flex-1">
@@ -106,7 +131,9 @@ export default function POS() {
                 </div>
                 <div className="mt-2 flex items-end justify-between">
                   <span className="font-black text-brand-700 dark:text-gold-400">{money(p.price, currency)}</span>
-                  <span className={`text-[10px] font-semibold ${low ? 'text-red-500' : 'text-brand-900/40 dark:text-white/40'}`}>{p.stock} left</span>
+                  {tracked && (
+                    <span className={`text-[10px] font-semibold ${low ? 'text-red-500' : 'text-brand-900/40 dark:text-white/40'}`}>{here} left</span>
+                  )}
                 </div>
               </button>
             )
@@ -177,6 +204,7 @@ export default function POS() {
 
       <PaymentModal open={payOpen} onClose={() => setPayOpen(false)} total={total} onComplete={onComplete} />
       <Receipt sale={lastSale} open={receiptOpen} onClose={() => setReceiptOpen(false)} onNewSale={() => setReceiptOpen(false)} />
+      {returnOpen && <ReturnModal onClose={() => setReturnOpen(false)} />}
     </div>
   )
 }

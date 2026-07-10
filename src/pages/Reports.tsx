@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { TrendingUp, Receipt as ReceiptIcon, Wallet, Boxes, Banknote, Smartphone, CreditCard, HandCoins } from 'lucide-react'
 import { useStore, selectTotalOwed } from '../store/useStore'
 import { money } from '../lib/format'
+import { totalStock } from '../lib/stock'
 import { PageHeader } from '../components/ui'
 import type { PaymentMethod } from '../types'
 
@@ -47,8 +48,8 @@ export default function Reports() {
       }
     const topProducts = [...revByProduct.values()].sort((a, b) => b.revenue - a.revenue).slice(0, 5)
 
-    const stockValue = products.reduce((a, p) => a + p.cost * p.stock, 0)
-    const potentialProfit = products.reduce((a, p) => a + (p.price - p.cost) * p.stock, 0)
+    const stockValue = products.reduce((a, p) => a + p.cost * totalStock(p), 0)
+    const potentialProfit = products.reduce((a, p) => a + (p.price - p.cost) * totalStock(p), 0)
 
     return { todayRevenue, todayCount: todaySales.length, methodSplit, days, topProducts, stockValue, potentialProfit }
   }, [sales, products])
