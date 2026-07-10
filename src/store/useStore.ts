@@ -15,6 +15,7 @@ import type {
   Customer,
   Debt,
   DebtPayment,
+  DeliveryLine,
   PaymentMethod,
   PlanId,
   Product,
@@ -137,7 +138,7 @@ interface State {
   updateSettings: (patch: Partial<BusinessSettings>) => void
 
   // products
-  addProduct: (p: Omit<Product, 'id'>) => void
+  addProduct: (p: Omit<Product, 'id'>) => Product
   updateProduct: (id: string, patch: Partial<Product>) => void
   removeProduct: (id: string) => void
   /** Adjust stock at THIS device's current location. */
@@ -161,6 +162,15 @@ interface State {
   updateSupplier: (id: string, patch: Partial<Supplier>) => void
   removeSupplier: (id: string) => void
   addSupplierTxn: (t: Omit<SupplierTxn, 'id' | 'at' | 'byStaffName'>) => void
+  /** Itemised goods-in: bumps stock at this location, updates buying prices,
+   *  records the delivery (and the payment when paid on the spot). */
+  receiveDelivery: (input: {
+    supplierId: string
+    lines: DeliveryLine[]
+    extraAmount?: number
+    paidNow?: { method: PaymentMethod; ref?: string }
+    note?: string
+  }) => void
 
   // debt comments
   addDebtComment: (debtId: string, text: string) => void
@@ -250,7 +260,11 @@ export const useStore = create<State>()(
 
       updateSettings: (patch) => set((s) => ({ settings: { ...s.settings, ...patch } })),
 
-      addProduct: (p) => set((s) => ({ products: [{ ...p, id: uid('p_') }, ...s.products] })),
+      addProduct: (p) => {
+        const product: Product = { ...p, id: uid('p_') }
+        set((s) => ({ products: [product, ...s.products] }))
+        return product
+      },
       updateProduct: (id, patch) =>
         set((s) => ({ products: s.products.map((p) => (p.id === id ? { ...p, ...patch } : p)) })),
       removeProduct: (id) => set((s) => ({ products: s.products.filter((p) => p.id !== id) })),
@@ -387,6 +401,53 @@ export const useStore = create<State>()(
             ...s.supplierTxns,
           ],
         })),
+
+      receiveDelivery: ({ supplierId, lines, extraAmount = 0, paidNow, note }) =>
+        set((s) => {
+          const clean = lines.filter((l) => l.qty > 0)
+          const amount = Math.round((clean.reduce((a, l) => a + l.qty * l.unitCost, 0) + extraAmount) * 100) / 100
+          if (amount <= 0) return s
+          const byStaffName = s.staff.find((m) => m.id === s.currentStaffId)?.name || 'Staff'
+          // Goods land at this location; the buying price becomes the latest cost.
+          const products = s.products.map((p) => {
+            const line = clean.find((l) => l.productId === p.id)
+            if (!line) return p
+            return {
+              ...p,
+              cost: line.unitCost > 0 ? line.unitCost : p.cost,
+              stockByLocation:
+                p.trackStock !== false ? withStockDelta(p, s.currentLocationId, line.qty) : p.stockByLocation,
+            }
+          })
+          const summary = clean.map((l) => `${l.qty}× ${l.name}`).join(', ')
+          const txns: SupplierTxn[] = [
+            {
+              id: uid('st_'),
+              supplierId,
+              type: 'delivery',
+              amount,
+              lines: clean.length ? clean : undefined,
+              items: summary || undefined,
+              note,
+              at: Date.now(),
+              byStaffName,
+            },
+          ]
+          if (paidNow) {
+            txns.push({
+              id: uid('st_'),
+              supplierId,
+              type: 'payment',
+              amount,
+              method: paidNow.method,
+              ref: paidNow.ref,
+              note: 'Paid on delivery',
+              at: Date.now() + 1,
+              byStaffName,
+            })
+          }
+          return { products, supplierTxns: [...txns, ...s.supplierTxns] }
+        }),
 
       addDebtComment: (debtId, text) =>
         set((s) => ({

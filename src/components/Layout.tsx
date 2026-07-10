@@ -29,7 +29,7 @@ const NAV: { to: string; label: string; icon: typeof ShoppingCart; cap?: Capabil
   { to: '/customers', label: 'Customers', icon: Users, cap: 'manageCustomers' },
   { to: '/products', label: 'Stock', icon: Package, cap: 'manageStock' },
   { to: '/branches', label: 'Branches', icon: Building2, cap: 'transferStock' },
-  { to: '/suppliers', label: 'Suppliers', icon: Truck, cap: 'manageSuppliers' },
+  { to: '/suppliers', label: 'Suppliers', icon: Truck, cap: 'receiveDeliveries' },
   { to: '/reports', label: 'Reports', icon: BarChart3, cap: 'viewReports' },
   { to: '/assistant', label: 'Duka AI', icon: Sparkles, cap: 'useAssistant' },
   { to: '/subscription', label: 'Billing', icon: CreditCard, cap: 'viewBilling' },

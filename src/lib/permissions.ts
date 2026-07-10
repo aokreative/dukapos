@@ -16,19 +16,20 @@ export type Capability =
   | 'useAssistant' // Duka AI — sees sales/profit/debt numbers
   | 'transferStock' // send/receive stock between branches & warehouse
   | 'manageLocations' // create/edit branches & warehouses
-  | 'manageSuppliers' // suppliers: deliveries, payments, credit notes
+  | 'manageSuppliers' // suppliers: payments, credit notes, add/edit suppliers
+  | 'receiveDeliveries' // record goods arriving from a supplier
 
 const ROLE_CAPS: Record<Role, Capability[]> = {
   owner: [
     'sell', 'viewDebts', 'manageCustomers', 'manageStock', 'applyDiscount', 'voidRefund',
     'viewReports', 'manageStaff', 'editSettings', 'viewBilling', 'useAssistant',
-    'transferStock', 'manageLocations', 'manageSuppliers',
+    'transferStock', 'manageLocations', 'manageSuppliers', 'receiveDeliveries',
   ],
   manager: [
     'sell', 'viewDebts', 'manageCustomers', 'manageStock', 'applyDiscount', 'voidRefund', 'viewReports', 'useAssistant',
-    'transferStock', 'manageSuppliers',
+    'transferStock', 'manageSuppliers', 'receiveDeliveries',
   ],
-  cashier: ['sell', 'viewDebts', 'manageCustomers'],
+  cashier: ['sell', 'viewDebts', 'manageCustomers', 'receiveDeliveries'],
 }
 
 export function can(role: Role | undefined, cap: Capability): boolean {

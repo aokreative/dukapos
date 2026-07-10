@@ -63,6 +63,14 @@ export interface Supplier {
 
 export type SupplierTxnType = 'delivery' | 'payment' | 'creditNote'
 
+/** One line of an itemised delivery — qty received at a unit buying price. */
+export interface DeliveryLine {
+  productId: string
+  name: string
+  qty: number
+  unitCost: number
+}
+
 /**
  * Money/goods movement with a supplier:
  *  - delivery: goods received — increases what you owe (unless paid on the spot)
@@ -77,8 +85,10 @@ export interface SupplierTxn {
   /** For payments: how you paid. */
   method?: PaymentMethod
   ref?: string
-  /** For deliveries: what arrived, free text. */
+  /** For deliveries: what arrived, free text (simple mode). */
   items?: string
+  /** For deliveries: itemised lines — stock & buying prices update from these. */
+  lines?: DeliveryLine[]
   note?: string
   at: number
   byStaffName: string

@@ -1,12 +1,16 @@
 // Suppliers — who the shop buys from: wholesalers, farmers, or the neighbor
 // next door. Tracks deliveries (what you owe), payments, and credit notes.
 // A supplier can be linked to a customer record (customers who also supply).
+// Deliveries are itemised: pick catalog items or register brand-new products
+// on the spot, with per-delivery buying prices — stock & costs update live.
 import { useMemo, useState } from 'react'
-import { Truck, Plus, Wallet, ChevronRight, PackageOpen, FileMinus2, Pencil, Trash2, UserRound, Link2 } from 'lucide-react'
-import { useStore, supplierBalance } from '../store/useStore'
+import { Truck, Plus, Wallet, ChevronRight, PackageOpen, FileMinus2, Pencil, Trash2, UserRound, Link2, Search, PackagePlus } from 'lucide-react'
+import { useStore, supplierBalance, selectRole, selectCurrentLocation } from '../store/useStore'
 import { money, displayPhone, normalizePhone, shortDateTime } from '../lib/format'
 import { PageHeader, Modal, Badge, EmptyState } from '../components/ui'
-import type { PaymentMethod, Supplier, SupplierTxnType } from '../types'
+import { can } from '../lib/permissions'
+import { stockAt } from '../lib/stock'
+import type { DeliveryLine, PaymentMethod, Supplier, SupplierTxnType } from '../types'
 
 const TXN_LABEL: Record<SupplierTxnType, string> = {
   delivery: 'Delivery received',
@@ -20,9 +24,13 @@ export default function Suppliers() {
   const customers = useStore((s) => s.customers)
   const currency = useStore((s) => s.settings.currency)
 
+  const role = useStore(selectRole)
+  const canManage = can(role, 'manageSuppliers')
+
   const [creating, setCreating] = useState(false)
   const [editing, setEditing] = useState<Supplier | null>(null)
   const [txnFor, setTxnFor] = useState<{ supplier: Supplier; type: SupplierTxnType } | null>(null)
+  const [deliveryFor, setDeliveryFor] = useState<Supplier | null>(null)
   const [detailsFor, setDetailsFor] = useState<Supplier | null>(null)
 
   const totalOwed = useMemo(
@@ -36,9 +44,11 @@ export default function Suppliers() {
         title="Suppliers"
         subtitle="Who you buy from — deliveries, payments & credit notes"
         action={
-          <button className="btn-primary" onClick={() => setCreating(true)}>
-            <Plus size={18} /> Add supplier
-          </button>
+          canManage ? (
+            <button className="btn-primary" onClick={() => setCreating(true)}>
+              <Plus size={18} /> Add supplier
+            </button>
+          ) : undefined
         }
       />
 
@@ -88,16 +98,20 @@ export default function Suppliers() {
                   </div>
                 </div>
 
-                <div className="mt-3 grid grid-cols-4 gap-2">
-                  <button className="btn-ghost py-2 text-xs sm:text-sm" onClick={() => setTxnFor({ supplier: s, type: 'delivery' })}>
+                <div className={`mt-3 grid gap-2 ${canManage ? 'grid-cols-4' : 'grid-cols-2'}`}>
+                  <button className="btn-ghost py-2 text-xs sm:text-sm" onClick={() => setDeliveryFor(s)}>
                     <PackageOpen size={15} /> Delivery
                   </button>
-                  <button className="btn-ghost py-2 text-xs sm:text-sm" onClick={() => setTxnFor({ supplier: s, type: 'payment' })}>
-                    <Wallet size={15} /> Pay
-                  </button>
-                  <button className="btn-ghost py-2 text-xs sm:text-sm" onClick={() => setTxnFor({ supplier: s, type: 'creditNote' })}>
-                    <FileMinus2 size={15} /> Credit note
-                  </button>
+                  {canManage && (
+                    <button className="btn-ghost py-2 text-xs sm:text-sm" onClick={() => setTxnFor({ supplier: s, type: 'payment' })}>
+                      <Wallet size={15} /> Pay
+                    </button>
+                  )}
+                  {canManage && (
+                    <button className="btn-ghost py-2 text-xs sm:text-sm" onClick={() => setTxnFor({ supplier: s, type: 'creditNote' })}>
+                      <FileMinus2 size={15} /> Credit note
+                    </button>
+                  )}
                   <button className="btn-ghost py-2 text-xs sm:text-sm" onClick={() => setDetailsFor(s)}>
                     Details <ChevronRight size={15} />
                   </button>
@@ -110,6 +124,7 @@ export default function Suppliers() {
 
       {(creating || editing) && <SupplierForm supplier={editing} onClose={() => { setCreating(false); setEditing(null) }} />}
       {txnFor && <TxnModal supplier={txnFor.supplier} type={txnFor.type} onClose={() => setTxnFor(null)} />}
+      {deliveryFor && <DeliveryModal supplier={deliveryFor} onClose={() => setDeliveryFor(null)} />}
       {detailsFor && (
         <SupplierDetails
           supplier={detailsFor}
@@ -199,12 +214,7 @@ function TxnModal({ supplier, type, onClose }: { supplier: Supplier; type: Suppl
   const [amount, setAmount] = useState<number>(type === 'payment' && bal > 0 ? bal : 0)
   const [method, setMethod] = useState<PaymentMethod>('mpesa')
   const [ref, setRef] = useState('')
-  const [items, setItems] = useState('')
-  const [paidNow, setPaidNow] = useState(false)
   const [note, setNote] = useState('')
-
-  const title =
-    type === 'delivery' ? `Delivery from ${supplier.name}` : type === 'payment' ? `Pay ${supplier.name}` : `Credit note — ${supplier.name}`
 
   function save() {
     if (amount <= 0) return
@@ -214,18 +224,13 @@ function TxnModal({ supplier, type, onClose }: { supplier: Supplier; type: Suppl
       amount,
       method: type === 'payment' ? method : undefined,
       ref: ref.trim() || undefined,
-      items: type === 'delivery' ? items.trim() || undefined : undefined,
       note: note.trim() || undefined,
     })
-    // "Paid on the spot" deliveries record the matching payment too.
-    if (type === 'delivery' && paidNow) {
-      addSupplierTxn({ supplierId: supplier.id, type: 'payment', amount, method, ref: ref.trim() || undefined, note: 'Paid on delivery' })
-    }
     onClose()
   }
 
   return (
-    <Modal open onClose={onClose} title={title}>
+    <Modal open onClose={onClose} title={type === 'payment' ? `Pay ${supplier.name}` : `Credit note — ${supplier.name}`}>
       {type === 'payment' && bal > 0 && (
         <p className="mb-2 text-sm text-brand-900/60 dark:text-white/60">You currently owe {money(bal, currency)}.</p>
       )}
@@ -235,17 +240,11 @@ function TxnModal({ supplier, type, onClose }: { supplier: Supplier; type: Suppl
         </p>
       )}
       <div className="space-y-3">
-        {type === 'delivery' && (
-          <div>
-            <label className="label">What was delivered</label>
-            <input autoFocus className="input" value={items} onChange={(e) => setItems(e.target.value)} placeholder="e.g. 10 trays eggs, 5kg sugar" />
-          </div>
-        )}
         <div>
           <label className="label">Amount ({currency})</label>
-          <input className="input" inputMode="decimal" value={amount || ''} onChange={(e) => setAmount(parseFloat(e.target.value) || 0)} />
+          <input autoFocus className="input" inputMode="decimal" value={amount || ''} onChange={(e) => setAmount(parseFloat(e.target.value) || 0)} />
         </div>
-        {(type === 'payment' || (type === 'delivery' && paidNow)) && (
+        {type === 'payment' && (
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="label">Method</label>
@@ -262,19 +261,230 @@ function TxnModal({ supplier, type, onClose }: { supplier: Supplier; type: Suppl
             </div>
           </div>
         )}
-        {type === 'delivery' && (
-          <label className="flex items-center gap-3 rounded-xl bg-black/5 px-3 py-3 dark:bg-white/10">
-            <input type="checkbox" className="h-5 w-5 accent-brand-600" checked={paidNow} onChange={(e) => setPaidNow(e.target.checked)} />
-            <span className="text-sm font-medium text-brand-900 dark:text-white">Paid on the spot (otherwise it's owed)</span>
-          </label>
-        )}
         <div>
           <label className="label">Comment (optional)</label>
           <input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder='e.g. "Brian paid supplier at 9am"' />
         </div>
       </div>
       <button className="btn-primary mt-4 w-full" disabled={amount <= 0} onClick={save}>
-        {type === 'delivery' ? 'Record delivery' : type === 'payment' ? `Pay ${money(amount, currency)}` : 'Record credit note'}
+        {type === 'payment' ? `Pay ${money(amount, currency)}` : 'Record credit note'}
+      </button>
+    </Modal>
+  )
+}
+
+/**
+ * Itemised goods-in. The receiver picks catalog items — or registers a brand
+ * new product on the spot (name, model, prices) — sets how many pieces and
+ * the buying price for THIS delivery (prices change over time), and stock at
+ * this branch plus the product's cost update automatically.
+ */
+function DeliveryModal({ supplier, onClose }: { supplier: Supplier; onClose: () => void }) {
+  const currency = useStore((s) => s.settings.currency)
+  const products = useStore((s) => s.products)
+  const location = useStore(selectCurrentLocation)
+  const receiveDelivery = useStore((s) => s.receiveDelivery)
+
+  const [q, setQ] = useState('')
+  const [lines, setLines] = useState<DeliveryLine[]>([])
+  const [newProduct, setNewProduct] = useState(false)
+  const [paidNow, setPaidNow] = useState(false)
+  const [method, setMethod] = useState<PaymentMethod>('mpesa')
+  const [ref, setRef] = useState('')
+  const [note, setNote] = useState('')
+
+  const matches = useMemo(() => {
+    const t = q.trim().toLowerCase()
+    if (!t) return []
+    return products
+      .filter((p) => p.active && (p.name.toLowerCase().includes(t) || p.sku.toLowerCase().includes(t)))
+      .filter((p) => !lines.some((l) => l.productId === p.id))
+      .slice(0, 6)
+  }, [products, q, lines])
+
+  const total = Math.round(lines.reduce((a, l) => a + l.qty * l.unitCost, 0) * 100) / 100
+
+  function addLine(p: { id: string; name: string; cost: number }, qty = 1, unitCost?: number) {
+    setLines((ls) => [...ls, { productId: p.id, name: p.name, qty, unitCost: unitCost ?? p.cost }])
+    setQ('')
+  }
+  function patchLine(id: string, patch: Partial<DeliveryLine>) {
+    setLines((ls) => ls.map((l) => (l.productId === id ? { ...l, ...patch } : l)))
+  }
+
+  return (
+    <Modal open onClose={onClose} title={`Delivery from ${supplier.name}`}>
+      <p className="-mt-1 mb-2 text-xs text-brand-900/50 dark:text-white/50">
+        Goods land at <span className="font-semibold">{location?.name ?? 'this branch'}</span>. Buying prices you enter here update the item's cost.
+      </p>
+
+      {/* Find existing items */}
+      <div className="relative">
+        <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-brand-900/40 dark:text-white/40" size={16} />
+        <input className="input py-2 pl-9 text-sm" placeholder="Search your items to add…" value={q} onChange={(e) => setQ(e.target.value)} />
+      </div>
+      {matches.length > 0 && (
+        <div className="mt-1 space-y-1">
+          {matches.map((p) => (
+            <button key={p.id} className="flex w-full items-center justify-between rounded-lg bg-black/5 px-3 py-2 text-left text-sm hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/15" onClick={() => addLine(p)}>
+              <span className="font-medium text-brand-900 dark:text-white">{p.name}</span>
+              <span className="text-xs text-brand-900/50 dark:text-white/50">
+                {stockAt(p, location?.id ?? '')} here · last cost {money(p.cost, currency)}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      <button className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-brand-600 underline dark:text-gold-400" onClick={() => setNewProduct(true)}>
+        <PackagePlus size={13} /> New product (not in your list yet)
+      </button>
+
+      {/* Lines */}
+      {lines.length > 0 && (
+        <div className="mt-3 space-y-2">
+          {lines.map((l) => (
+            <div key={l.productId} className="rounded-xl border border-black/10 p-2.5 dark:border-white/10">
+              <div className="flex items-center justify-between gap-2">
+                <span className="min-w-0 truncate text-sm font-semibold text-brand-900 dark:text-white">{l.name}</span>
+                <button className="text-xs text-red-500 underline" onClick={() => setLines((ls) => ls.filter((x) => x.productId !== l.productId))}>remove</button>
+              </div>
+              <div className="mt-1.5 grid grid-cols-3 items-end gap-2">
+                <div>
+                  <label className="label text-[10px]">Pieces</label>
+                  <input className="input py-1.5 text-sm" inputMode="numeric" value={l.qty || ''} onChange={(e) => patchLine(l.productId, { qty: parseInt(e.target.value) || 0 })} />
+                </div>
+                <div>
+                  <label className="label text-[10px]">Buying price @</label>
+                  <input className="input py-1.5 text-sm" inputMode="decimal" value={l.unitCost || ''} onChange={(e) => patchLine(l.productId, { unitCost: parseFloat(e.target.value) || 0 })} />
+                </div>
+                <div className="pb-1.5 text-right text-sm font-bold text-brand-900 dark:text-white">{money(l.qty * l.unitCost, currency)}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Total + payment */}
+      <div className="mt-3 flex items-center justify-between rounded-xl bg-brand-50 px-3 py-2.5 dark:bg-brand-900">
+        <span className="text-sm font-semibold text-brand-900/70 dark:text-white/70">Delivery total</span>
+        <span className="text-lg font-black text-brand-700 dark:text-gold-400">{money(total, currency)}</span>
+      </div>
+      <label className="mt-2 flex items-center gap-3 rounded-xl bg-black/5 px-3 py-2.5 dark:bg-white/10">
+        <input type="checkbox" className="h-5 w-5 accent-brand-600" checked={paidNow} onChange={(e) => setPaidNow(e.target.checked)} />
+        <span className="text-sm font-medium text-brand-900 dark:text-white">Paid on the spot (otherwise it's owed)</span>
+      </label>
+      {paidNow && (
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          <select className="input py-2 text-sm" value={method} onChange={(e) => setMethod(e.target.value as PaymentMethod)}>
+            <option value="mpesa">M-PESA</option>
+            <option value="airtel">Airtel Money</option>
+            <option value="cash">Cash</option>
+            <option value="card">Bank/Card</option>
+          </select>
+          <input className="input py-2 text-sm" placeholder="Ref (optional)" value={ref} onChange={(e) => setRef(e.target.value)} />
+        </div>
+      )}
+      <input className="input mt-2 py-2 text-sm" placeholder='Comment (optional) — e.g. "Wambui collected at 5pm"' value={note} onChange={(e) => setNote(e.target.value)} />
+
+      <button
+        className="btn-primary mt-4 w-full"
+        disabled={total <= 0 || lines.some((l) => l.qty <= 0)}
+        onClick={() => {
+          receiveDelivery({
+            supplierId: supplier.id,
+            lines,
+            paidNow: paidNow ? { method, ref: ref.trim() || undefined } : undefined,
+            note: note.trim() || undefined,
+          })
+          onClose()
+        }}
+      >
+        <PackageOpen size={18} /> Receive {lines.reduce((a, l) => a + l.qty, 0)} piece{lines.reduce((a, l) => a + l.qty, 0) !== 1 ? 's' : ''} · {money(total, currency)}
+      </button>
+
+      {newProduct && (
+        <NewProductInline
+          onClose={() => setNewProduct(false)}
+          onCreate={(p, qty, buyPrice) => {
+            addLine({ id: p.id, name: p.name, cost: buyPrice }, qty, buyPrice)
+            setNewProduct(false)
+          }}
+        />
+      )}
+    </Modal>
+  )
+}
+
+/** Register a product that isn't in the catalog yet, right at goods-in. */
+function NewProductInline({
+  onClose,
+  onCreate,
+}: {
+  onClose: () => void
+  onCreate: (p: { id: string; name: string }, qty: number, buyPrice: number) => void
+}) {
+  const addProduct = useStore((s) => s.addProduct)
+  const [name, setName] = useState('')
+  const [sku, setSku] = useState('')
+  const [category, setCategory] = useState('General')
+  const [qty, setQty] = useState(1)
+  const [buyPrice, setBuyPrice] = useState(0)
+  const [sellPrice, setSellPrice] = useState(0)
+
+  const valid = name.trim() && qty > 0 && buyPrice >= 0 && sellPrice >= 0
+
+  return (
+    <Modal open onClose={onClose} title="New product from this delivery">
+      <div className="space-y-3">
+        <div>
+          <label className="label">Product name</label>
+          <input autoFocus className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. HikVision Dome Camera 2MP" />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="label">Model / SKU (optional)</label>
+            <input className="input" value={sku} onChange={(e) => setSku(e.target.value)} placeholder="e.g. DS-2CE76D0T" />
+          </div>
+          <div>
+            <label className="label">Category</label>
+            <input className="input" value={category} onChange={(e) => setCategory(e.target.value)} placeholder="e.g. Cameras" />
+          </div>
+        </div>
+        <div className="grid grid-cols-3 gap-3">
+          <div>
+            <label className="label">Pieces</label>
+            <input className="input" inputMode="numeric" value={qty || ''} onChange={(e) => setQty(parseInt(e.target.value) || 0)} />
+          </div>
+          <div>
+            <label className="label">Buying @</label>
+            <input className="input" inputMode="decimal" value={buyPrice || ''} onChange={(e) => setBuyPrice(parseFloat(e.target.value) || 0)} />
+          </div>
+          <div>
+            <label className="label">Selling @</label>
+            <input className="input" inputMode="decimal" value={sellPrice || ''} onChange={(e) => setSellPrice(parseFloat(e.target.value) || 0)} />
+          </div>
+        </div>
+      </div>
+      <button
+        className="btn-primary mt-4 w-full"
+        disabled={!valid}
+        onClick={() => {
+          const p = addProduct({
+            name: name.trim(),
+            sku: sku.trim(),
+            category: category.trim() || 'General',
+            price: sellPrice,
+            cost: buyPrice,
+            stockByLocation: {}, // stock arrives via the delivery itself
+            reorderLevel: 2,
+            active: true,
+            trackStock: true,
+          })
+          onCreate(p, qty, buyPrice)
+        }}
+      >
+        Add to delivery
       </button>
     </Modal>
   )
@@ -329,12 +539,23 @@ function SupplierDetails({ supplier, onClose, onEdit }: { supplier: Supplier; on
                 {t.method ? ` · ${t.method === 'mpesa' ? 'M-PESA' : t.method === 'airtel' ? 'Airtel' : t.method}` : ''}
                 {t.ref ? ` (${t.ref})` : ''}
               </div>
-              {(t.items || t.note) && (
-                <div className="mt-1 text-xs text-brand-900/70 dark:text-white/70">
-                  {t.items && <span>{t.items}</span>}
-                  {t.items && t.note && ' — '}
-                  {t.note && <span className="italic">"{t.note}"</span>}
-                </div>
+              {t.lines && t.lines.length > 0 ? (
+                <ul className="mt-1 space-y-0.5 text-xs text-brand-900/70 dark:text-white/70">
+                  {t.lines.map((l, i) => (
+                    <li key={i}>
+                      {l.qty}× {l.name} <span className="text-brand-900/40 dark:text-white/40">@ {money(l.unitCost, currency)}</span>
+                    </li>
+                  ))}
+                  {t.note && <li className="italic">"{t.note}"</li>}
+                </ul>
+              ) : (
+                (t.items || t.note) && (
+                  <div className="mt-1 text-xs text-brand-900/70 dark:text-white/70">
+                    {t.items && <span>{t.items}</span>}
+                    {t.items && t.note && ' — '}
+                    {t.note && <span className="italic">"{t.note}"</span>}
+                  </div>
+                )
               )}
             </div>
           ))}
