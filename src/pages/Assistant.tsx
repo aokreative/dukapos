@@ -40,9 +40,15 @@ export default function Assistant() {
         debts: s.debts,
         suppliers: s.suppliers,
         supplierTxns: s.supplierTxns,
+        staff: s.staff,
+        locations: s.locations,
+        transfers: s.transfers,
+        returns: s.returns,
+        businessType: s.settings.businessType,
       })
-      // Claude via the backend when available; local rules otherwise.
-      const remote = await askAssistant(q, snapshot)
+      // Claude via the backend when available (with chat memory for
+      // follow-up questions); local rules otherwise.
+      const remote = await askAssistant(q, snapshot, msgs.slice(-10))
       const answer = remote ?? localAnswer(q, snapshot)
       setMsgs((m) => [...m, { role: 'ai', text: answer }])
     } finally {

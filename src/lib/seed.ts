@@ -102,11 +102,21 @@ export function seedCustomers(): Customer[] {
     note,
     createdAt: now - 40 * day,
   })
+  const shop: Customer = {
+    id: uid('c_'),
+    name: 'Boda Boda Sacco',
+    phone: '254733222111',
+    isShop: true,
+    ownerName: 'Chairman Kamau',
+    ownerPhone: '254722000333',
+    note: 'Group tab — 12 riders',
+    createdAt: now - 40 * day,
+  }
   return [
     c('Mama Njeri', '254712345678', 'Regular — buys weekly'),
     c('John Otieno', '254723456789'),
     c('Grace Wanjiku', '254701234567', 'Salon next door'),
-    c('Boda Boda Sacco', '254733222111', 'Group tab'),
+    shop,
   ]
 }
 

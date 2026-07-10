@@ -102,14 +102,19 @@ export async function checkPayment(checkoutId: string): Promise<{ status: 'pendi
 /**
  * Ask the backend AI a question about the shop. Returns null when the answer
  * should be produced locally instead (no backend, or AI key not configured).
+ * `history` carries the conversation so follow-up questions make sense.
  */
-export async function askAssistant(question: string, context: unknown): Promise<string | null> {
+export async function askAssistant(
+  question: string,
+  context: unknown,
+  history?: { role: 'user' | 'ai'; text: string }[],
+): Promise<string | null> {
   if (!BASE) return null
   try {
     const res = await fetch(`${BASE}/api/ai/ask`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ question, context }),
+      body: JSON.stringify({ question, context, history }),
     })
     if (!res.ok) return null
     const data = await res.json()

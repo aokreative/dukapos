@@ -143,8 +143,13 @@ export interface Product {
 
 export interface Customer {
   id: string
+  /** Person's name — or the shop/business name when isShop. */
   name: string
   phone: string // stored normalised as 2547XXXXXXXX
+  /** This customer is itself a shop/business (B2B customer). */
+  isShop?: boolean
+  ownerName?: string
+  ownerPhone?: string
   note?: string
   createdAt: number
 }

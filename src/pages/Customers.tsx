@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react'
-import { Search, UserPlus, Phone, Pencil, Trash2 } from 'lucide-react'
+import { Search, UserPlus, Phone, Pencil, Trash2, Store } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { displayPhone, isValidPhone, money, normalizePhone } from '../lib/format'
 import { PageHeader, Modal, Badge, EmptyState } from '../components/ui'
+import CustomerProfile from '../components/CustomerProfile'
 import type { Customer } from '../types'
 
 export default function Customers() {
@@ -16,6 +17,7 @@ export default function Customers() {
   const [q, setQ] = useState('')
   const [editing, setEditing] = useState<Customer | null>(null)
   const [creating, setCreating] = useState(false)
+  const [profileFor, setProfileFor] = useState<Customer | null>(null)
 
   const balanceByCustomer = useMemo(() => {
     const map = new Map<string, number>()
@@ -25,7 +27,13 @@ export default function Customers() {
 
   const filtered = useMemo(() => {
     const t = q.trim().toLowerCase()
-    const list = customers.filter((c) => !t || c.name.toLowerCase().includes(t) || c.phone.includes(t.replace(/\D/g, '')))
+    const list = customers.filter(
+      (c) =>
+        !t ||
+        c.name.toLowerCase().includes(t) ||
+        c.phone.includes(t.replace(/\D/g, '')) ||
+        (c.ownerName ?? '').toLowerCase().includes(t),
+    )
     return list.sort((a, b) => (balanceByCustomer.get(b.id) ?? 0) - (balanceByCustomer.get(a.id) ?? 0))
   }, [customers, q, balanceByCustomer])
 
@@ -33,7 +41,7 @@ export default function Customers() {
     <div>
       <PageHeader
         title="Customers"
-        subtitle={`${customers.length} saved`}
+        subtitle={`${customers.length} saved · tap one for their full record`}
         action={
           <button className="btn-primary" onClick={() => setCreating(true)}>
             <UserPlus size={18} /> Add
@@ -43,7 +51,7 @@ export default function Customers() {
 
       <div className="relative mb-4">
         <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-brand-900/40 dark:text-white/40" size={18} />
-        <input className="input pl-10" placeholder="Search name or phone" value={q} onChange={(e) => setQ(e.target.value)} />
+        <input className="input pl-10" placeholder="Search name, shop or phone" value={q} onChange={(e) => setQ(e.target.value)} />
       </div>
 
       {filtered.length === 0 ? (
@@ -54,20 +62,24 @@ export default function Customers() {
             const bal = balanceByCustomer.get(c.id) ?? 0
             return (
               <div key={c.id} className="card flex items-center gap-3 p-3">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-100 text-lg font-bold text-brand-700 dark:bg-brand-700 dark:text-white">
-                  {c.name.charAt(0).toUpperCase()}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="truncate font-semibold text-brand-900 dark:text-white">{c.name}</span>
-                    {bal > 0 ? <Badge color="red">owes {money(bal, currency)}</Badge> : <Badge color="green">paid up</Badge>}
+                <button className="flex min-w-0 flex-1 items-center gap-3 text-left" onClick={() => setProfileFor(c)}>
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-100 text-lg font-bold text-brand-700 dark:bg-brand-700 dark:text-white">
+                    {c.isShop ? <Store size={18} /> : c.name.charAt(0).toUpperCase()}
                   </div>
-                  <a href={`tel:${c.phone}`} className="flex items-center gap-1 text-sm text-brand-900/50 hover:underline dark:text-white/50">
-                    <Phone size={13} /> {displayPhone(c.phone)}
-                  </a>
-                  {c.note && <div className="truncate text-xs text-brand-900/40 dark:text-white/40">{c.note}</div>}
-                </div>
-                <button className="rounded-lg p-2 text-brand-900/50 hover:bg-black/5 dark:text-white/50 dark:hover:bg-white/10" onClick={() => setEditing(c)}>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="truncate font-semibold text-brand-900 dark:text-white">{c.name}</span>
+                      {c.isShop && <Badge color="amber">shop</Badge>}
+                      {bal > 0 ? <Badge color="red">owes {money(bal, currency)}</Badge> : <Badge color="green">paid up</Badge>}
+                    </div>
+                    <div className="flex items-center gap-1 text-sm text-brand-900/50 dark:text-white/50">
+                      <Phone size={13} /> {displayPhone(c.phone)}
+                      {c.ownerName && <span className="truncate">· {c.ownerName}</span>}
+                    </div>
+                    {c.note && <div className="truncate text-xs text-brand-900/40 dark:text-white/40">{c.note}</div>}
+                  </div>
+                </button>
+                <button className="rounded-lg p-2 text-brand-900/50 hover:bg-black/5 dark:text-white/50 dark:hover:bg-white/10" onClick={() => setEditing(c)} aria-label="Edit">
                   <Pencil size={16} />
                 </button>
               </div>
@@ -99,6 +111,8 @@ export default function Customers() {
           }
         />
       )}
+
+      {profileFor && <CustomerProfile customer={profileFor} onClose={() => setProfileFor(null)} />}
     </div>
   )
 }
@@ -111,26 +125,47 @@ function CustomerForm({
 }: {
   customer: Customer | null
   onClose: () => void
-  onSave: (data: { name: string; phone: string; note?: string }) => void
+  onSave: (data: { name: string; phone: string; isShop?: boolean; ownerName?: string; ownerPhone?: string; note?: string }) => void
   onDelete?: () => void
 }) {
+  const [isShop, setIsShop] = useState(!!customer?.isShop)
   const [name, setName] = useState(customer?.name ?? '')
   const [phone, setPhone] = useState(customer ? displayPhone(customer.phone) : '')
+  const [ownerName, setOwnerName] = useState(customer?.ownerName ?? '')
+  const [ownerPhone, setOwnerPhone] = useState(customer?.ownerPhone ? displayPhone(customer.ownerPhone) : '')
   const [note, setNote] = useState(customer?.note ?? '')
-  const valid = name.trim() && isValidPhone(phone)
+  const valid = name.trim() && isValidPhone(phone) && (!ownerPhone || isValidPhone(ownerPhone))
 
   return (
     <Modal open onClose={onClose} title={customer ? 'Edit customer' : 'New customer'}>
       <div className="space-y-3">
+        <label className="flex items-center gap-3 rounded-xl bg-black/5 px-3 py-3 dark:bg-white/10">
+          <input type="checkbox" className="h-5 w-5 accent-brand-600" checked={isShop} onChange={(e) => setIsShop(e.target.checked)} />
+          <span className="text-sm font-medium text-brand-900 dark:text-white">
+            <Store size={13} className="mr-1 inline" /> This customer is a shop / business
+          </span>
+        </label>
         <div>
-          <label className="label">Name</label>
-          <input autoFocus className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Mama Njeri" />
+          <label className="label">{isShop ? 'Shop / business name' : 'Name'}</label>
+          <input autoFocus className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder={isShop ? 'e.g. Mwangi Electronics' : 'e.g. Mama Njeri'} />
         </div>
         <div>
-          <label className="label">Phone (for WhatsApp/SMS reminders)</label>
+          <label className="label">{isShop ? 'Shop phone (for WhatsApp/SMS reminders)' : 'Phone (for WhatsApp/SMS reminders)'}</label>
           <input className="input" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="07XX XXX XXX" />
           {phone && !isValidPhone(phone) && <p className="mt-1 text-xs text-red-600">Enter a valid Kenyan number</p>}
         </div>
+        {isShop && (
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="label">Owner's name (optional)</label>
+              <input className="input" value={ownerName} onChange={(e) => setOwnerName(e.target.value)} placeholder="e.g. James Mwangi" />
+            </div>
+            <div>
+              <label className="label">Owner's phone (optional)</label>
+              <input className="input" inputMode="tel" value={ownerPhone} onChange={(e) => setOwnerPhone(e.target.value)} placeholder="07XX XXX XXX" />
+            </div>
+          </div>
+        )}
         <div>
           <label className="label">Note (optional)</label>
           <input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. Regular, buys weekly" />
@@ -142,7 +177,20 @@ function CustomerForm({
             <Trash2 size={18} />
           </button>
         )}
-        <button className="btn-primary flex-1" disabled={!valid} onClick={() => onSave({ name: name.trim(), phone: normalizePhone(phone), note: note.trim() || undefined })}>
+        <button
+          className="btn-primary flex-1"
+          disabled={!valid}
+          onClick={() =>
+            onSave({
+              name: name.trim(),
+              phone: normalizePhone(phone),
+              isShop: isShop || undefined,
+              ownerName: isShop && ownerName.trim() ? ownerName.trim() : undefined,
+              ownerPhone: isShop && ownerPhone.trim() ? normalizePhone(ownerPhone) : undefined,
+              note: note.trim() || undefined,
+            })
+          }
+        >
           Save
         </button>
       </div>

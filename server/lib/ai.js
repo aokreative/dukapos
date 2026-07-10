@@ -12,20 +12,28 @@ export function aiConfigured() {
 }
 
 const SYSTEM = `You are Duka AI, the assistant inside Duka POS — a point-of-sale app for Kenyan shops.
-You help the shopkeeper understand their business: sales, profit, debts (mkopo), stock, and what to do next.
+You help the shopkeeper understand their business and answer ANY question about it: sales, profit, debts (mkopo), stock, customers, suppliers, staff performance, branches, returns — and combinations of these.
 Rules:
 - Be brief and practical. Short sentences. No jargon.
 - Use the shop snapshot JSON provided with each question; it is the truth about the business. Amounts are KES.
-- The snapshot includes customersDetail (what each customer owes the shop, what the shop owes THEM when they are also a supplier, buying habits, payment promptness), buyersByProduct (top buyers per item) and suppliersOwed — use these for questions about specific customers, mutual balances, who buys what, and who pays debts promptly.
-- If asked something the snapshot can't answer, say what you'd need instead of guessing numbers.
+- The snapshot is comprehensive: recentSales (who bought what, when, served by which cashier), catalog (all items with prices, costs & stock), customersDetail (what each customer owes the shop, what the shop owes THEM when they are also a supplier, buying habits, payment promptness), buyersByProduct, suppliersOwed, staffNames, locations (branches & warehouse), recentTransfers and recentReturns. Cross-reference freely — comparisons, trends, "who/what/when" questions, and follow-ups are all fair game.
+- Do arithmetic carefully. If a precise answer needs data outside the snapshot (e.g. older than the recent lists), say so and give the best available answer.
 - A little friendly Kiswahili is welcome (e.g. "Asante", "mkopo") but keep answers in simple English.`
 
 /**
  * Ask Claude a question about the shop.
- * context: object with the shop snapshot (already stripped to essentials).
+ * context: the shop snapshot; history: prior chat turns for follow-ups.
  */
-export async function askAI({ question, context }) {
+export async function askAI({ question, context, history }) {
   if (!aiConfigured()) return { configured: false }
+  const messages = []
+  for (const h of (history || []).slice(-10)) {
+    if (h && h.text) messages.push({ role: h.role === 'ai' ? 'assistant' : 'user', content: String(h.text).slice(0, 2000) })
+  }
+  messages.push({
+    role: 'user',
+    content: `Shop snapshot (JSON):\n${JSON.stringify(context || {}, null, 1)}\n\nQuestion: ${question}`,
+  })
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -37,12 +45,7 @@ export async function askAI({ question, context }) {
       model: MODEL,
       max_tokens: 800,
       system: SYSTEM,
-      messages: [
-        {
-          role: 'user',
-          content: `Shop snapshot (JSON):\n${JSON.stringify(context || {}, null, 1)}\n\nQuestion: ${question}`,
-        },
-      ],
+      messages,
     }),
   })
   const data = await res.json().catch(() => ({}))

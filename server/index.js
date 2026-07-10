@@ -251,10 +251,10 @@ app.post('/api/etims/invoice', async (req, res) => {
 
 // --- Duka AI ------------------------------------------------------------------
 app.post('/api/ai/ask', async (req, res) => {
-  const { question, context } = req.body || {}
+  const { question, context, history } = req.body || {}
   if (!question) return res.status(400).json({ error: 'question is required' })
   try {
-    const out = await askAI({ question, context })
+    const out = await askAI({ question, context, history })
     if (!out.configured) return res.json({ simulated: true, detail: 'AI not configured — the app answers locally' })
     res.json({ simulated: false, answer: out.answer })
   } catch (e) {

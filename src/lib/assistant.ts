@@ -2,8 +2,8 @@
 // Builds a compact snapshot of the business that travels with every question,
 // and answers common questions locally so the assistant works even with no
 // backend/AI key (and fully offline).
-import type { Customer, Debt, Product, Sale, Supplier, SupplierTxn } from '../types'
-import { money } from './format'
+import type { BizLocation, Customer, Debt, Product, ReturnRecord, Sale, StaffMember, StockTransfer, Supplier, SupplierTxn } from '../types'
+import { money, shortDateTime } from './format'
 import { totalStock } from './stock'
 
 /** Per-customer intelligence: balances both ways, habits, promptness. */
@@ -37,6 +37,16 @@ export interface ShopSnapshot {
   suppliersOwed: { name: string; owed: number }[]
   productCount: number
   customerCount: number
+  // Full context so AI answers ANY shop question, not just the common ones:
+  businessType?: string
+  staffNames?: string[]
+  locations?: { name: string; type: string }[]
+  /** Compact catalog (capped) — name, prices, stock. */
+  catalog?: { name: string; sell: number; cost: number; stock: number }[]
+  /** The most recent sales, newest first (capped). */
+  recentSales?: { when: string; receipt: string; total: number; customer?: string; soldBy: string; forStaff?: string; items: string; note?: string }[]
+  recentTransfers?: { when: string; from: string; to: string; items: string; status: string }[]
+  recentReturns?: { when: string; receipt: string; amount: number; how: string; items: string }[]
 }
 
 const DAY = 24 * 60 * 60 * 1000
@@ -56,6 +66,11 @@ export function buildShopSnapshot(input: {
   debts: Debt[]
   suppliers?: Supplier[]
   supplierTxns?: SupplierTxn[]
+  staff?: StaffMember[]
+  locations?: BizLocation[]
+  transfers?: StockTransfer[]
+  returns?: ReturnRecord[]
+  businessType?: string
 }): ShopSnapshot {
   const { sales, products, customers, debts, suppliers = [], supplierTxns = [] } = input
   const t0 = startOfToday()
@@ -176,7 +191,45 @@ export function buildShopSnapshot(input: {
     .sort((a, b) => b.owed - a.owed)
     .slice(0, 10)
 
+  // --- Full context (capped) so the AI can answer anything -------------------
+  const locNameOf = new Map((input.locations ?? []).map((l) => [l.id, l.name]))
+  const catalog = products
+    .filter((p) => p.active)
+    .slice(0, 200)
+    .map((p) => ({ name: p.name, sell: p.price, cost: p.cost, stock: totalStock(p) }))
+  const recentSales = sales.slice(0, 40).map((s) => ({
+    when: shortDateTime(s.createdAt),
+    receipt: s.receiptNo,
+    total: s.total,
+    customer: s.customerId ? nameOf.get(s.customerId) : undefined,
+    soldBy: s.cashierName,
+    forStaff: s.assignedToName,
+    items: s.lines.map((l) => `${l.qty}× ${l.name}`).join(', '),
+    note: s.note,
+  }))
+  const recentTransfers = (input.transfers ?? []).slice(0, 8).map((t) => ({
+    when: shortDateTime(t.createdAt),
+    from: locNameOf.get(t.fromId) ?? t.fromId,
+    to: locNameOf.get(t.toId) ?? t.toId,
+    items: t.lines.map((l) => `${l.qty}× ${l.name}`).join(', '),
+    status: t.status,
+  }))
+  const recentReturns = (input.returns ?? []).slice(0, 8).map((r) => ({
+    when: shortDateTime(r.at),
+    receipt: r.receiptNo,
+    amount: r.amount,
+    how: r.resolution,
+    items: r.lines.map((l) => `${l.qty}× ${l.name}`).join(', '),
+  }))
+
   return {
+    businessType: input.businessType,
+    staffNames: (input.staff ?? []).filter((m) => m.active).map((m) => `${m.name} (${m.role})`),
+    locations: (input.locations ?? []).map((l) => ({ name: l.name, type: l.type })),
+    catalog,
+    recentSales,
+    recentTransfers,
+    recentReturns,
     business: input.business,
     currency: input.currency,
     today: {
