@@ -33,6 +33,15 @@ export default function App() {
     document.documentElement.classList.toggle('dark', dark)
   }, [dark])
 
+  // Safety net: never leave anyone staring at the splash screen. If restoring
+  // saved data hasn't finished within 3s, open with a fresh session.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (!useStore.getState()._hasHydrated) useStore.setState({ _hasHydrated: true })
+    }, 3000)
+    return () => clearTimeout(t)
+  }, [])
+
   if (!hydrated) {
     return (
       <div className="flex h-full items-center justify-center bg-brand-900 text-white">

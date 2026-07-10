@@ -13,6 +13,8 @@ dev-dist
 .env
 .env.*
 !.env.example
+# .env.production holds ONLY public client values (Supabase URL + anon key)
+!.env.production
 
 # Editor
 .vscode/*

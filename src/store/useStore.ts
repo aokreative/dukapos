@@ -41,13 +41,30 @@ import {
   seedStaff,
 } from '../lib/seed'
 
+// Fail-soft storage: some browsers (in-app webviews, strict private modes)
+// block IndexedDB. If that happens the app must still open — it just runs as
+// a fresh session for that visit instead of hanging on the splash screen.
 const idbStorage: StateStorage = {
-  getItem: async (name) => (await idbGet(name)) ?? null,
+  getItem: async (name) => {
+    try {
+      return (await idbGet(name)) ?? null
+    } catch {
+      return null
+    }
+  },
   setItem: async (name, value) => {
-    await idbSet(name, value)
+    try {
+      await idbSet(name, value)
+    } catch {
+      /* storage unavailable — keep running in memory */
+    }
   },
   removeItem: async (name) => {
-    await idbDel(name)
+    try {
+      await idbDel(name)
+    } catch {
+      /* ignore */
+    }
   },
 }
 
@@ -377,8 +394,11 @@ export const useStore = create<State>()(
         void setHydrated
         return rest
       },
-      onRehydrateStorage: () => (state) => {
-        state?.setHydrated(true)
+      onRehydrateStorage: () => (state, error) => {
+        // Open the app no matter what — even if restoring saved data failed.
+        if (state) state.setHydrated(true)
+        else useStore.setState({ _hasHydrated: true })
+        if (error) console.warn('Duka: could not restore saved data', error)
       },
     },
   ),
