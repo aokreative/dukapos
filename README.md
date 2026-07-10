@@ -114,6 +114,19 @@ Asante sana!
 - All three simulate with no credentials and go live by pasting keys — the non-technical
   walkthrough is **[INTEGRATIONS.md](./INTEGRATIONS.md)**.
 
+### One POS, every kind of business
+- Pick your **business type** in Settings — Duka/Mini-mart, Restaurant, Pharmacy, Hardware,
+  Electronics/CCTV, Boutique/Shoes, Agrovet, Spices & Cereals, or Wholesale — and the right
+  extras switch on automatically (each can also be toggled by hand):
+  - **Sell by weight/measure** — kg, grams, litres, metres… with decimal quantities at the till
+  - **Wholesale price tier** — a second price that applies automatically from a minimum quantity
+  - **Expiry dates** — per-item expiry with expiring-soon warnings (pharmacy, agrovet, perishables)
+  - **Warranty on receipts** — warranty months per item, printed on every receipt (electronics, hardware)
+- Till extras for busy shops: **Quick item** (sell services/one-offs not in the list), **Park a sale**
+  (suspend one customer, serve the next, resume with one tap), barcode-scanner Enter-to-add, and
+  one-tap **Duplicate product** for size/colour variants.
+- A feature that's off never appears anywhere — a simple duka stays exactly as simple as before.
+
 ### Kenya-first
 - Prices in **KES**, Kenyan phone handling (`07…`, `+254…` → normalised for WhatsApp/SMS)
 - M-PESA Till / Paybill payment details

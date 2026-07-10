@@ -1,18 +1,19 @@
 import { useMemo, useState } from 'react'
-import { Search, Plus, Minus, Trash2, ShoppingCart, X, Tag, RotateCcw } from 'lucide-react'
+import { Search, Plus, Minus, Trash2, ShoppingCart, X, Tag, RotateCcw, PauseCircle, Zap } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { money } from '../lib/format'
 import type { CartLine, Product, Sale, Tender } from '../types'
 import PaymentModal from '../components/PaymentModal'
 import Receipt from '../components/Receipt'
 import ReturnModal from '../components/ReturnModal'
-import { EmptyState } from '../components/ui'
+import { Modal, EmptyState } from '../components/ui'
 import { useBilling } from '../components/Billing'
 import { selectRole } from '../store/useStore'
 import { can } from '../lib/permissions'
 import { submitEtimsInvoice } from '../lib/api'
 import { stockAt } from '../lib/stock'
-import { bizLabels } from '../lib/labels'
+import { bizLabels, getFeatures } from '../lib/labels'
+import { uid } from '../lib/id'
 
 export default function POS() {
   const products = useStore((s) => s.products)
@@ -26,8 +27,14 @@ export default function POS() {
   const locId = useStore((s) => s.currentLocationId)
   const exchangeCredit = useStore((s) => s.exchangeCredit)
   const clearExchangeCredit = useStore((s) => s.clearExchangeCredit)
-  const labels = bizLabels(useStore((s) => s.settings.businessType))
+  const settings = useStore((s) => s.settings)
+  const labels = bizLabels(settings.businessType)
+  const features = getFeatures(settings)
+  const parkedCarts = useStore((s) => s.parkedCarts)
+  const parkCart = useStore((s) => s.parkCart)
+  const removeParkedCart = useStore((s) => s.removeParkedCart)
   const [returnOpen, setReturnOpen] = useState(false)
+  const [quickOpen, setQuickOpen] = useState(false)
 
   const [q, setQ] = useState('')
   const [cat, setCat] = useState<string>('All')
@@ -55,20 +62,81 @@ export default function POS() {
   const total = Math.max(0, subtotal - discount - exchangeCredit)
   const count = cart.reduce((s, l) => s + l.qty, 0)
 
+  /** The price for a given quantity — wholesale tier kicks in automatically. */
+  function priceFor(p: Product, qty: number): { price: number; wholesale: boolean } {
+    if (features.wholesale && p.wholesalePrice && qty >= (p.wholesaleMinQty ?? 12)) {
+      return { price: p.wholesalePrice, wholesale: true }
+    }
+    return { price: p.price, wholesale: false }
+  }
+
   function add(p: Product) {
     setCart((c) => {
       const found = c.find((l) => l.productId === p.id)
-      if (found) return c.map((l) => (l.productId === p.id ? { ...l, qty: l.qty + 1 } : l))
-      return [...c, { productId: p.id, name: p.name, price: p.price, qty: 1 }]
+      if (found) {
+        const qty = found.qty + 1
+        const { price, wholesale } = priceFor(p, qty)
+        return c.map((l) => (l.productId === p.id ? { ...l, qty, price, wholesale } : l))
+      }
+      const { price, wholesale } = priceFor(p, 1)
+      return [
+        ...c,
+        {
+          productId: p.id,
+          name: p.name,
+          price,
+          qty: 1,
+          wholesale,
+          unit: features.units && p.unit && p.unit !== 'pc' ? p.unit : undefined,
+          warrantyMonths: features.warranty ? p.warrantyMonths : undefined,
+        },
+      ]
     })
   }
   function setQty(productId: string, qty: number) {
-    setCart((c) => (qty <= 0 ? c.filter((l) => l.productId !== productId) : c.map((l) => (l.productId === productId ? { ...l, qty } : l))))
+    setCart((c) => {
+      if (qty <= 0) return c.filter((l) => l.productId !== productId)
+      return c.map((l) => {
+        if (l.productId !== productId) return l
+        const p = products.find((x) => x.id === productId)
+        const { price, wholesale } = p ? priceFor(p, qty) : { price: l.price, wholesale: l.wholesale ?? false }
+        return { ...l, qty, price, wholesale }
+      })
+    })
   }
   function clearCart() {
     setCart([])
     setDiscount(0)
   }
+
+  // Scanner support: a barcode scanner "types" the code then presses Enter.
+  // Exact SKU match → straight into the cart, ready for the next scan.
+  function onSearchEnter() {
+    const t = q.trim().toLowerCase()
+    if (!t) return
+    const exact = products.find((p) => p.active && p.sku.toLowerCase() === t)
+    if (exact) {
+      add(exact)
+      setQ('')
+    }
+  }
+
+  function park() {
+    if (cart.length === 0) return
+    parkCart(cart, discount)
+    clearCart()
+    setCartOpen(false)
+  }
+  function resume(id: string) {
+    const entry = parkedCarts.find((p) => p.id === id)
+    if (!entry) return
+    // If something is already in the cart, park it first — nothing is lost.
+    if (cart.length > 0) parkCart(cart, discount)
+    setCart(entry.lines)
+    setDiscount(entry.discount)
+    removeParkedCart(id)
+  }
+
   function onComplete(tenders: Tender[], customerId?: string, extras?: { assignedToName?: string; note?: string }) {
     const sale = completeSale({ lines: cart, discount, tenders, customerId, ...extras })
     // KRA eTIMS: submit the invoice in the background when enabled.
@@ -97,8 +165,20 @@ export default function POS() {
         <div className="mb-3 flex gap-2">
           <div className="relative flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-brand-900/40 dark:text-white/40" size={18} />
-            <input autoFocus className="input pl-10" placeholder={labels.searchHint} value={q} onChange={(e) => setQ(e.target.value)} />
+            <input
+              autoFocus
+              className="input pl-10"
+              placeholder={labels.searchHint}
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') onSearchEnter()
+              }}
+            />
           </div>
+          <button className="btn-ghost whitespace-nowrap px-3" title="Sell something not in your list" onClick={() => setQuickOpen(true)}>
+            <Zap size={17} /> <span className="hidden sm:inline">Quick item</span>
+          </button>
           {canRefund && (
             <button className="btn-ghost whitespace-nowrap px-3" title="Return / exchange goods" onClick={() => setReturnOpen(true)}>
               <RotateCcw size={17} /> <span className="hidden sm:inline">Return</span>
@@ -109,6 +189,15 @@ export default function POS() {
           <div className="mb-3 flex items-center justify-between rounded-xl bg-gold-500/15 px-3 py-2 text-sm font-semibold text-gold-600 dark:text-gold-400">
             <span>Exchange credit: {money(exchangeCredit, currency)} — applies to the next sale automatically</span>
             <button className="text-xs underline" onClick={clearExchangeCredit}>dismiss</button>
+          </div>
+        )}
+        {parkedCarts.length > 0 && (
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            {parkedCarts.map((p) => (
+              <button key={p.id} className="chip bg-amber-100 text-amber-800 hover:bg-amber-200 dark:bg-amber-500/20 dark:text-amber-300" onClick={() => resume(p.id)}>
+                <PauseCircle size={13} /> Waiting: {p.lines[0]?.name.slice(0, 14)}{p.lines.length > 1 ? ` +${p.lines.length - 1}` : ''} · {money(p.lines.reduce((a, l) => a + l.price * l.qty, 0), currency)}
+              </button>
+            ))}
           </div>
         )}
         <div className="mb-3 flex gap-2 overflow-x-auto pb-1">
@@ -123,6 +212,7 @@ export default function POS() {
             const here = stockAt(p, locId)
             const tracked = p.trackStock !== false
             const low = tracked && here <= p.reorderLevel
+            const unitTag = features.units && p.unit && p.unit !== 'pc' ? `/${p.unit}` : ''
             return (
               <button key={p.id} onClick={() => add(p)} className="card flex flex-col p-3 text-left transition active:scale-[0.97]">
                 <div className="flex-1">
@@ -130,7 +220,10 @@ export default function POS() {
                   <div className="mt-0.5 text-xs text-brand-900/40 dark:text-white/40">{p.category}</div>
                 </div>
                 <div className="mt-2 flex items-end justify-between">
-                  <span className="font-black text-brand-700 dark:text-gold-400">{money(p.price, currency)}</span>
+                  <span className="font-black text-brand-700 dark:text-gold-400">
+                    {money(p.price, currency)}
+                    {unitTag && <span className="text-[10px] font-semibold text-brand-900/40 dark:text-white/40">{unitTag}</span>}
+                  </span>
                   {tracked && (
                     <span className={`text-[10px] font-semibold ${low ? 'text-red-500' : 'text-brand-900/40 dark:text-white/40'}`}>{here} left</span>
                   )}
@@ -158,6 +251,7 @@ export default function POS() {
           setQty={setQty}
           clearCart={clearCart}
           onCharge={() => setPayOpen(true)}
+          onPark={park}
           held={held}
           canDiscount={canDiscount}
         />
@@ -167,7 +261,7 @@ export default function POS() {
       {count > 0 && !cartOpen && (
         <button onClick={() => setCartOpen(true)} className="fixed inset-x-3 bottom-20 z-20 flex items-center justify-between rounded-2xl bg-brand-600 px-5 py-4 text-white shadow-lg md:hidden">
           <span className="flex items-center gap-2 font-semibold">
-            <ShoppingCart size={20} /> {count} item{count > 1 ? 's' : ''}
+            <ShoppingCart size={20} /> {Math.round(count * 100) / 100} item{count > 1 ? 's' : ''}
           </span>
           <span className="text-lg font-black">{money(total, currency)}</span>
         </button>
@@ -194,6 +288,7 @@ export default function POS() {
               setQty={setQty}
               clearCart={clearCart}
               onCharge={() => setPayOpen(true)}
+              onPark={park}
               held={held}
               canDiscount={canDiscount}
               embedded
@@ -205,7 +300,58 @@ export default function POS() {
       <PaymentModal open={payOpen} onClose={() => setPayOpen(false)} total={total} onComplete={onComplete} />
       <Receipt sale={lastSale} open={receiptOpen} onClose={() => setReceiptOpen(false)} onNewSale={() => setReceiptOpen(false)} />
       {returnOpen && <ReturnModal onClose={() => setReturnOpen(false)} />}
+      {quickOpen && (
+        <QuickItemModal
+          currency={currency}
+          onClose={() => setQuickOpen(false)}
+          onAdd={(name, price, qty) => {
+            setCart((c) => [...c, { productId: uid('custom_'), name, price, qty }])
+            setQuickOpen(false)
+          }}
+        />
+      )}
     </div>
+  )
+}
+
+/** Sell something that isn't in the catalogue — a service, a one-off item. */
+function QuickItemModal({
+  currency,
+  onClose,
+  onAdd,
+}: {
+  currency: string
+  onClose: () => void
+  onAdd: (name: string, price: number, qty: number) => void
+}) {
+  const [name, setName] = useState('')
+  const [price, setPrice] = useState(0)
+  const [qty, setQty] = useState(1)
+  return (
+    <Modal open onClose={onClose} title="Quick item">
+      <p className="-mt-1 mb-2 text-xs text-brand-900/50 dark:text-white/50">
+        For one-off items or services not in your list. Stock is not affected.
+      </p>
+      <div className="space-y-3">
+        <div>
+          <label className="label">What is it?</label>
+          <input autoFocus className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Repair service / Special order" />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="label">Price ({currency})</label>
+            <input className="input" inputMode="decimal" value={price || ''} onChange={(e) => setPrice(parseFloat(e.target.value) || 0)} />
+          </div>
+          <div>
+            <label className="label">Qty</label>
+            <input className="input" inputMode="decimal" value={qty || ''} onChange={(e) => setQty(parseFloat(e.target.value) || 0)} />
+          </div>
+        </div>
+      </div>
+      <button className="btn-primary mt-4 w-full" disabled={!name.trim() || price <= 0 || qty <= 0} onClick={() => onAdd(name.trim(), price, qty)}>
+        Add to cart · {money(price * qty, currency)}
+      </button>
+    </Modal>
   )
 }
 
@@ -219,6 +365,7 @@ function CartPanel({
   setQty,
   clearCart,
   onCharge,
+  onPark,
   held,
   canDiscount,
   embedded,
@@ -232,6 +379,7 @@ function CartPanel({
   setQty: (id: string, qty: number) => void
   clearCart: () => void
   onCharge: () => void
+  onPark?: () => void
   held?: boolean
   canDiscount?: boolean
   embedded?: boolean
@@ -244,9 +392,16 @@ function CartPanel({
             <ShoppingCart size={18} /> Cart
           </h2>
           {cart.length > 0 && (
-            <button className="text-xs font-semibold text-red-500" onClick={clearCart}>
-              Clear
-            </button>
+            <div className="flex items-center gap-3">
+              {onPark && (
+                <button className="flex items-center gap-1 text-xs font-semibold text-amber-600 dark:text-amber-400" onClick={onPark} title="Park this sale and serve the next customer">
+                  <PauseCircle size={13} /> Park
+                </button>
+              )}
+              <button className="text-xs font-semibold text-red-500" onClick={clearCart}>
+                Clear
+              </button>
+            </div>
           )}
         </div>
       )}
@@ -259,14 +414,29 @@ function CartPanel({
             <div key={l.productId} className="flex items-center gap-2">
               <div className="min-w-0 flex-1">
                 <div className="truncate text-sm font-semibold text-brand-900 dark:text-white">{l.name}</div>
-                <div className="text-xs text-brand-900/50 dark:text-white/50">{money(l.price, currency)} each</div>
+                <div className="text-xs text-brand-900/50 dark:text-white/50">
+                  {money(l.price, currency)}{l.unit ? `/${l.unit}` : ' each'}
+                  {l.wholesale && <span className="ml-1 font-semibold text-gold-600 dark:text-gold-400">wholesale</span>}
+                </div>
               </div>
               <div className="flex items-center gap-1">
-                <button className="rounded-lg bg-black/5 p-1.5 dark:bg-white/10" onClick={() => setQty(l.productId, l.qty - 1)}>
+                <button className="rounded-lg bg-black/5 p-1.5 dark:bg-white/10" onClick={() => setQty(l.productId, Math.round((l.qty - 1) * 100) / 100)}>
                   <Minus size={14} />
                 </button>
-                <span className="w-7 text-center font-bold text-brand-900 dark:text-white">{l.qty}</span>
-                <button className="rounded-lg bg-black/5 p-1.5 dark:bg-white/10" onClick={() => setQty(l.productId, l.qty + 1)}>
+                {l.unit ? (
+                  <input
+                    className="w-14 rounded-lg border border-black/10 bg-white py-1 text-center text-sm font-bold text-brand-900 dark:border-white/10 dark:bg-white/10 dark:text-white"
+                    inputMode="decimal"
+                    value={l.qty || ''}
+                    onChange={(e) => {
+                      const v = parseFloat(e.target.value)
+                      setQty(l.productId, isNaN(v) ? 0.01 : v)
+                    }}
+                  />
+                ) : (
+                  <span className="w-7 text-center font-bold text-brand-900 dark:text-white">{l.qty}</span>
+                )}
+                <button className="rounded-lg bg-black/5 p-1.5 dark:bg-white/10" onClick={() => setQty(l.productId, Math.round((l.qty + 1) * 100) / 100)}>
                   <Plus size={14} />
                 </button>
               </div>
@@ -303,9 +473,16 @@ function CartPanel({
           Selling is paused — pay your subscription to continue.
         </div>
       ) : (
-        <button className="btn-primary mt-3 w-full text-lg" disabled={cart.length === 0} onClick={onCharge}>
-          Charge {money(total, currency)}
-        </button>
+        <>
+          <button className="btn-primary mt-3 w-full text-lg" disabled={cart.length === 0} onClick={onCharge}>
+            Charge {money(total, currency)}
+          </button>
+          {embedded && onPark && cart.length > 0 && (
+            <button className="btn-ghost mt-2 w-full" onClick={onPark}>
+              <PauseCircle size={16} /> Park this sale — serve the next customer
+            </button>
+          )}
+        </>
       )}
     </div>
   )

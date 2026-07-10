@@ -5,8 +5,31 @@
 
 export type PaymentMethod = 'cash' | 'mpesa' | 'airtel' | 'card' | 'credit'
 
-/** What kind of business runs this POS — switches wording & behaviour. */
-export type BusinessType = 'shop' | 'restaurant'
+/** What kind of business runs this POS — switches wording & feature presets. */
+export type BusinessType =
+  | 'shop' // duka, kiosk, mini-mart, general retail
+  | 'restaurant'
+  | 'pharmacy'
+  | 'hardware'
+  | 'electronics' // incl. CCTV, phones, accessories
+  | 'boutique' // clothes & shoes
+  | 'agrovet'
+  | 'spices' // spices, herbs, cereals — anything weighed out
+  | 'wholesale' // Kamukunji-style wholesale & distribution
+
+/** Optional feature switches — presets set them per business type, and the
+ *  owner can toggle any of them in Settings. Everything stays simple: a
+ *  feature that's off never appears anywhere. */
+export interface FeatureFlags {
+  /** Sell by kg/g/litre/metre… with decimal quantities at the till. */
+  units: boolean
+  /** Expiry dates on products + expiring-soon warnings (pharmacy, agrovet). */
+  expiry: boolean
+  /** Warranty months on products, printed on receipts (electronics, hardware). */
+  warranty: boolean
+  /** Second price tier that kicks in automatically at a minimum quantity. */
+  wholesale: boolean
+}
 
 // Branches, warehouses & stock movement ---------------------------------------
 export type LocationType = 'branch' | 'warehouse'
@@ -139,6 +162,15 @@ export interface Product {
   active: boolean
   /** false = don't deplete stock on sale (e.g. made-to-order restaurant dishes). */
   trackStock?: boolean
+  /** Unit of sale: 'pc' (default), 'kg', 'g', 'L', 'ml', 'm', 'bag', 'tray'… */
+  unit?: string
+  /** Wholesale tier: this price applies when qty >= wholesaleMinQty. */
+  wholesalePrice?: number
+  wholesaleMinQty?: number
+  /** ISO date (YYYY-MM-DD) — pharmacy/agrovet/perishables. */
+  expiryDate?: string
+  /** Printed on the receipt for electronics/hardware. */
+  warrantyMonths?: number
 }
 
 export interface Customer {
@@ -159,6 +191,12 @@ export interface CartLine {
   name: string
   price: number
   qty: number
+  /** Unit snapshot ('kg', 'm'…) — enables decimal quantities for this line. */
+  unit?: string
+  /** True when the wholesale price tier is applied to this line. */
+  wholesale?: boolean
+  /** Warranty snapshot, printed on the receipt. */
+  warrantyMonths?: number
 }
 
 /** One tender within a sale — supports split payments. */
@@ -231,8 +269,10 @@ export interface DebtComment {
 export interface BusinessSettings {
   name: string
   tagline: string
-  /** Chosen at onboarding: duka/shop or restaurant — switches wording & flow. */
+  /** Chosen at onboarding — sets wording & feature presets for the vertical. */
   businessType: BusinessType
+  /** Explicit feature switches; when unset, the businessType preset applies. */
+  features?: FeatureFlags
   phone: string // shop contact, normalised
   location: string
   // How debtors can pay you back — included in every reminder.

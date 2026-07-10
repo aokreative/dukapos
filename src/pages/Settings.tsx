@@ -6,8 +6,8 @@ import { PageHeader, Modal, Badge } from '../components/ui'
 import { DEFAULT_TEMPLATE, buildReminderMessage } from '../lib/reminders'
 import { displayPhone, normalizePhone } from '../lib/format'
 import { ROLE_LABEL, ROLE_BLURB } from '../lib/permissions'
-import { BUSINESS_TYPE_LABEL } from '../lib/labels'
-import type { BusinessSettings, BusinessType, Customer, Debt, Role, StaffMember } from '../types'
+import { BUSINESS_TYPE_LABEL, PRESET_FEATURES, FEATURE_LABEL, getFeatures } from '../lib/labels'
+import type { BusinessSettings, BusinessType, Customer, Debt, FeatureFlags, Role, StaffMember } from '../types'
 
 export default function Settings() {
   const settings = useStore((s) => s.settings)
@@ -37,20 +37,41 @@ export default function Settings() {
       {/* Business profile */}
       <Section icon={<Store size={18} />} title="Business profile">
         <Field label="What kind of business is this?">
-          <div className="flex gap-2">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             {(Object.keys(BUSINESS_TYPE_LABEL) as BusinessType[]).map((t) => (
               <button
                 key={t}
-                onClick={() => set('businessType', t)}
-                className={`chip flex-1 justify-center py-2.5 ${(settings.businessType ?? 'shop') === t ? 'bg-brand-600 text-white' : 'bg-black/5 text-brand-900/70 dark:bg-white/10 dark:text-white/70'}`}
+                onClick={() => updateSettings({ businessType: t, features: PRESET_FEATURES[t] })}
+                className={`chip justify-center py-2.5 text-center text-xs sm:text-sm ${(settings.businessType ?? 'shop') === t ? 'bg-brand-600 text-white' : 'bg-black/5 text-brand-900/70 dark:bg-white/10 dark:text-white/70'}`}
               >
-                {t === 'restaurant' ? <UtensilsCrossed size={14} /> : <Store size={14} />} {BUSINESS_TYPE_LABEL[t]}
+                {t === 'restaurant' ? <UtensilsCrossed size={13} /> : <Store size={13} />} {BUSINESS_TYPE_LABEL[t]}
               </button>
             ))}
           </div>
           <p className="mt-1 text-xs text-brand-900/40 dark:text-white/40">
-            Restaurant mode renames Stock to Menu and lets dishes skip stock counting (made-to-order).
+            Picking a type switches on the right extras below — you can still toggle any of them yourself.
           </p>
+        </Field>
+        <Field label="Extras for your kind of business">
+          <div className="space-y-2">
+            {(Object.keys(FEATURE_LABEL) as (keyof FeatureFlags)[]).map((k) => {
+              const f = getFeatures(settings)
+              return (
+                <label key={k} className="flex items-center justify-between gap-3 rounded-xl bg-black/5 px-3 py-2.5 dark:bg-white/10">
+                  <span>
+                    <span className="block text-sm font-medium text-brand-900 dark:text-white">{FEATURE_LABEL[k].name}</span>
+                    <span className="block text-xs text-brand-900/50 dark:text-white/50">{FEATURE_LABEL[k].blurb}</span>
+                  </span>
+                  <input
+                    type="checkbox"
+                    className="h-5 w-5 shrink-0 accent-brand-600"
+                    checked={f[k]}
+                    onChange={(e) => set('features', { ...f, [k]: e.target.checked })}
+                  />
+                </label>
+              )
+            })}
+          </div>
         </Field>
         <Field label="Shop name">
           <input className="input" value={settings.name} onChange={(e) => set('name', e.target.value)} />

@@ -1,16 +1,29 @@
 import { useMemo, useState } from 'react'
-import { Search, PackagePlus, Pencil, Plus, Minus, AlertTriangle, Trash2, MapPin } from 'lucide-react'
+import { Search, PackagePlus, Pencil, Plus, Minus, AlertTriangle, Trash2, MapPin, Copy, CalendarClock } from 'lucide-react'
 import { useStore, selectCurrentLocation } from '../store/useStore'
 import { money } from '../lib/format'
 import { PageHeader, Modal, Badge, EmptyState } from '../components/ui'
 import { stockAt, totalStock } from '../lib/stock'
-import { bizLabels } from '../lib/labels'
-import type { Product } from '../types'
+import { bizLabels, getFeatures, UNITS } from '../lib/labels'
+import type { FeatureFlags, Product } from '../types'
+
+const DAY = 24 * 60 * 60 * 1000
+/** 'expired' | 'soon' (≤90 days) | null */
+function expiryState(p: Product): 'expired' | 'soon' | null {
+  if (!p.expiryDate) return null
+  const t = new Date(p.expiryDate + 'T00:00:00').getTime()
+  if (isNaN(t)) return null
+  if (t < Date.now()) return 'expired'
+  if (t < Date.now() + 90 * DAY) return 'soon'
+  return null
+}
 
 export default function Products() {
   const products = useStore((s) => s.products)
-  const currency = useStore((s) => s.settings.currency)
-  const labels = bizLabels(useStore((s) => s.settings.businessType))
+  const settings = useStore((s) => s.settings)
+  const currency = settings.currency
+  const labels = bizLabels(settings.businessType)
+  const features = getFeatures(settings)
   const addProduct = useStore((s) => s.addProduct)
   const updateProduct = useStore((s) => s.updateProduct)
   const removeProduct = useStore((s) => s.removeProduct)
@@ -21,19 +34,26 @@ export default function Products() {
 
   const [q, setQ] = useState('')
   const [lowOnly, setLowOnly] = useState(false)
+  const [expiringOnly, setExpiringOnly] = useState(false)
   const [editing, setEditing] = useState<Product | null>(null)
   const [creating, setCreating] = useState(false)
 
   const isLow = (p: Product) => p.trackStock !== false && stockAt(p, locId) <= p.reorderLevel
   const lowCount = products.filter(isLow).length
+  const expiringCount = features.expiry ? products.filter((p) => expiryState(p) !== null).length : 0
 
   const filtered = useMemo(() => {
     const t = q.trim().toLowerCase()
     return products
-      .filter((p) => (!t || p.name.toLowerCase().includes(t) || p.sku.includes(t)) && (!lowOnly || isLow(p)))
+      .filter(
+        (p) =>
+          (!t || p.name.toLowerCase().includes(t) || p.sku.includes(t)) &&
+          (!lowOnly || isLow(p)) &&
+          (!expiringOnly || expiryState(p) !== null),
+      )
       .sort((a, b) => (Number(isLow(b)) - Number(isLow(a))) || a.name.localeCompare(b.name))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [products, q, lowOnly, locId])
+  }, [products, q, lowOnly, expiringOnly, locId])
 
   return (
     <div>
@@ -59,6 +79,11 @@ export default function Products() {
         <button className={`chip whitespace-nowrap px-4 ${lowOnly ? 'bg-red-500 text-white' : 'bg-black/5 text-brand-900/70 dark:bg-white/10 dark:text-white/70'}`} onClick={() => setLowOnly((v) => !v)}>
           <AlertTriangle size={14} /> Low {lowCount > 0 && `(${lowCount})`}
         </button>
+        {features.expiry && (
+          <button className={`chip whitespace-nowrap px-4 ${expiringOnly ? 'bg-amber-500 text-white' : 'bg-black/5 text-brand-900/70 dark:bg-white/10 dark:text-white/70'}`} onClick={() => setExpiringOnly((v) => !v)}>
+            <CalendarClock size={14} /> Expiring {expiringCount > 0 && `(${expiringCount})`}
+          </button>
+        )}
       </div>
 
       {filtered.length === 0 ? (
@@ -69,16 +94,21 @@ export default function Products() {
             const here = stockAt(p, locId)
             const elsewhere = totalStock(p) - here
             const low = isLow(p)
+            const exp = features.expiry ? expiryState(p) : null
             return (
               <div key={p.id} className="card flex items-center gap-3 p-3">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <span className="truncate font-semibold text-brand-900 dark:text-white">{p.name}</span>
                     {low && <Badge color="red">low</Badge>}
+                    {exp === 'expired' && <Badge color="red">EXPIRED</Badge>}
+                    {exp === 'soon' && <Badge color="amber">exp {p.expiryDate}</Badge>}
                     {p.trackStock === false && <Badge color="amber">no stock count</Badge>}
                   </div>
                   <div className="text-xs text-brand-900/50 dark:text-white/50">
                     {p.category} · SKU {p.sku} · {money(p.price, currency)}
+                    {features.units && p.unit && p.unit !== 'pc' ? `/${p.unit}` : ''}
+                    {features.wholesale && p.wholesalePrice ? ` · WS ${money(p.wholesalePrice, currency)}@${p.wholesaleMinQty ?? 12}+` : ''}
                     {locations.length > 1 && elsewhere > 0 && p.trackStock !== false && (
                       <span className="ml-1 inline-flex items-center gap-0.5 text-brand-600 dark:text-gold-400"><MapPin size={10} /> +{elsewhere} elsewhere</span>
                     )}
@@ -95,6 +125,17 @@ export default function Products() {
                     </button>
                   </div>
                 )}
+                <button
+                  className="rounded-lg p-2 text-brand-900/50 hover:bg-black/5 dark:text-white/50 dark:hover:bg-white/10"
+                  title="Duplicate (for sizes/colours/variants)"
+                  onClick={() => {
+                    const { id, ...rest } = p
+                    void id
+                    addProduct({ ...rest, name: `${p.name} (copy)`, stockByLocation: {} })
+                  }}
+                >
+                  <Copy size={15} />
+                </button>
                 <button className="rounded-lg p-2 text-brand-900/50 hover:bg-black/5 dark:text-white/50 dark:hover:bg-white/10" onClick={() => setEditing(p)}>
                   <Pencil size={16} />
                 </button>
@@ -109,7 +150,8 @@ export default function Products() {
           product={editing}
           locId={locId}
           locationName={location?.name}
-          itemLabel={bizLabels(useStore.getState().settings.businessType).item}
+          itemLabel={labels.item}
+          features={features}
           onClose={() => {
             setCreating(false)
             setEditing(null)
@@ -143,6 +185,7 @@ function ProductForm({
   locId,
   locationName,
   itemLabel,
+  features,
   onClose,
   onSave,
   onDelete,
@@ -151,8 +194,23 @@ function ProductForm({
   locId: string
   locationName?: string
   itemLabel: string
+  features: FeatureFlags
   onClose: () => void
-  onSave: (data: { name: string; sku: string; category: string; price: number; cost: number; stock: number; reorderLevel: number; trackStock: boolean }) => void
+  onSave: (data: {
+    name: string
+    sku: string
+    category: string
+    price: number
+    cost: number
+    stock: number
+    reorderLevel: number
+    trackStock: boolean
+    unit?: string
+    wholesalePrice?: number
+    wholesaleMinQty?: number
+    expiryDate?: string
+    warrantyMonths?: number
+  }) => void
   onDelete?: () => void
 }) {
   const [name, setName] = useState(product?.name ?? '')
@@ -163,6 +221,11 @@ function ProductForm({
   const [stock, setStock] = useState<number>(product ? stockAt(product, locId) : 0)
   const [reorderLevel, setReorder] = useState<number>(product?.reorderLevel ?? 5)
   const [trackStock, setTrackStock] = useState<boolean>(product?.trackStock !== false)
+  const [unit, setUnit] = useState<string>(product?.unit ?? 'pc')
+  const [wholesalePrice, setWholesalePrice] = useState<number>(product?.wholesalePrice ?? 0)
+  const [wholesaleMinQty, setWholesaleMinQty] = useState<number>(product?.wholesaleMinQty ?? 12)
+  const [expiryDate, setExpiryDate] = useState<string>(product?.expiryDate ?? '')
+  const [warrantyMonths, setWarrantyMonths] = useState<number>(product?.warrantyMonths ?? 0)
   const valid = name.trim() && price >= 0
 
   return (
@@ -192,6 +255,49 @@ function ProductForm({
             <input className="input" inputMode="decimal" value={cost || ''} onChange={(e) => setCost(parseFloat(e.target.value) || 0)} />
           </div>
         </div>
+        {features.units && (
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="label">Sold by</label>
+              <select className="input" value={unit} onChange={(e) => setUnit(e.target.value)}>
+                {UNITS.map((u) => (
+                  <option key={u} value={u}>{u === 'pc' ? 'piece (pc)' : u}</option>
+                ))}
+              </select>
+            </div>
+            <div className="self-end pb-2 text-xs text-brand-900/40 dark:text-white/40">
+              {unit !== 'pc' ? `Price is per ${unit}; the till accepts decimals (e.g. 0.5 ${unit}).` : 'Whole pieces at the till.'}
+            </div>
+          </div>
+        )}
+        {features.wholesale && (
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="label">Wholesale price (optional)</label>
+              <input className="input" inputMode="decimal" value={wholesalePrice || ''} onChange={(e) => setWholesalePrice(parseFloat(e.target.value) || 0)} placeholder="applies at qty…" />
+            </div>
+            <div>
+              <label className="label">…from qty</label>
+              <input className="input" inputMode="numeric" value={wholesaleMinQty || ''} onChange={(e) => setWholesaleMinQty(parseInt(e.target.value) || 0)} placeholder="12" />
+            </div>
+          </div>
+        )}
+        {(features.expiry || features.warranty) && (
+          <div className="grid grid-cols-2 gap-3">
+            {features.expiry && (
+              <div>
+                <label className="label">Expiry date (optional)</label>
+                <input className="input" type="date" value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)} />
+              </div>
+            )}
+            {features.warranty && (
+              <div>
+                <label className="label">Warranty months (optional)</label>
+                <input className="input" inputMode="numeric" value={warrantyMonths || ''} onChange={(e) => setWarrantyMonths(parseInt(e.target.value) || 0)} placeholder="e.g. 12" />
+              </div>
+            )}
+          </div>
+        )}
         <label className="flex items-center gap-3 rounded-xl bg-black/5 px-3 py-3 dark:bg-white/10">
           <input type="checkbox" className="h-5 w-5 accent-brand-600" checked={trackStock} onChange={(e) => setTrackStock(e.target.checked)} />
           <span className="text-sm font-medium text-brand-900 dark:text-white">Count stock for this item <span className="text-brand-900/50 dark:text-white/50">(turn off for made-to-order dishes)</span></span>
@@ -215,7 +321,27 @@ function ProductForm({
             <Trash2 size={18} />
           </button>
         )}
-        <button className="btn-primary flex-1" disabled={!valid} onClick={() => onSave({ name: name.trim(), sku: sku.trim(), category: category.trim() || 'Other', price, cost, stock, reorderLevel, trackStock })}>
+        <button
+          className="btn-primary flex-1"
+          disabled={!valid}
+          onClick={() =>
+            onSave({
+              name: name.trim(),
+              sku: sku.trim(),
+              category: category.trim() || 'Other',
+              price,
+              cost,
+              stock,
+              reorderLevel,
+              trackStock,
+              unit: features.units && unit !== 'pc' ? unit : undefined,
+              wholesalePrice: features.wholesale && wholesalePrice > 0 ? wholesalePrice : undefined,
+              wholesaleMinQty: features.wholesale && wholesalePrice > 0 ? wholesaleMinQty || 12 : undefined,
+              expiryDate: features.expiry && expiryDate ? expiryDate : undefined,
+              warrantyMonths: features.warranty && warrantyMonths > 0 ? warrantyMonths : undefined,
+            })
+          }
+        >
           Save
         </button>
       </div>

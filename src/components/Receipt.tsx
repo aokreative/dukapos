@@ -14,8 +14,12 @@ const METHOD_LABEL: Record<string, string> = {
 }
 
 export function buildReceiptText(sale: Sale, shopName: string, currency: string): string {
-  const lines = sale.lines.map((l) => `${l.qty} x ${l.name}  —  ${money(l.price * l.qty, currency)}`).join('\n')
+  const lines = sale.lines.map((l) => `${l.qty}${l.unit ? l.unit : ''} x ${l.name}  —  ${money(l.price * l.qty, currency)}`).join('\n')
   const tenders = sale.tenders.map((t) => `${METHOD_LABEL[t.method]}: ${money(t.amount, currency)}${t.ref ? ` (${t.ref})` : ''}`).join('\n')
+  const warranties = sale.lines
+    .filter((l) => l.warrantyMonths)
+    .map((l) => `Warranty: ${l.name} — ${l.warrantyMonths} months`)
+    .join('\n')
   return (
     `*${shopName}*\n` +
     `Receipt ${sale.receiptNo}\n` +
@@ -27,6 +31,7 @@ export function buildReceiptText(sale: Sale, shopName: string, currency: string)
     `*TOTAL: ${money(sale.total, currency)}*\n` +
     `${tenders}\n` +
     (sale.creditAmount > 0 ? `\nBalance on credit: ${money(sale.creditAmount, currency)}\n` : '') +
+    (warranties ? `\n${warranties}\n` : '') +
     `\nAsante! Karibu tena.`
   )
 }
@@ -55,7 +60,14 @@ export default function Receipt({
     const w = window.open('', 'print', 'width=320,height=600')
     if (!w) return
     const rows = sale!.lines
-      .map((l) => `<tr><td>${l.qty} x ${l.name}</td><td style="text-align:right">${money(l.price * l.qty, settings.currency)}</td></tr>`)
+      .map((l) => `<tr><td>${l.qty}${l.unit ? l.unit : ''} x ${l.name}</td><td style="text-align:right">${money(l.price * l.qty, settings.currency)}</td></tr>`)
+      .join('')
+    const warrantyRows = sale!.lines
+      .filter((l) => l.warrantyMonths)
+      .map((l) => {
+        const until = new Date(sale!.createdAt + l.warrantyMonths! * 30 * 24 * 60 * 60 * 1000)
+        return `<div class="muted">Warranty: ${l.name} — ${l.warrantyMonths} months (till ${until.toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' })})</div>`
+      })
       .join('')
     const tenders = sale!.tenders
       .map((t) => `<tr><td>${METHOD_LABEL[t.method]}${t.ref ? ` (${t.ref})` : ''}</td><td style="text-align:right">${money(t.amount, settings.currency)}</td></tr>`)
@@ -89,6 +101,7 @@ export default function Receipt({
         ${tenders}
         ${sale!.creditAmount > 0 ? `<tr><td>On credit</td><td style="text-align:right">${money(sale!.creditAmount, settings.currency)}</td></tr>` : ''}
       </table>
+      ${warrantyRows}
       <hr/>
       <div class="muted">${settings.tagline || 'Asante! Karibu tena.'}</div>
       </body></html>`)

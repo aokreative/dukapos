@@ -47,6 +47,8 @@ export interface ShopSnapshot {
   recentSales?: { when: string; receipt: string; total: number; customer?: string; soldBy: string; forStaff?: string; items: string; note?: string }[]
   recentTransfers?: { when: string; from: string; to: string; items: string; status: string }[]
   recentReturns?: { when: string; receipt: string; amount: number; how: string; items: string }[]
+  /** Items already expired or expiring within 90 days. */
+  expiringSoon?: { name: string; date: string; expired: boolean }[]
 }
 
 const DAY = 24 * 60 * 60 * 1000
@@ -222,9 +224,21 @@ export function buildShopSnapshot(input: {
     items: r.lines.map((l) => `${l.qty}× ${l.name}`).join(', '),
   }))
 
+  const expiringSoon = products
+    .filter((p) => p.active && p.expiryDate)
+    .map((p) => {
+      const t = new Date(p.expiryDate + 'T00:00:00').getTime()
+      return { name: p.name, date: p.expiryDate!, t }
+    })
+    .filter((x) => !isNaN(x.t) && x.t < Date.now() + 90 * DAY)
+    .sort((a, b) => a.t - b.t)
+    .slice(0, 10)
+    .map((x) => ({ name: x.name, date: x.date, expired: x.t < Date.now() }))
+
   return {
     businessType: input.businessType,
     staffNames: (input.staff ?? []).filter((m) => m.active).map((m) => `${m.name} (${m.role})`),
+    expiringSoon: expiringSoon.length ? expiringSoon : undefined,
     locations: (input.locations ?? []).map((l) => ({ name: l.name, type: l.type })),
     catalog,
     recentSales,

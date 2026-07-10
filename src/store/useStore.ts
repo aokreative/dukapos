@@ -111,6 +111,9 @@ interface State {
   suppliers: Supplier[]
   supplierTxns: SupplierTxn[]
 
+  /** Waiting sales on THIS device — park one customer, serve the next. */
+  parkedCarts: { id: string; lines: CartLine[]; discount: number; at: number }[]
+
   // staff & access
   staff: StaffMember[]
   currentStaffId: string | null
@@ -175,6 +178,10 @@ interface State {
   // debt comments
   addDebtComment: (debtId: string, text: string) => void
 
+  // parked carts (per device)
+  parkCart: (lines: CartLine[], discount: number) => void
+  removeParkedCart: (id: string) => void
+
   // customers
   addCustomer: (c: Omit<Customer, 'id' | 'createdAt'>) => Customer
   updateCustomer: (id: string, patch: Partial<Customer>) => void
@@ -222,6 +229,7 @@ function buildSeed() {
     exchangeCredit: 0,
     suppliers: seedSuppliers(customers),
     supplierTxns: [] as SupplierTxn[],
+    parkedCarts: [] as { id: string; lines: CartLine[]; discount: number; at: number }[],
     subscription: defaultSubscription(),
     reminderRule: defaultReminderRule,
     reminderLog: [] as ReminderLogEntry[],
@@ -448,6 +456,12 @@ export const useStore = create<State>()(
           }
           return { products, supplierTxns: [...txns, ...s.supplierTxns] }
         }),
+
+      parkCart: (lines, discount) =>
+        set((s) => ({
+          parkedCarts: [...s.parkedCarts, { id: uid('park_'), lines, discount, at: Date.now() }].slice(-10),
+        })),
+      removeParkedCart: (id) => set((s) => ({ parkedCarts: s.parkedCarts.filter((p) => p.id !== id) })),
 
       addDebtComment: (debtId, text) =>
         set((s) => ({
