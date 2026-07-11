@@ -15,7 +15,7 @@ import {
   MapPin,
   Search,
 } from 'lucide-react'
-import { useStore, selectCurrentLocation, selectRole } from '../store/useStore'
+import { useStore, selectCurrentLocation, selectRole, selectBranchLocked } from '../store/useStore'
 import { PageHeader, Modal, Badge, EmptyState } from '../components/ui'
 import { can } from '../lib/permissions'
 import { stockAt, LOCATION_TYPE_LABEL } from '../lib/stock'
@@ -31,6 +31,7 @@ export default function Branches() {
   const receiveTransfer = useStore((s) => s.receiveTransfer)
   const cancelTransfer = useStore((s) => s.cancelTransfer)
   const role = useStore(selectRole)
+  const branchLocked = useStore(selectBranchLocked)
 
   const [newTransfer, setNewTransfer] = useState(false)
   const [editLoc, setEditLoc] = useState<BizLocation | null>(null)
@@ -59,20 +60,33 @@ export default function Branches() {
         <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-brand-900/50 dark:text-white/50">
           <MapPin size={14} /> This device is working at
         </div>
-        <div className="flex flex-wrap gap-2">
-          {locations.map((l) => (
-            <button
-              key={l.id}
-              onClick={() => setCurrentLocation(l.id)}
-              className={`chip px-4 py-2 ${current?.id === l.id ? 'bg-brand-600 text-white' : 'bg-black/5 text-brand-900/70 dark:bg-white/10 dark:text-white/70'}`}
-            >
-              {l.type === 'warehouse' ? <WarehouseIcon size={14} /> : <Building2 size={14} />} {l.name}
-            </button>
-          ))}
-        </div>
-        <p className="mt-2 text-xs text-brand-900/40 dark:text-white/40">
-          Sales and stock counts on this device use the selected location.
-        </p>
+        {branchLocked ? (
+          <>
+            <span className="chip bg-brand-600 px-4 py-2 text-white">
+              <Building2 size={14} /> {current?.name}
+            </span>
+            <p className="mt-2 text-xs text-brand-900/40 dark:text-white/40">
+              You are assigned to this branch and sell only its stock. Ask the owner to change your branch.
+            </p>
+          </>
+        ) : (
+          <>
+            <div className="flex flex-wrap gap-2">
+              {locations.map((l) => (
+                <button
+                  key={l.id}
+                  onClick={() => setCurrentLocation(l.id)}
+                  className={`chip px-4 py-2 ${current?.id === l.id ? 'bg-brand-600 text-white' : 'bg-black/5 text-brand-900/70 dark:bg-white/10 dark:text-white/70'}`}
+                >
+                  {l.type === 'warehouse' ? <WarehouseIcon size={14} /> : <Building2 size={14} />} {l.name}
+                </button>
+              ))}
+            </div>
+            <p className="mt-2 text-xs text-brand-900/40 dark:text-white/40">
+              Sales and stock counts on this device use the selected location.
+            </p>
+          </>
+        )}
       </div>
 
       {/* Locations */}
@@ -88,6 +102,7 @@ export default function Branches() {
         <div className="space-y-2">
           {locations.map((l) => {
             const keeper = staff.find((m) => m.id === l.assignedStaffId)
+            const sellers = staff.filter((m) => m.active && m.locationId === l.id)
             return (
               <div key={l.id} className="flex items-center gap-3 rounded-xl bg-black/5 px-3 py-2.5 dark:bg-white/10">
                 {l.type === 'warehouse' ? <WarehouseIcon size={18} className="text-gold-500" /> : <Building2 size={18} className="text-brand-600 dark:text-gold-400" />}
@@ -97,6 +112,11 @@ export default function Branches() {
                     {LOCATION_TYPE_LABEL[l.type]}
                     {keeper ? ` · ${keeper.name} in charge` : ''}
                   </div>
+                  {sellers.length > 0 && (
+                    <div className="mt-0.5 text-xs text-brand-900/40 dark:text-white/40">
+                      Sells here: {sellers.map((m) => m.name).join(', ')}
+                    </div>
+                  )}
                 </div>
                 {can(role, 'manageLocations') && (
                   <button className="rounded-lg p-2 text-brand-900/50 hover:bg-black/10 dark:text-white/50 dark:hover:bg-white/10" onClick={() => setEditLoc(l)}>

@@ -294,7 +294,10 @@ export const useStore = create<State>()(
         const st = get()
         const member = st.staff.find((m) => m.id === staffId && m.active)
         if (member && member.pin === pin) {
-          set({ currentStaffId: staffId })
+          // If this staff member is assigned to a branch, drop them straight
+          // into it so they sell that branch's stock (owners still roam).
+          const assigned = member.locationId && st.locations.some((l) => l.id === member.locationId) ? member.locationId : null
+          set(assigned ? { currentStaffId: staffId, currentLocationId: assigned } : { currentStaffId: staffId })
           return true
         }
         return false
@@ -349,7 +352,16 @@ export const useStore = create<State>()(
             currentLocationId: s.currentLocationId === id ? fallback.id : s.currentLocationId,
           }
         }),
-      setCurrentLocation: (id) => set({ currentLocationId: id }),
+      setCurrentLocation: (id) =>
+        set((s) => {
+          // A staff member locked to a branch (assigned, and not the owner)
+          // cannot switch away from it — they sell only in their branch.
+          const staff = s.staff.find((m) => m.id === s.currentStaffId)
+          const assigned = staff?.locationId
+          const locked = !!assigned && staff?.role !== 'owner' && s.locations.some((l) => l.id === assigned)
+          if (locked && id !== assigned) return s
+          return { currentLocationId: id }
+        }),
 
       createTransfer: ({ fromId, toId, lines, note }) =>
         set((s) => {
@@ -881,6 +893,19 @@ export function selectCurrentStaff(state: State): StaffMember | undefined {
 
 export function selectCurrentLocation(state: State): BizLocation | undefined {
   return state.locations.find((l) => l.id === state.currentLocationId) ?? state.locations[0]
+}
+
+/** The branch a staff member is assigned to (if it still exists). */
+export function selectAssignedLocationId(state: State): string | undefined {
+  const staff = selectCurrentStaff(state)
+  const loc = staff?.locationId
+  return loc && state.locations.some((l) => l.id === loc) ? loc : undefined
+}
+
+/** True when the signed-in staff member is locked to one branch (assigned and
+ *  not the owner) — the branch switcher is hidden and selling is confined. */
+export function selectBranchLocked(state: State): boolean {
+  return !!selectAssignedLocationId(state) && selectCurrentStaff(state)?.role !== 'owner'
 }
 
 /** The signed-in cashier's open shift at this branch, if any. */

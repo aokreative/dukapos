@@ -486,14 +486,17 @@ function StaffForm({
   isSelf: boolean
   viewerIsOwner: boolean
   onClose: () => void
-  onSave: (data: { name: string; role: Role; pin: string; active: boolean; extraCaps?: string[] }) => void
+  onSave: (data: { name: string; role: Role; pin: string; active: boolean; extraCaps?: string[]; locationId?: string }) => void
   onDelete?: () => void
 }) {
+  const locations = useStore((s) => s.locations)
+  const showBranch = locations.length > 1
   const [name, setName] = useState(member?.name ?? '')
   const [role, setRole] = useState<Role>(member?.role ?? 'cashier')
   const [pin, setPin] = useState(member?.pin ?? '')
   const [active, setActive] = useState(member?.active ?? true)
   const [extraCaps, setExtraCaps] = useState<string[]>(member?.extraCaps ?? [])
+  const [locationId, setLocationId] = useState(member?.locationId ?? '')
   const validPin = /^\d{4,6}$/.test(pin)
   const valid = name.trim() && validPin
   // Only the owner can hand out extra powers, and never to another owner
@@ -530,6 +533,22 @@ function StaffForm({
           <input className="input tracking-[0.4em]" inputMode="numeric" value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="••••" />
           {pin && !validPin && <p className="mt-1 text-xs text-red-600">Use 4 to 6 numbers</p>}
         </div>
+        {showBranch && (
+          <div>
+            <label className="label">Works at branch</label>
+            <select className="input" value={locationId} onChange={(e) => setLocationId(e.target.value)} disabled={role === 'owner'}>
+              <option value="">All branches (can move between them)</option>
+              {locations.map((l) => (
+                <option key={l.id} value={l.id}>{l.name}</option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-brand-900/50 dark:text-white/50">
+              {role === 'owner'
+                ? 'Owners always see and move between every branch.'
+                : 'When set, this person logs into that branch and sells only its stock. Leave on “All branches” for staff who move around.'}
+            </p>
+          </div>
+        )}
         {member && (
           <label className="flex items-center justify-between rounded-xl bg-black/5 px-3 py-3 dark:bg-white/10">
             <span className="text-sm font-medium text-brand-900 dark:text-white">Active (can log in) <span className="text-brand-900/50 dark:text-white/50">— uncheck to pause when on leave</span></span>
@@ -564,7 +583,7 @@ function StaffForm({
             <Trash2 size={18} />
           </button>
         )}
-        <button className="btn-primary flex-1" disabled={!valid} onClick={() => onSave({ name: name.trim(), role, pin, active, extraCaps: role === 'owner' ? undefined : extraCaps })}>
+        <button className="btn-primary flex-1" disabled={!valid} onClick={() => onSave({ name: name.trim(), role, pin, active, extraCaps: role === 'owner' ? undefined : extraCaps, locationId: role === 'owner' ? undefined : locationId || undefined })}>
           Save
         </button>
       </div>

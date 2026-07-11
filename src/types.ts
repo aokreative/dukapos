@@ -192,6 +192,10 @@ export interface StaffMember {
    * trusted manager run the business owner-style. The owner account itself
    * can never be edited, paused or removed by anyone else. */
   extraCaps?: string[]
+  /** Branch this staff member is assigned to. When set, they log in straight
+   * into that branch and can sell ONLY there (owners always roam). Leave unset
+   * for staff who move between branches. */
+  locationId?: string
 }
 
 export interface Product {
