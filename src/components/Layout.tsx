@@ -156,7 +156,7 @@ export default function Layout({ children }: { children: ReactNode }) {
 function Brand({ shopName }: { shopName: string }) {
   return (
     <div className="flex items-center gap-2">
-      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-600 font-black text-gold-400">D</div>
+      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 font-black text-gold-400 shadow-sm shadow-brand-900/30">D</div>
       <div className="leading-tight">
         <div className="text-base font-black tracking-tight text-brand-900 dark:text-white">{shopName || 'Duka'}</div>
         <div className="text-[10px] font-medium uppercase tracking-wide text-brand-900/40 dark:text-white/40">POS</div>
@@ -183,7 +183,9 @@ function FooterControls({ dark, toggleDark, online }: { dark: boolean; toggleDar
 
 function railClass(active: boolean) {
   return `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition ${
-    active ? 'bg-brand-600 text-white' : 'text-brand-900/70 hover:bg-black/5 dark:text-white/70 dark:hover:bg-white/10'
+    active
+      ? 'bg-gradient-to-r from-brand-600 to-brand-500 text-white shadow-sm shadow-brand-900/25'
+      : 'text-brand-900/70 hover:bg-black/5 dark:text-white/70 dark:hover:bg-white/10'
   }`
 }
 

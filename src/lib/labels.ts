@@ -48,19 +48,21 @@ export const BUSINESS_TYPE_LABEL: Record<BusinessType, string> = {
 }
 
 /** What each vertical typically needs — the owner can still toggle any switch.
- *  (Selling by weight/measure is always available to every business.) */
+ *  (Selling by weight/measure is always available to every business.)
+ *  Branches & warehouse is ON everywhere by default so the tab is always
+ *  present; a simple single shop can switch it off in Settings → Features. */
 export const PRESET_FEATURES: Record<BusinessType, FeatureFlags> = {
-  shop: { expiry: false, warranty: false, wholesale: false, branches: false },
-  restaurant: { expiry: false, warranty: false, wholesale: false, branches: false },
-  pharmacy: { expiry: true, warranty: false, wholesale: false, branches: false },
+  shop: { expiry: false, warranty: false, wholesale: false, branches: true },
+  restaurant: { expiry: false, warranty: false, wholesale: false, branches: true },
+  pharmacy: { expiry: true, warranty: false, wholesale: false, branches: true },
   hardware: { expiry: false, warranty: true, wholesale: true, branches: true },
-  electronics: { expiry: false, warranty: true, wholesale: false, branches: false },
-  boutique: { expiry: false, warranty: false, wholesale: true, branches: false },
-  agrovet: { expiry: true, warranty: false, wholesale: false, branches: false },
-  spices: { expiry: true, warranty: false, wholesale: true, branches: false },
+  electronics: { expiry: false, warranty: true, wholesale: false, branches: true },
+  boutique: { expiry: false, warranty: false, wholesale: true, branches: true },
+  agrovet: { expiry: true, warranty: false, wholesale: false, branches: true },
+  spices: { expiry: true, warranty: false, wholesale: true, branches: true },
   wholesale: { expiry: false, warranty: false, wholesale: true, branches: true },
-  babyshop: { expiry: true, warranty: false, wholesale: false, branches: false },
-  autospares: { expiry: false, warranty: true, wholesale: true, branches: false },
+  babyshop: { expiry: true, warranty: false, wholesale: false, branches: true },
+  autospares: { expiry: false, warranty: true, wholesale: true, branches: true },
 }
 
 /** Active feature switches: the type's preset, overridden by any explicit

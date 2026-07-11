@@ -73,6 +73,53 @@ simulation to live — each is just pasting credentials into Render.
 
 ---
 
+## Onboarding shops & your Super-Admin token (read this)
+
+Three questions people always ask — answered plainly.
+
+### 1. How do I get my admin token?
+You don't *get* it — **you invent it.** It's just a long secret password you make
+up, and it's the master key to your Super-Admin portal.
+
+1. On **Render → your backend service → Environment**, add a variable:
+   - **Name:** `ADMIN_TOKEN`
+   - **Value:** a long secret only you know, e.g. `duka-master-9f3K7pQ2xR!` (make
+     your own — longer is safer). **Save it in your password manager.**
+2. Save → Render redeploys. Done.
+3. Go to `https://YOUR-BACKEND.onrender.com/admin`, type that **same** secret into
+   the unlock box, and you're in.
+
+If you never set `ADMIN_TOKEN`, the portal stays locked ("Admin disabled") on
+purpose — so nobody can reach your shops' data. Change the token any time by
+editing the env var; everyone using the old one is locked out instantly.
+
+### 2. Do I create each shop's account in the portal?
+**No.** You never hand-create accounts. **Shops onboard themselves from the app:**
+the moment a shop opens the app (connected to your backend) and enters their
+**shop name + phone** in Settings/Billing, the app registers them automatically
+and they **appear in your `/admin` portal on their own**, already on a 14-day trial.
+
+Your portal is for **watching and managing** them, not creating them. From each
+row you can: **Charge**, **Record pay** (cash/manual), toggle the **AI add-on**
+(and set its price), and **Run billing sweep**. That's the whole job.
+
+> For a shop to show up, the app it's running must point at your backend — that's
+> the `VITE_API_URL` you set on Vercel (Part 1 B, step 7). No `VITE_API_URL` = the
+> app works fully offline but won't register with your portal or use online AI.
+
+### 3. So what does onboarding a shop actually look like?
+1. Send them your app link (or set it up on their phone/laptop — "Add to Home Screen").
+2. **Settings** → shop name, phone, their **M-PESA till/Paybill**, business type.
+3. **Settings → Staff** → set the owner PIN, add cashiers (each gets a PIN).
+4. Add their top products (or **Settings → import a QuickBooks/CSV** file).
+5. **Billing** → pick a plan → their trial starts. They now show in your `/admin`.
+6. (Optional) **Settings → Cloud sync** → create their login for multi-device.
+7. Show them one credit sale + one WhatsApp reminder. That's the hook.
+
+The detailed 15-minute in-person checklist is in **Part 3** below.
+
+---
+
 ## Part 2 — How to demo Duka POS (your sales weapon)
 
 **The fastest demo: your own phone.** The app ships with demo data — a

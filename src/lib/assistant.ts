@@ -318,9 +318,10 @@ export function localAnswer(question: string, s: ShopSnapshot): string {
   const q = question.toLowerCase()
   const cur = s.currency
 
-  // Cashiers may never see profit/margins/revenue or other staff's numbers.
-  if (s.restricted && /(profit|margin|revenue|how much (did|have) (we|i|the shop) (make|made|sell)|takings|earn|income|other cashier|fellow|colleague|branch)/.test(q)) {
-    return 'Sorry — sales totals, profit and other staff or branch figures are for the owner and manager only. I can help you with stock availability and customer debts.'
+  // Cashiers may never see profit/margins/revenue, other staff's numbers,
+  // or supplier/payables (money the shop owes) — owner & manager only.
+  if (s.restricted && /(profit|margin|revenue|how much (did|have) (we|i|the shop) (make|made|sell)|takings|earn|income|other cashier|fellow|colleague|branch|supplier|wholesaler|distributor|payable|creditor)/.test(q)) {
+    return 'Sorry — sales totals, profit, supplier payments and other staff or branch figures are for the owner and manager only. I can help you with stock availability and customer debts.'
   }
 
   // --- "How much do X and I owe each other?" (two-way balances) ------------
@@ -379,6 +380,24 @@ export function localAnswer(question: string, s: ShopSnapshot): string {
     return out
   }
 
+  // --- "Who do I owe? / Which suppliers do I owe?" (shop → SUPPLIERS) --------
+  // Must come BEFORE the customer-debt branch: "who do I owe" and "suppliers I
+  // owe" are about money the SHOP owes, not customers who owe the shop.
+  const asksSuppliers =
+    /(supplier|wholesaler|distributor|vendor|wasambazaji|msambazaji|payable|creditor|nadaiwa|ninadaiwa)/.test(q) ||
+    /\b(i|we)\s+owe\b/.test(q) ||
+    /who\s+(do|should)\s+(i|we)\s+owe/.test(q)
+  if (asksSuppliers && /(owe|deni|debt|pay|payable|balance|credit|much)/.test(q)) {
+    if (!s.suppliersOwed || s.suppliersOwed.length === 0)
+      return 'You don’t owe any suppliers right now — all your supplier accounts are clear ✓'
+    const total = s.suppliersOwed.reduce((a, x) => a + x.owed, 0)
+    const list = s.suppliersOwed.map((x) => `• ${x.name}: ${money(x.owed, cur)}`).join('\n')
+    return (
+      `You owe ${s.suppliersOwed.length} supplier${s.suppliersOwed.length > 1 ? 's' : ''} ${money(total, cur)} in total:\n${list}\n\n` +
+      `Open Suppliers → tap a supplier → Pay to record what you've paid (you can also see their details or raise a credit note).`
+    )
+  }
+
   if (/(debt|owe|mkopo|deni|credit)/.test(q)) {
     if (s.debts.totalOwed <= 0) return 'Good news — nobody owes you anything right now. 🎉'
     const list = s.debts.top.map((d) => `• ${d.name}: ${money(d.owed, cur)}`).join('\n')
@@ -433,6 +452,7 @@ export function localAnswer(question: string, s: ShopSnapshot): string {
 export const SUGGESTED_QUESTIONS = [
   'How are sales today?',
   'Who owes me money?',
+  'Which suppliers do I owe?',
   'Who pays their debts promptly?',
   'What should I restock?',
   'What are my best sellers?',

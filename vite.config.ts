@@ -14,7 +14,7 @@ export default defineConfig({
         short_name: 'Duka',
         description: 'Super-simple offline Point of Sale for Kenyan shops.',
         theme_color: '#166534',
-        background_color: '#0b1f16',
+        background_color: '#0a1f14',
         display: 'standalone',
         orientation: 'portrait',
         start_url: '/',
