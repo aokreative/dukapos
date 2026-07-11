@@ -137,7 +137,21 @@ export async function askAssistant(
 // --- M-PESA prompt at the till (customer purchase) --------------------------
 
 /** Prompt a customer's phone to pay for a sale. Returns a checkoutId to poll. */
-export async function mpesaCollect(phone: string, amount: number, reference?: string): Promise<{ checkoutId: string; simulated: boolean } | null> {
+export interface ShopMpesaCreds {
+  consumerKey: string
+  consumerSecret: string
+  passkey: string
+  shortcode: string
+  env: 'sandbox' | 'production'
+  txType: 'CustomerBuyGoodsOnline' | 'CustomerPayBillOnline'
+}
+
+export async function mpesaCollect(
+  phone: string,
+  amount: number,
+  reference?: string,
+  creds?: ShopMpesaCreds | null,
+): Promise<{ checkoutId: string; simulated: boolean } | null> {
   if (!BASE) {
     await wait(1500)
     return { checkoutId: fakeRef('ws_CO_'), simulated: true }
@@ -146,7 +160,7 @@ export async function mpesaCollect(phone: string, amount: number, reference?: st
     const res = await fetch(`${BASE}/api/mpesa/collect`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ phone, amount, reference }),
+      body: JSON.stringify({ phone, amount, reference, mpesa: creds || undefined }),
     })
     if (!res.ok) return null
     const data = await res.json()

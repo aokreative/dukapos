@@ -135,6 +135,48 @@ export default function Settings() {
         </label>
       </Section>
 
+      {/* Per-shop M-PESA STK — the "Prompt" button pushes the bill to the
+          customer's phone, into THIS shop's own till. Optional. */}
+      <Section icon={<Smartphone size={18} />} title="Auto-prompt at the till (M-PESA STK)">
+        <p className="-mt-1 mb-2 text-sm text-brand-900/50 dark:text-white/50">
+          Optional. Turn this on and paste your <strong>own</strong> Safaricom Daraja keys so the <strong>📲 Prompt</strong> button at
+          payment pushes the bill to the customer's phone — and the money lands in <strong>your own till/Paybill above</strong>.
+          Leave it off and the till still works perfectly; customers just pay your till the normal way.
+        </p>
+        <label className="flex items-center justify-between rounded-xl bg-black/5 px-3 py-3 dark:bg-white/10">
+          <span className="text-sm font-medium text-brand-900 dark:text-white">Enable M-PESA prompt at the till</span>
+          <input type="checkbox" className="h-5 w-5 accent-brand-600" checked={!!settings.mpesaStkEnabled} onChange={(e) => set('mpesaStkEnabled', e.target.checked)} />
+        </label>
+        {settings.mpesaStkEnabled && (
+          <div className="mt-3 space-y-3">
+            <Field label="Consumer Key (from your Daraja app)">
+              <input className="input font-mono text-sm" value={settings.mpesaConsumerKey || ''} onChange={(e) => set('mpesaConsumerKey', e.target.value.trim())} placeholder="Daraja Consumer Key" />
+            </Field>
+            <Field label="Consumer Secret">
+              <input type="password" className="input font-mono text-sm" value={settings.mpesaConsumerSecret || ''} onChange={(e) => set('mpesaConsumerSecret', e.target.value.trim())} placeholder="Daraja Consumer Secret" />
+            </Field>
+            <Field label="Passkey (from Go-Live, tied to your shortcode)">
+              <input type="password" className="input font-mono text-sm" value={settings.mpesaPasskey || ''} onChange={(e) => set('mpesaPasskey', e.target.value.trim())} placeholder="Lipa na M-PESA Passkey" />
+            </Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label={`Shortcode (${settings.mpesaType === 'paybill' ? 'Paybill' : 'Till/Store no.'})`}>
+                <input className="input" inputMode="numeric" value={settings.mpesaStkShortcode || ''} onChange={(e) => set('mpesaStkShortcode', e.target.value.trim())} placeholder={settings.mpesaType === 'paybill' ? settings.mpesaPaybill || 'e.g. 400200' : settings.mpesaTill || 'e.g. 832909'} />
+              </Field>
+              <Field label="Mode">
+                <select className="input" value={settings.mpesaStkEnv || 'production'} onChange={(e) => set('mpesaStkEnv', e.target.value as 'sandbox' | 'production')}>
+                  <option value="production">Live (production)</option>
+                  <option value="sandbox">Test (sandbox)</option>
+                </select>
+              </Field>
+            </div>
+            <p className="rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-500/10 dark:text-amber-300">
+              These are <strong>your</strong> keys and stay in your own shop account. Get them free at developer.safaricom.co.ke →
+              create an app → Consumer Key &amp; Secret; the Passkey comes with Go-Live. Leave the shortcode blank to use your till/Paybill above.
+            </p>
+          </div>
+        )}
+      </Section>
+
       {/* Reminder template */}
       <Section icon={<MessageSquareText size={18} />} title="Reminder message">
         <p className="-mt-1 mb-2 text-sm text-brand-900/50 dark:text-white/50">

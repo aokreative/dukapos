@@ -20,7 +20,7 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { sendWhatsApp, whatsappConfigured } from './lib/whatsapp.js'
 import { sendSMS, smsConfigured } from './lib/sms.js'
-import { stkPush, mpesaConfigured } from './lib/mpesa.js'
+import { stkPush, mpesaConfigured, shopCredsComplete } from './lib/mpesa.js'
 import { airtelPush, airtelStatus, airtelConfigured } from './lib/airtel.js'
 import { etimsSubmitSale, etimsConfigured } from './lib/etims.js'
 import { askAI, aiConfigured } from './lib/ai.js'
@@ -244,16 +244,23 @@ app.get('/api/airtel/status/:txId', async (req, res) => {
 // typing the code manually. Simulates when Daraja isn't configured, so demos
 // and the manual-code flow both keep working.
 app.post('/api/mpesa/collect', async (req, res) => {
-  const { phone, amount, reference } = req.body || {}
+  const { phone, amount, reference, mpesa } = req.body || {}
   if (!phone || !amount) return res.status(400).json({ error: 'phone and amount are required' })
   try {
-    const out = await stkPush({
-      phone,
-      amount,
-      accountRef: (reference || 'Sale').slice(0, 12),
-      description: 'Duka POS sale',
-      callbackUrl: `${PUBLIC_URL}/api/mpesa/collect/callback`,
-    })
+    // Sales STK must go into the SHOP's own till — never the platform till used
+    // for subscriptions. So we only attempt live when the shop supplied its own
+    // Daraja credentials; otherwise we simulate (the customer pays the till the
+    // normal way, shown on the receipt/reminder).
+    const out = shopCredsComplete(mpesa)
+      ? await stkPush({
+          phone,
+          amount,
+          accountRef: (reference || 'Sale').slice(0, 12),
+          description: 'Duka POS sale',
+          callbackUrl: `${PUBLIC_URL}/api/mpesa/collect/callback`,
+          creds: mpesa,
+        })
+      : { configured: false }
     if (!out.configured) {
       const checkoutId = rand('ws_CO_')
       payments.set(checkoutId, { status: 'pending', amount, phone, kind: 'sale' })

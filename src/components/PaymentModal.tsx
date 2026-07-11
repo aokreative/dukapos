@@ -5,18 +5,21 @@ import { Modal } from './ui'
 import CustomerPicker from './CustomerPicker'
 import { useStore, selectCurrentStaff } from '../store/useStore'
 import { money, displayPhone } from '../lib/format'
-import { mpesaCollect, mpesaCollectStatus } from '../lib/api'
+import { mpesaCollect, mpesaCollectStatus, type ShopMpesaCreds } from '../lib/api'
+import { shopMpesaCreds, vatIncludedIn } from '../lib/reminders'
 import type { Customer, PaymentMethod, Tender } from '../types'
 
 /** Prompt the customer's phone with an STK push instead of typing the code. */
 function MpesaPrompt({ amount, defaultPhone, onConfirmed }: { amount: number; defaultPhone?: string; onConfirmed: (ref: string) => void }) {
+  const settings = useStore((s) => s.settings)
+  const creds: ShopMpesaCreds | null = shopMpesaCreds(settings)
   const [phone, setPhone] = useState(defaultPhone ? displayPhone(defaultPhone) : '')
   const [state, setState] = useState<'idle' | 'sending' | 'waiting' | 'done' | 'failed'>('idle')
 
   async function prompt() {
     if (!phone.trim() || amount <= 0) return
     setState('sending')
-    const out = await mpesaCollect(phone, amount, 'Sale')
+    const out = await mpesaCollect(phone, amount, 'Sale', creds)
     if (!out) return setState('failed')
     setState('waiting')
     for (let i = 0; i < 20; i++) {
@@ -71,7 +74,9 @@ export default function PaymentModal({
   total: number
   onComplete: (tenders: Tender[], customerId?: string, extras?: SaleExtras) => void
 }) {
-  const currency = useStore((s) => s.settings.currency)
+  const settings = useStore((s) => s.settings)
+  const currency = settings.currency
+  const vat = vatIncludedIn(total, settings)
   const staff = useStore((s) => s.staff)
   const currentStaff = useStore(selectCurrentStaff)
   const [tenders, setTenders] = useState<Tender[]>([])
@@ -137,6 +142,9 @@ export default function PaymentModal({
         <div className="rounded-2xl bg-brand-50 p-4 text-center dark:bg-brand-900">
           <div className="text-xs uppercase tracking-wide text-brand-900/50 dark:text-white/50">Amount due</div>
           <div className="text-3xl font-black text-brand-700 dark:text-gold-400">{money(total, currency)}</div>
+          {vat > 0 && (
+            <div className="mt-1 text-xs text-brand-900/50 dark:text-white/50">Incl. VAT ({settings.vatRate}%): {money(vat, currency)}</div>
+          )}
         </div>
 
         {/* Method buttons */}

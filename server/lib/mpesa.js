@@ -11,14 +11,17 @@ export function mpesaConfigured() {
   )
 }
 
-const BASE =
-  (process.env.MPESA_ENV || 'sandbox') === 'production'
-    ? 'https://api.safaricom.co.ke'
-    : 'https://sandbox.safaricom.co.ke'
+/** True when a per-shop credential set (from the shop's own Daraja app) is
+ *  complete enough to attempt a live STK push into that shop's own till. */
+export function shopCredsComplete(c) {
+  return !!(c && c.consumerKey && c.consumerSecret && c.shortcode && c.passkey)
+}
 
-async function getToken() {
-  const auth = Buffer.from(`${process.env.MPESA_CONSUMER_KEY}:${process.env.MPESA_CONSUMER_SECRET}`).toString('base64')
-  const res = await fetch(`${BASE}/oauth/v1/generate?grant_type=client_credentials`, {
+const apiBase = (env) => (env === 'production' ? 'https://api.safaricom.co.ke' : 'https://sandbox.safaricom.co.ke')
+
+async function getToken(base, key, secret) {
+  const auth = Buffer.from(`${key}:${secret}`).toString('base64')
+  const res = await fetch(`${base}/oauth/v1/generate?grant_type=client_credentials`, {
     headers: { authorization: `Basic ${auth}` },
   })
   const data = await res.json()
@@ -32,28 +35,52 @@ function timestamp() {
   return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`
 }
 
-export async function stkPush({ phone, amount, accountRef, description, callbackUrl }) {
-  if (!mpesaConfigured()) return { configured: false }
-  const token = await getToken()
-  const ts = timestamp()
-  const shortcode = process.env.MPESA_SHORTCODE
-  const password = Buffer.from(`${shortcode}${process.env.MPESA_PASSKEY}${ts}`).toString('base64')
+/**
+ * STK Push. Uses PER-SHOP credentials when `creds` is provided (money lands in
+ * the shop's own till/Paybill) — otherwise the platform env credentials (used
+ * for subscription billing into OUR till). Returns { configured:false } when no
+ * usable credentials exist, so the caller can simulate.
+ */
+export async function stkPush({ phone, amount, accountRef, description, callbackUrl, creds }) {
+  let env, key, secret, shortcode, passkey, txType
+  if (shopCredsComplete(creds)) {
+    env = creds.env === 'production' ? 'production' : 'sandbox'
+    key = creds.consumerKey
+    secret = creds.consumerSecret
+    shortcode = String(creds.shortcode)
+    passkey = creds.passkey
+    txType = creds.txType || 'CustomerBuyGoodsOnline'
+  } else if (mpesaConfigured()) {
+    env = process.env.MPESA_ENV || 'sandbox'
+    key = process.env.MPESA_CONSUMER_KEY
+    secret = process.env.MPESA_CONSUMER_SECRET
+    shortcode = process.env.MPESA_SHORTCODE
+    passkey = process.env.MPESA_PASSKEY
+    txType = process.env.MPESA_TX_TYPE || 'CustomerPayBillOnline'
+  } else {
+    return { configured: false }
+  }
 
-  const res = await fetch(`${BASE}/mpesa/stkpush/v1/processrequest`, {
+  const base = apiBase(env)
+  const token = await getToken(base, key, secret)
+  const ts = timestamp()
+  const password = Buffer.from(`${shortcode}${passkey}${ts}`).toString('base64')
+
+  const res = await fetch(`${base}/mpesa/stkpush/v1/processrequest`, {
     method: 'POST',
     headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
     body: JSON.stringify({
       BusinessShortCode: shortcode,
       Password: password,
       Timestamp: ts,
-      TransactionType: process.env.MPESA_TX_TYPE || 'CustomerPayBillOnline',
+      TransactionType: txType,
       Amount: Math.round(amount),
       PartyA: phone,
       PartyB: shortcode,
       PhoneNumber: phone,
       CallBackURL: callbackUrl,
       AccountReference: (accountRef || 'DukaPOS').slice(0, 12),
-      TransactionDesc: (description || 'Subscription').slice(0, 20),
+      TransactionDesc: (description || 'Payment').slice(0, 20),
     }),
   })
   const data = await res.json()

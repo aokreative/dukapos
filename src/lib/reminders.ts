@@ -8,7 +8,38 @@
 // ---------------------------------------------------------------------------
 
 import type { BusinessSettings, Customer, Debt } from '../types'
+import type { ShopMpesaCreds } from './api'
 import { money, normalizePhone } from './format'
+
+/**
+ * The shop's OWN M-PESA STK credentials, ready to send to the backend so a
+ * "Prompt" at the till pushes the bill to the customer's phone and the money
+ * lands in THIS shop's till/Paybill. Returns null unless the owner has turned
+ * it on and filled in all four keys — otherwise the till simply works the
+ * normal way (customer pays the till/Paybill shown on the receipt).
+ */
+export function shopMpesaCreds(s: BusinessSettings): ShopMpesaCreds | null {
+  if (!s.mpesaStkEnabled) return null
+  const shortcode = (s.mpesaStkShortcode || (s.mpesaType === 'paybill' ? s.mpesaPaybill : s.mpesaTill) || '').trim()
+  const key = (s.mpesaConsumerKey || '').trim()
+  const secret = (s.mpesaConsumerSecret || '').trim()
+  const passkey = (s.mpesaPasskey || '').trim()
+  if (!key || !secret || !passkey || !shortcode) return null
+  return {
+    consumerKey: key,
+    consumerSecret: secret,
+    passkey,
+    shortcode,
+    env: s.mpesaStkEnv === 'sandbox' ? 'sandbox' : 'production',
+    txType: s.mpesaType === 'paybill' ? 'CustomerPayBillOnline' : 'CustomerBuyGoodsOnline',
+  }
+}
+
+/** VAT that is *included* in a VAT-inclusive total (Kenyan convention). */
+export function vatIncludedIn(total: number, s: Pick<BusinessSettings, 'vatEnabled' | 'vatRate'>): number {
+  if (!s.vatEnabled || !s.vatRate) return 0
+  return Math.round((total * s.vatRate) / (100 + s.vatRate))
+}
 
 /**
  * Human-readable payment instructions derived from the shop's settings.

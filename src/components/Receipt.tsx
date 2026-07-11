@@ -1,9 +1,9 @@
 import { Printer, MessageCircle, Send, Plus } from 'lucide-react'
 import { Modal } from './ui'
 import { useStore } from '../store/useStore'
-import type { Sale } from '../types'
+import type { Sale, BusinessSettings } from '../types'
 import { money, shortDateTime } from '../lib/format'
-import { paymentInstructionsShort, smsLink, whatsappLink } from '../lib/reminders'
+import { paymentInstructionsShort, smsLink, whatsappLink, vatIncludedIn } from '../lib/reminders'
 
 const METHOD_LABEL: Record<string, string> = {
   cash: 'Cash',
@@ -13,15 +13,19 @@ const METHOD_LABEL: Record<string, string> = {
   credit: 'Credit (Mkopo)',
 }
 
-export function buildReceiptText(sale: Sale, shopName: string, currency: string): string {
+export function buildReceiptText(sale: Sale, settings: BusinessSettings): string {
+  const shopName = settings.name
+  const currency = settings.currency
   const lines = sale.lines.map((l) => `${l.qty}${l.unit ? l.unit : ''} x ${l.name}  —  ${money(l.price * l.qty, currency)}`).join('\n')
   const tenders = sale.tenders.map((t) => `${METHOD_LABEL[t.method]}: ${money(t.amount, currency)}${t.ref ? ` (${t.ref})` : ''}`).join('\n')
   const warranties = sale.lines
     .filter((l) => l.warrantyMonths)
     .map((l) => `Warranty: ${l.name} — ${l.warrantyMonths} months`)
     .join('\n')
+  const vat = vatIncludedIn(sale.total, settings)
   return (
     `*${shopName}*\n` +
+    (settings.etimsEnabled && settings.kraPin ? `KRA PIN: ${settings.kraPin} · eTIMS\n` : '') +
     `Receipt ${sale.receiptNo}\n` +
     `${shortDateTime(sale.createdAt)}\n` +
     `--------------------------\n` +
@@ -29,6 +33,7 @@ export function buildReceiptText(sale: Sale, shopName: string, currency: string)
     `--------------------------\n` +
     (sale.discount > 0 ? `Discount: -${money(sale.discount, currency)}\n` : '') +
     `*TOTAL: ${money(sale.total, currency)}*\n` +
+    (vat > 0 ? `VAT (${settings.vatRate}%) incl.: ${money(vat, currency)}\n` : '') +
     `${tenders}\n` +
     (sale.creditAmount > 0 ? `\nBalance on credit: ${money(sale.creditAmount, currency)}\n` : '') +
     (warranties ? `\n${warranties}\n` : '') +
@@ -54,7 +59,8 @@ export default function Receipt({
   const customer = sale.customerId ? customers.find((c) => c.id === sale.customerId) : undefined
   const paid = sale.tenders.filter((t) => t.method !== 'credit').reduce((a, t) => a + t.amount, 0)
   const cashTender = sale.tenders.find((t) => t.method === 'cash')
-  const receiptText = buildReceiptText(sale, settings.name, settings.currency)
+  const receiptText = buildReceiptText(sale, settings)
+  const vat = vatIncludedIn(sale.total, settings)
 
   function printReceipt() {
     const w = window.open('', 'print', 'width=320,height=600')
@@ -98,6 +104,7 @@ export default function Receipt({
       <table>
         ${sale!.discount > 0 ? `<tr><td>Discount</td><td style="text-align:right">-${money(sale!.discount, settings.currency)}</td></tr>` : ''}
         <tr class="total"><td>TOTAL</td><td style="text-align:right">${money(sale!.total, settings.currency)}</td></tr>
+        ${vat > 0 ? `<tr><td>VAT (${settings.vatRate}%) incl.</td><td style="text-align:right">${money(vat, settings.currency)}</td></tr>` : ''}
         ${tenders}
         ${sale!.creditAmount > 0 ? `<tr><td>On credit</td><td style="text-align:right">${money(sale!.creditAmount, settings.currency)}</td></tr>` : ''}
       </table>
@@ -116,7 +123,13 @@ export default function Receipt({
         <div className="text-center">
           <div className="text-xs uppercase tracking-wide text-brand-900/50 dark:text-white/50">Total</div>
           <div className="text-3xl font-black text-brand-700 dark:text-gold-400">{money(sale.total, settings.currency)}</div>
+          {vat > 0 && (
+            <div className="text-xs text-brand-900/50 dark:text-white/50">Incl. VAT ({settings.vatRate}%): {money(vat, settings.currency)}</div>
+          )}
           <div className="text-xs text-brand-900/50 dark:text-white/50">Receipt {sale.receiptNo}</div>
+          {settings.etimsEnabled && settings.kraPin && (
+            <div className="mt-0.5 text-[11px] font-medium text-brand-900/40 dark:text-white/40">KRA PIN {settings.kraPin} · eTIMS</div>
+          )}
         </div>
 
         <div className="mt-4 space-y-1 text-sm">

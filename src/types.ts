@@ -333,6 +333,17 @@ export interface BusinessSettings {
   mpesaTill: string
   mpesaPaybill: string
   mpesaAccount: string
+  // --- The shop's OWN M-PESA STK (so the "Prompt" at the till pushes the bill
+  // to the customer's phone and the money lands in THIS shop's till/Paybill).
+  // These are the shop's own Safaricom Daraja keys — never ours. Optional: when
+  // off/blank the till still works, the customer just pays the till manually. ---
+  mpesaStkEnabled?: boolean
+  mpesaConsumerKey?: string
+  mpesaConsumerSecret?: string
+  mpesaPasskey?: string
+  /** The Paybill or Till/Store number STK collects into (defaults to the till/paybill above). */
+  mpesaStkShortcode?: string
+  mpesaStkEnv?: 'sandbox' | 'production'
   /** Airtel Money number/till — shown in reminders when set. */
   airtelNumber: string
   acceptCash: boolean
