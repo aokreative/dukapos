@@ -14,12 +14,23 @@ const DAY = 24 * 60 * 60 * 1000
 let store = null
 
 export async function initSubscriptions() {
+  // Prefer Postgres when configured, but NEVER let a database problem stop the
+  // whole backend (AI, admin portal, reminders and file-based billing all still
+  // work). A common cause: Supabase's *direct* connection is IPv6-only and
+  // Render can't reach it — use the Transaction/Session pooler string instead.
   if (process.env.DATABASE_URL) {
-    const { createPgStore } = await import('./store.pg.js')
-    store = await createPgStore(process.env.DATABASE_URL)
-  } else {
-    store = createMemoryStore()
+    try {
+      const { createPgStore } = await import('./store.pg.js')
+      const pg = await createPgStore(process.env.DATABASE_URL)
+      await pg.init()
+      store = pg
+      return store.kind
+    } catch (e) {
+      console.error('[billing] Postgres unavailable, falling back to local file store:', e.message)
+      console.error('[billing] Tip: use the Supabase "Transaction pooler" connection string, not the direct one.')
+    }
   }
+  store = createMemoryStore()
   await store.init()
   return store.kind
 }
