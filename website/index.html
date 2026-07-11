@@ -5,8 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Duka POS — The simple POS for Kenyan shops</title>
 <meta name="description" content="Duka POS: sell offline, track mkopo debts, remind customers on WhatsApp & SMS with your payment details included, and get paid via M-PESA and Airtel Money. From KES 1,900/month. 14-day free trial." />
-<!-- GEO/SEO: replace dukapos.co.ke with your real domain once you buy it (find & replace). -->
-<link rel="canonical" href="https://dukapos.co.ke/" />
+<!-- GEO/SEO: live at duka-pos-web.vercel.app. If you buy a custom domain later,
+     find & replace duka-pos-web.vercel.app across index.html, llms.txt,
+     robots.txt and sitemap.xml. -->
+<link rel="canonical" href="https://duka-pos-web.vercel.app/" />
 <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1" />
 <meta name="author" content="Duka POS" />
 <meta name="theme-color" content="#166534" />
@@ -16,7 +18,7 @@
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="Duka POS" />
 <meta property="og:locale" content="en_KE" />
-<meta property="og:url" content="https://dukapos.co.ke/" />
+<meta property="og:url" content="https://duka-pos-web.vercel.app/" />
 <meta property="og:title" content="Duka POS — The simple POS for Kenyan shops" />
 <meta property="og:description" content="Sell offline. Track debts. Remind customers on WhatsApp & SMS. Get paid via M-PESA. KRA eTIMS-ready. From KES 1,900/month." />
 <meta name="twitter:card" content="summary_large_image" />
@@ -98,22 +100,24 @@
   "@graph": [
     {
       "@type": "Organization",
-      "@id": "https://dukapos.co.ke/#org",
+      "@id": "https://duka-pos-web.vercel.app/#org",
       "name": "Duka POS",
-      "url": "https://dukapos.co.ke/",
+      "url": "https://duka-pos-web.vercel.app/",
       "description": "Maker of Duka POS, the simple offline-first point-of-sale for Kenyan shops.",
       "areaServed": { "@type": "Country", "name": "Kenya" },
       "slogan": "The simple POS that collects your money for you."
     },
     {
       "@type": "SoftwareApplication",
-      "@id": "https://dukapos.co.ke/#app",
+      "@id": "https://duka-pos-web.vercel.app/#app",
       "name": "Duka POS",
       "applicationCategory": "BusinessApplication",
       "applicationSubCategory": "Point of Sale (POS) software",
       "operatingSystem": "Web, Android, iOS, Windows (Progressive Web App)",
-      "url": "https://dukapos.co.ke/",
-      "publisher": { "@id": "https://dukapos.co.ke/#org" },
+      "url": "https://duka-pos-web.vercel.app/",
+      "installUrl": "https://duka-pos-sepia.vercel.app/",
+      "downloadUrl": "https://duka-pos-sepia.vercel.app/",
+      "publisher": { "@id": "https://duka-pos-web.vercel.app/#org" },
       "description": "Duka POS is a simple, offline-first point-of-sale app built for Kenyan shops. It works without internet, tracks mkopo (credit) debts, sends WhatsApp and SMS payment reminders with your M-PESA till included, prompts customers to pay by M-PESA, is KRA eTIMS-ready, and includes an AI assistant (Duka AI). It suits dukas, mini-marts, pharmacies, hardware, electronics/CCTV, boutiques, wholesale, agrovets and more.",
       "featureList": [
         "Offline-first selling (works with no internet)",
@@ -137,7 +141,7 @@
     },
     {
       "@type": "FAQPage",
-      "@id": "https://dukapos.co.ke/#faq",
+      "@id": "https://duka-pos-web.vercel.app/#faq",
       "mainEntity": [
         { "@type": "Question", "name": "What is the best POS system for a small shop in Kenya?", "acceptedAnswer": { "@type": "Answer", "text": "Duka POS is a simple, offline-first point-of-sale built specifically for Kenyan shops. It runs on any phone, tablet or computer, keeps selling when the internet is down, tracks mkopo (credit) debts, sends WhatsApp and SMS reminders with your M-PESA till number included, prompts customers to pay by M-PESA STK, and is KRA eTIMS-ready — from KES 1,900 per month with a 14-day free trial." } },
         { "@type": "Question", "name": "Is Duka POS a good alternative to Loyverse or Square in Kenya?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Global systems like Loyverse and Square are excellent but are not built around Kenyan realities such as M-PESA STK payments, KRA eTIMS compliance, mkopo debt reminders and true offline selling. Duka POS is built for those from the ground up, in one app, priced in Kenyan shillings from KES 1,900 per month." } },
@@ -229,26 +233,26 @@
         <div class="name">Starter</div><div class="sw">Duka ndogo — kiosks &amp; stalls</div>
         <div class="price">KES 1,900<span>/month</span></div>
         <ul><li>1 device · 1 user</li><li>300 products</li><li>Debt tracking &amp; reminders</li><li>Works offline</li></ul>
-        <a class="btn btn-green" href="#demo">Start free</a>
+        <a class="btn btn-green" href="https://duka-pos-sepia.vercel.app" target="_blank" rel="noopener">Start free</a>
       </div>
       <div class="card plan hot">
         <div class="tag">MOST POPULAR</div>
         <div class="name">Standard</div><div class="sw">Shops &amp; mini-marts</div>
         <div class="price">KES 4,900<span>/month</span></div>
         <ul><li>2 devices · 5 staff with PINs</li><li>3,000 products</li><li>Auto-reminders &amp; reports</li><li>Duka AI assistant</li></ul>
-        <a class="btn btn-gold" href="#demo">Start free</a>
+        <a class="btn btn-gold" href="https://duka-pos-sepia.vercel.app" target="_blank" rel="noopener">Start free</a>
       </div>
       <div class="card plan">
         <div class="name">Growth</div><div class="sw">Busy retail &amp; wholesale</div>
         <div class="price">KES 9,900<span>/month</span></div>
         <ul><li>4 devices · 15 staff</li><li>Unlimited products</li><li>Multi-device cloud sync</li><li>Priority support</li></ul>
-        <a class="btn btn-green" href="#demo">Start free</a>
+        <a class="btn btn-green" href="https://duka-pos-sepia.vercel.app" target="_blank" rel="noopener">Start free</a>
       </div>
       <div class="card plan">
         <div class="name">Chain</div><div class="sw">Multiple branches</div>
         <div class="price">KES 24,900<span>/month</span></div>
         <ul><li>Up to 5 branches</li><li>Unlimited staff &amp; products</li><li>Consolidated reporting</li><li>Dedicated onboarding</li></ul>
-        <a class="btn btn-green" href="#demo">Talk to us</a>
+        <a class="btn btn-green" href="https://wa.me/254700290837?text=Habari!%20I%20want%20Duka%20POS%20Chain%20for%20my%20business." target="_blank" rel="noopener">Talk to us</a>
       </div>
     </div>
   </div>
@@ -274,8 +278,8 @@
     <h2>See it with your own shop's eyes</h2>
     <p>Try the live demo — it's loaded with sample products, sales and debts. Or start your free trial now.</p>
     <div class="cta" style="margin-top:26px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap">
-      <a class="btn btn-gold" href="https://duka-pos.vercel.app" target="_blank" rel="noopener">Open the live demo</a>
-      <a class="btn btn-ghost" href="https://wa.me/254712000000?text=Habari!%20I%20want%20Duka%20POS%20for%20my%20shop." target="_blank" rel="noopener">WhatsApp us to get started</a>
+      <a class="btn btn-gold" href="https://duka-pos-sepia.vercel.app" target="_blank" rel="noopener">Open the live demo</a>
+      <a class="btn btn-ghost" href="https://wa.me/254700290837?text=Habari!%20I%20want%20Duka%20POS%20for%20my%20shop." target="_blank" rel="noopener">WhatsApp us to get started</a>
     </div>
   </div>
 </section>

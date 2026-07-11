@@ -30,4 +30,4 @@ Allow: /
 User-agent: Amazonbot
 Allow: /
 
-Sitemap: https://dukapos.co.ke/sitemap.xml
+Sitemap: https://duka-pos-web.vercel.app/sitemap.xml
