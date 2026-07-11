@@ -198,7 +198,11 @@ export default function Settings() {
         </div>
       </Section>
 
-      <p className="py-6 text-center text-xs text-brand-900/40 dark:text-white/40">Duka POS · works offline · built for Kenyan shops</p>
+      <p className="py-6 text-center text-xs text-brand-900/40 dark:text-white/40">
+        Duka POS · works offline · built for Kenyan shops
+        <br />
+        <span className="text-brand-900/35 dark:text-white/30">Version — updated {__APP_BUILD__}</span>
+      </p>
 
       {demoOffer && (
         <Modal open onClose={() => setDemoOffer(null)} title={`Load ${BUSINESS_TYPE_LABEL[demoOffer]} sample products?`}>

@@ -9,23 +9,25 @@ import type { FeatureFlags, Product } from '../types'
 
 const DAY = 24 * 60 * 60 * 1000
 
-/** Downscale a photo to a tiny thumbnail (≈72px JPEG data URL, a few KB) so
- *  product images stay fast and sync-friendly. */
+/** Downscale a photo to a crisp square thumbnail (≈160px JPEG data URL, ~8–15KB)
+ *  so product images look sharp on modern screens while staying fast and
+ *  sync-friendly. */
 export function shrinkImage(file: File): Promise<string> {
   return new Promise((resolve) => {
     const img = new Image()
     const url = URL.createObjectURL(file)
     img.onload = () => {
-      const size = 72
+      const size = 160
       const canvas = document.createElement('canvas')
       canvas.width = size
       canvas.height = size
       const ctx = canvas.getContext('2d')!
+      ctx.imageSmoothingQuality = 'high'
       // cover-crop to square
       const s = Math.min(img.width, img.height)
       ctx.drawImage(img, (img.width - s) / 2, (img.height - s) / 2, s, s, 0, 0, size, size)
       URL.revokeObjectURL(url)
-      resolve(canvas.toDataURL('image/jpeg', 0.6))
+      resolve(canvas.toDataURL('image/jpeg', 0.72))
     }
     img.onerror = () => resolve('')
     img.src = url
@@ -323,14 +325,14 @@ function ProductForm({
           <label className="label">Photo (optional)</label>
           <div className="flex items-center gap-3">
             {thumb ? (
-              <img src={thumb} alt="" className="h-12 w-12 rounded-lg object-cover" />
+              <img src={thumb} alt="" className="h-16 w-16 rounded-xl object-cover ring-1 ring-black/10 dark:ring-white/15" />
             ) : (
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-black/5 text-brand-900/30 dark:bg-white/10 dark:text-white/30">
-                <ImageIcon size={18} />
+              <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-black/5 text-brand-900/30 dark:bg-white/10 dark:text-white/30">
+                <ImageIcon size={22} />
               </div>
             )}
             <label className="btn-ghost cursor-pointer py-2 text-sm">
-              {thumb ? 'Change photo' : 'Add photo'}
+              {thumb ? 'Change photo' : '📷 Add photo'}
               <input
                 type="file"
                 accept="image/*"
