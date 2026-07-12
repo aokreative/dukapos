@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
-import { Search, PackagePlus, Pencil, Plus, Minus, AlertTriangle, Trash2, MapPin, Copy, CalendarClock, Image as ImageIcon } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Search, PackagePlus, Pencil, Plus, Minus, AlertTriangle, Trash2, MapPin, Copy, CalendarClock, Image as ImageIcon, Truck } from 'lucide-react'
 import { useStore, selectCurrentLocation } from '../store/useStore'
 import { money } from '../lib/format'
 import { PageHeader, Modal, Badge, EmptyState } from '../components/ui'
@@ -44,6 +45,7 @@ function expiryState(p: Product): 'expired' | 'soon' | null {
 }
 
 export default function Products() {
+  const navigate = useNavigate()
   const products = useStore((s) => s.products)
   const settings = useStore((s) => s.settings)
   const currency = settings.currency
@@ -90,9 +92,14 @@ export default function Products() {
             : `${products.length} ${labels.items}`
         }
         action={
-          <button className="btn-primary" onClick={() => setCreating(true)}>
-            <PackagePlus size={18} /> {labels.addLabel}
-          </button>
+          <div className="flex gap-2">
+            <button className="btn-ghost" onClick={() => navigate('/suppliers')} title="Add stock from a supplier and record the purchase">
+              <Truck size={18} /> <span className="hidden sm:inline">Receive delivery</span>
+            </button>
+            <button className="btn-primary" onClick={() => setCreating(true)}>
+              <PackagePlus size={18} /> {labels.addLabel}
+            </button>
+          </div>
         }
       />
 
@@ -383,9 +390,15 @@ function ProductForm({
             )}
           </div>
         )}
-        <label className="flex items-center gap-3 rounded-xl bg-black/5 px-3 py-3 dark:bg-white/10">
-          <input type="checkbox" className="h-5 w-5 accent-brand-600" checked={trackStock} onChange={(e) => setTrackStock(e.target.checked)} />
-          <span className="text-sm font-medium text-brand-900 dark:text-white">Count stock for this item <span className="text-brand-900/50 dark:text-white/50">(turn off for made-to-order dishes)</span></span>
+        <label className="flex items-start gap-3 rounded-xl bg-black/5 px-3 py-3 dark:bg-white/10">
+          <input type="checkbox" className="mt-0.5 h-5 w-5 accent-brand-600" checked={trackStock} onChange={(e) => setTrackStock(e.target.checked)} />
+          <span className="text-sm">
+            <span className="block font-medium text-brand-900 dark:text-white">Count stock for this item</span>
+            <span className="block text-xs text-brand-900/50 dark:text-white/50">
+              ON: the app keeps a running quantity and shows “X left”, warns when low, and deducts one on every sale.
+              Turn OFF for things you never count — a cooked meal, a service (haircut, repair), or airtime — so it sells without a stock number.
+            </span>
+          </span>
         </label>
         {trackStock && (
           <div className="grid grid-cols-2 gap-3">

@@ -72,7 +72,7 @@ export default function Layout({ children }: { children: ReactNode }) {
             <Building2 size={12} /> At: {location.name}
           </NavLink>
         )}
-        <nav className="mt-6 flex flex-1 flex-col gap-1">
+        <nav className="mt-6 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto">
           {nav.map((n) => (
             <NavLink key={n.to} to={n.to} className={({ isActive }) => railClass(isActive)} end={n.to === '/'}>
               <n.icon size={20} />
