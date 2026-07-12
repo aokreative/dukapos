@@ -116,7 +116,7 @@ async function render(){
 }
 
 function kpi(l,v){ return '<div class="kpi"><div class="l">'+l+'</div><div class="v">'+v+'</div></div>' }
-function cap(s){ return ({micro:'Starter',standard:'Standard',growth:'Growth',chain:'Chain'})[s]||s }
+function cap(s){ return ({micro:'Starter',standard:'Standard',growth:'Advanced',chain:'Enterprise'})[s]||s }
 function esc(s){ return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])) }
 
 async function charge(id,btn){ btn.disabled=true; btn.textContent='Charging…'; try{ await api('/api/tenants/'+id+'/charge',{method:'POST'}); await render() }catch(e){ alert(e.message); btn.disabled=false; btn.textContent='Charge' } }

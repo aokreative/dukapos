@@ -55,6 +55,7 @@ export default function CustomerProfile({ customer, onClose }: { customer: Custo
           <div className="flex flex-wrap items-center gap-2">
             {customer.isShop && <Badge color="amber"><Store size={11} /> shop / business</Badge>}
             {linkedSupplier && <Badge color="green"><Link2 size={11} /> also your supplier</Badge>}
+            {(customer.points || 0) > 0 && <Badge color="gold">⭐ {customer.points} points</Badge>}
           </div>
           <div className="mt-2 space-y-1 text-sm text-brand-900/70 dark:text-white/70">
             <a href={`tel:${customer.phone}`} className="flex items-center gap-1.5 hover:underline">

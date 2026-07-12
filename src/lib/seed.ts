@@ -22,6 +22,8 @@ export const defaultSettings: BusinessSettings = {
   reminderTemplate: DEFAULT_TEMPLATE,
   vatEnabled: false,
   vatRate: 16,
+  loyaltyEnabled: false,
+  loyaltyRate: 1,
   lowStockNudge: true,
   etimsEnabled: false,
   kraPin: '',

@@ -157,6 +157,20 @@ export default function PaymentModal({
           ))}
         </div>
 
+        {/* Loyalty — redeem the attached customer's points (1 point = KES 1). */}
+        {settings.loyaltyEnabled && customer && (customer.points || 0) > 0 && !tenders.some((t) => t.method === 'points') && remaining > 0 && (
+          <button
+            className="mt-3 flex w-full items-center justify-between rounded-xl bg-gold-400/15 px-3 py-2.5 text-sm font-semibold text-gold-700 dark:text-gold-300"
+            onClick={() => {
+              const use = Math.min(customer.points || 0, Math.max(0, remaining))
+              if (use > 0) setTenders((t) => [...t, { method: 'points', amount: use, ref: '' }])
+            }}
+          >
+            <span>⭐ Redeem {customer.name}'s points</span>
+            <span>{money(Math.min(customer.points || 0, remaining), currency)} of {money(customer.points || 0, currency)}</span>
+          </button>
+        )}
+
         {/* Tenders */}
         <div className="mt-4 space-y-2">
           {tenders.map((t, i) => (

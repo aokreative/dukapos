@@ -54,9 +54,10 @@ Asante sana!
   so you can see exactly how it behaves before wiring real credentials.
 
 ### Subscription & billing (the POS is a paid product)
-- Duka POS is sold as a **subscription**, tiered by the **size** of the shop and benchmarked to
-  the Kenyan POS market (2026): **Starter** KES 1,900, **Standard** KES 4,900, **Growth**
-  KES 9,900, **Chain** KES 24,900 per month. Pay **annually and get 2 months free**.
+- Duka POS is sold as a **subscription**, tiered by the **size** of the shop. Prices are a
+  starting point ("from"): **Starter** from KES 5,000, **Standard** from KES 15,000,
+  **Advanced** from KES 45,000, **Enterprise** from KES 50,000+ (custom) per month. Pay
+  **annually and get 2 months free**. The owner can adjust each client's fee in the Super-Admin portal.
 - A **"Find your fit"** tool: enter your shops / staff / products / monthly sales and it
   recommends the right plan. Usage bars show how close you are to your plan limits.
 - **14-day free trial**, then pay by **M-PESA** (STK push). Auto-renew keeps you active.

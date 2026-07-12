@@ -3,7 +3,7 @@
 // A deliberately small, flat model that runs entirely offline on the device.
 // ---------------------------------------------------------------------------
 
-export type PaymentMethod = 'cash' | 'mpesa' | 'airtel' | 'card' | 'credit'
+export type PaymentMethod = 'cash' | 'mpesa' | 'airtel' | 'card' | 'credit' | 'points'
 
 /** What kind of business runs this POS — switches wording & feature presets. */
 export type BusinessType =
@@ -237,6 +237,8 @@ export interface Customer {
   ownerPhone?: string
   note?: string
   createdAt: number
+  /** Loyalty points balance (1 point = KES 1 to redeem). */
+  points?: number
 }
 
 export interface CartLine {
@@ -280,6 +282,10 @@ export interface Sale {
   note?: string
   /** Which branch made the sale. */
   locationId?: string
+  /** Loyalty points earned on this sale (when loyalty is on & a customer is attached). */
+  pointsEarned?: number
+  /** Loyalty points redeemed as payment on this sale. */
+  pointsRedeemed?: number
 }
 
 export type DebtStatus = 'open' | 'settled'
@@ -353,6 +359,10 @@ export interface BusinessSettings {
   reminderTemplate: string
   vatEnabled: boolean
   vatRate: number // e.g. 16
+  /** Loyalty points: customers earn loyaltyRate% of each sale back as points
+   *  (1 point = KES 1), redeemable at the till. Off by default. */
+  loyaltyEnabled?: boolean
+  loyaltyRate?: number // percent back, e.g. 1 = 1%
   lowStockNudge: boolean
   // KRA eTIMS (electronic tax invoicing). When on, receipts carry the KRA PIN
   // and (with a live backend) each sale is submitted to eTIMS.

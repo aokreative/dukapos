@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Store, Smartphone, MessageSquareText, Database, RotateCcw, Trash2, Check, Users, UserPlus, Pencil, Cloud, CloudOff, LogOut, UtensilsCrossed, FileSpreadsheet } from 'lucide-react'
+import { Store, Smartphone, MessageSquareText, Database, RotateCcw, Trash2, Check, Users, UserPlus, Pencil, Cloud, CloudOff, LogOut, UtensilsCrossed, FileSpreadsheet, Sparkles } from 'lucide-react'
 import { importProductsCSV, importCustomersCSV, downloadCSV, productsToCSV, customersToCSV, salesToCSV } from '../lib/csv'
 import { totalStock } from '../lib/stock'
 import { demoProductsFor, demoProductsWithIds } from '../lib/demo'
@@ -7,7 +7,7 @@ import { supabase, cloudConfigured } from '../lib/cloud'
 import { useStore } from '../store/useStore'
 import { PageHeader, Modal, Badge } from '../components/ui'
 import { DEFAULT_TEMPLATE, buildReminderMessage } from '../lib/reminders'
-import { displayPhone, normalizePhone } from '../lib/format'
+import { displayPhone, normalizePhone, money } from '../lib/format'
 import { ROLE_LABEL, ROLE_BLURB, GRANTABLE, CAP_LABEL } from '../lib/permissions'
 import { BUSINESS_TYPE_LABEL, PRESET_FEATURES, FEATURE_LABEL, getFeatures } from '../lib/labels'
 import type { BusinessSettings, BusinessType, Customer, Debt, FeatureFlags, Role, StaffMember } from '../types'
@@ -173,6 +173,14 @@ export default function Settings() {
               These are <strong>your</strong> keys and stay in your own shop account. Get them free at developer.safaricom.co.ke →
               create an app → Consumer Key &amp; Secret; the Passkey comes with Go-Live. Leave the shortcode blank to use your till/Paybill above.
             </p>
+            <details className="rounded-xl border border-black/10 px-3 py-2 text-sm dark:border-white/10">
+              <summary className="cursor-pointer font-semibold text-brand-700 dark:text-gold-400">How do I get these keys? (3 steps)</summary>
+              <ol className="mt-2 list-decimal space-y-1.5 pl-5 text-brand-900/70 dark:text-white/70">
+                <li>Go to <strong>developer.safaricom.co.ke</strong> and sign in with the number that owns your Till/Paybill. Open <strong>My Apps → Create App</strong> and copy the <strong>Consumer Key</strong> and <strong>Consumer Secret</strong>.</li>
+                <li>Paste them above with your <strong>Passkey</strong> and <strong>Shortcode</strong>. To try it right away, set Mode = <strong>Test (sandbox)</strong> and use the sandbox passkey.</li>
+                <li>To take real money, click <strong>Go Live</strong> on Daraja (Safaricom verifies your shortcode by OTP — a few days), get your <strong>production Passkey</strong>, then set Mode = <strong>Live</strong>. Ring up a KES 1 sale → M-PESA → 📲 Prompt to test.</li>
+              </ol>
+            </details>
           </div>
         )}
       </Section>
@@ -222,6 +230,32 @@ export default function Settings() {
         <p className="mt-1 text-xs text-brand-900/50 dark:text-white/50">
           Receipts show your KRA PIN. With the Duka backend connected and eTIMS onboarding done, each sale is also submitted to KRA automatically — see INTEGRATIONS.md.
         </p>
+      </Section>
+
+      {/* Loyalty points */}
+      <Section icon={<Sparkles size={18} />} title="Loyalty points">
+        <p className="-mt-1 mb-2 text-sm text-brand-900/50 dark:text-white/50">
+          Reward repeat customers: they earn points on every sale (attach the customer at checkout), and can redeem them like cash next time. 1 point = KES 1.
+        </p>
+        <label className="flex items-center justify-between rounded-xl bg-black/5 px-3 py-3 dark:bg-white/10">
+          <span className="text-sm font-medium text-brand-900 dark:text-white">Enable loyalty points</span>
+          <input type="checkbox" className="h-5 w-5 accent-brand-600" checked={!!settings.loyaltyEnabled} onChange={(e) => set('loyaltyEnabled', e.target.checked)} />
+        </label>
+        {settings.loyaltyEnabled && (
+          <Field label="Points earned per sale (% of the total, given back as points)">
+            <div className="flex items-center gap-2">
+              <input
+                className="input w-24"
+                inputMode="decimal"
+                value={settings.loyaltyRate ?? 1}
+                onChange={(e) => set('loyaltyRate', Math.max(0, parseFloat(e.target.value) || 0))}
+              />
+              <span className="text-sm text-brand-900/60 dark:text-white/60">
+                % back — e.g. {settings.loyaltyRate ?? 1}% means a {money(1000, settings.currency)} sale earns {Math.floor((1000 * (settings.loyaltyRate ?? 1)) / 100)} points ({money(Math.floor((1000 * (settings.loyaltyRate ?? 1)) / 100), settings.currency)}).
+              </span>
+            </div>
+          </Field>
+        )}
       </Section>
 
       {/* QuickBooks / CSV import-export */}

@@ -99,7 +99,7 @@ curl -s -X POST localhost:8787/api/tenants/<ID>/simulate-age \
 # 3) Run the automatic billing sweep
 curl -s -X POST localhost:8787/api/admin/run-billing
 
-# 4) Look at the shop again → status "active", a KES 4,900 invoice recorded
+# 4) Look at the shop again → status "active", a KES 15,000 invoice recorded
 curl -s localhost:8787/api/tenants/<ID>
 ```
 

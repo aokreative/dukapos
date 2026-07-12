@@ -11,6 +11,7 @@ const METHOD_LABEL: Record<string, string> = {
   airtel: 'Airtel Money',
   card: 'Card',
   credit: 'Credit (Mkopo)',
+  points: 'Points ⭐',
 }
 
 export function buildReceiptText(sale: Sale, settings: BusinessSettings): string {
@@ -36,6 +37,7 @@ export function buildReceiptText(sale: Sale, settings: BusinessSettings): string
     (vat > 0 ? `VAT (${settings.vatRate}%) incl.: ${money(vat, currency)}\n` : '') +
     `${tenders}\n` +
     (sale.creditAmount > 0 ? `\nBalance on credit: ${money(sale.creditAmount, currency)}\n` : '') +
+    (sale.pointsEarned ? `⭐ Points earned: +${sale.pointsEarned}\n` : '') +
     (warranties ? `\n${warranties}\n` : '') +
     `\nAsante! Karibu tena.`
   )
@@ -107,6 +109,7 @@ export default function Receipt({
         ${vat > 0 ? `<tr><td>VAT (${settings.vatRate}%) incl.</td><td style="text-align:right">${money(vat, settings.currency)}</td></tr>` : ''}
         ${tenders}
         ${sale!.creditAmount > 0 ? `<tr><td>On credit</td><td style="text-align:right">${money(sale!.creditAmount, settings.currency)}</td></tr>` : ''}
+        ${sale!.pointsEarned ? `<tr><td>Points earned</td><td style="text-align:right">+${sale!.pointsEarned}</td></tr>` : ''}
       </table>
       ${warrantyRows}
       <hr/>
@@ -149,6 +152,12 @@ export default function Receipt({
             <div className="mt-2 flex justify-between rounded-lg bg-red-100 px-3 py-2 font-semibold text-red-700 dark:bg-red-500/20 dark:text-red-300">
               <span>On credit{customer ? ` · ${customer.name}` : ''}</span>
               <span>{money(sale.creditAmount, settings.currency)}</span>
+            </div>
+          )}
+          {(sale.pointsEarned || sale.pointsRedeemed) && (
+            <div className="mt-2 flex justify-between rounded-lg bg-gold-400/15 px-3 py-2 font-semibold text-gold-700 dark:text-gold-300">
+              <span>⭐ {sale.pointsRedeemed ? `Used ${sale.pointsRedeemed}` : ''}{sale.pointsEarned ? `${sale.pointsRedeemed ? ' · ' : ''}Earned +${sale.pointsEarned}` : ''}</span>
+              {customer && <span>Bal: {customer.points ?? 0}</span>}
             </div>
           )}
         </div>

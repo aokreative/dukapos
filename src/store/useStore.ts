@@ -634,6 +634,13 @@ export const useStore = create<State>()(
         const counter = state.receiptCounter
         const currentStaff = state.staff.find((m) => m.id === state.currentStaffId)
         const cashierName = currentStaff?.name || state.settings.cashierName || 'Cashier'
+
+        // Loyalty: earn a % of the sale back as points, and redeem any points
+        // tendered (1 point = KES 1). Only when a customer is attached.
+        const loyaltyOn = !!state.settings.loyaltyEnabled && !!input.customerId
+        const pointsRedeemed = input.tenders.filter((t) => t.method === 'points').reduce((s, t) => s + t.amount, 0)
+        const pointsEarned = loyaltyOn ? Math.floor((total * (state.settings.loyaltyRate ?? 1)) / 100) : 0
+
         const sale: Sale = {
           id: uid('s_'),
           receiptNo: fmtReceipt(counter),
@@ -649,6 +656,8 @@ export const useStore = create<State>()(
           assignedToName: input.assignedToName && input.assignedToName !== cashierName ? input.assignedToName : undefined,
           note: input.note,
           locationId: state.currentLocationId,
+          pointsEarned: pointsEarned || undefined,
+          pointsRedeemed: pointsRedeemed || undefined,
         }
 
         // Deduct stock at THIS branch (items flagged "don't track" are skipped).
@@ -676,10 +685,21 @@ export const useStore = create<State>()(
           })
         }
 
+        // Apply the net points change to the customer's balance.
+        const customers =
+          input.customerId && (pointsEarned || pointsRedeemed)
+            ? state.customers.map((c) =>
+                c.id === input.customerId
+                  ? { ...c, points: Math.max(0, (c.points || 0) + pointsEarned - pointsRedeemed) }
+                  : c,
+              )
+            : state.customers
+
         set({
           sales: [sale, ...state.sales],
           products,
           debts,
+          customers,
           receiptCounter: counter + 1,
           exchangeCredit: credit > 0 ? state.exchangeCredit - credit : state.exchangeCredit,
         })

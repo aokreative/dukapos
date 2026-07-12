@@ -1,11 +1,10 @@
 // Subscription plans for Duka POS — tiered by the SIZE of the business.
 // The recommender picks the smallest plan whose limits fit the shop.
 //
-// Pricing is benchmarked against the Kenyan POS market (2026): entry POS
-// software runs ~KES 2,000–5,000/mo, mid-tier ~KES 5,000–10,000/mo, and
-// multi-branch/professional ~KES 10,000–25,000/mo, usually billed per branch.
-// Duka sits slightly below each band to win SMEs, with offline-first selling
-// and WhatsApp debt reminders as the differentiators. Annual = 2 months free.
+// These are "from" prices — a starting point. The owner can adjust the amount
+// billed per client from the Super-Admin portal (e.g. Enterprise is custom).
+// Starter from KES 5,000, Standard from 15,000, Advanced from 45,000,
+// Enterprise from 50,000+ (custom). Annual billing = 2 months free.
 import type { Plan, PlanId, PlanLimits } from '../types'
 
 export const TRIAL_DAYS = 14
@@ -23,7 +22,7 @@ export const PLANS: Plan[] = [
     id: 'micro',
     name: 'Starter',
     swahili: 'Duka Ndogo',
-    price: 1900,
+    price: 5000,
     limits: { shops: 1, staff: 2, products: 500, monthlyTx: 3000 },
     blurb: 'A single small kiosk or duka just getting started.',
     features: ['1 shop', 'Up to 2 staff', 'Up to 500 products', 'Offline selling', 'One-tap WhatsApp/SMS debt reminders', 'Receipts & daily sales'],
@@ -32,28 +31,28 @@ export const PLANS: Plan[] = [
     id: 'standard',
     name: 'Standard',
     swahili: 'Duka',
-    price: 4900,
+    price: 15000,
     limits: { shops: 1, staff: 6, products: 3000, monthlyTx: 15000 },
     blurb: 'A busy single shop that wants to get paid on time.',
     features: ['Everything in Starter', 'Up to 6 staff', 'Up to 3,000 products', 'Automated debt reminders', 'Full sales & profit reports', 'M-PESA payments & split tender'],
   },
   {
     id: 'growth',
-    name: 'Growth',
+    name: 'Advanced',
     swahili: 'Duka Biashara',
-    price: 9900,
+    price: 45000,
     limits: { shops: 3, staff: 20, products: 12000, monthlyTx: Infinity },
     blurb: 'A growing business with more than one branch.',
-    features: ['Everything in Standard', 'Up to 3 shops', 'Up to 20 staff', 'Up to 12,000 products', 'Loyalty & customer tiers', 'Priority support'],
+    features: ['Everything in Standard', 'Up to 3 shops', 'Up to 20 staff', 'Up to 12,000 products', 'Loyalty & customer points', 'Priority support'],
   },
   {
     id: 'chain',
-    name: 'Chain',
+    name: 'Enterprise',
     swahili: 'Duka Mtandao',
-    price: 24900,
+    price: 50000,
     limits: { shops: Infinity, staff: Infinity, products: Infinity, monthlyTx: Infinity },
-    blurb: 'A chain or wholesaler running many shops & a warehouse.',
-    features: ['Everything in Growth', 'Unlimited shops & staff', 'Unlimited products', 'Warehouse & stock transfers', 'API access', 'Dedicated account manager'],
+    blurb: 'A chain or wholesaler running many shops & a warehouse — custom-priced.',
+    features: ['Everything in Advanced', 'Unlimited shops & staff', 'Unlimited products', 'Warehouse & stock transfers', 'API access', 'Dedicated account manager'],
   },
 ]
 

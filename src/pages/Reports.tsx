@@ -31,7 +31,7 @@ export default function Reports() {
     const todayRevenue = todaySales.reduce((a, s) => a + s.total, 0)
 
     // Payment method split (today), by tender.
-    const methodSplit: Record<PaymentMethod, number> = { cash: 0, mpesa: 0, airtel: 0, card: 0, credit: 0 }
+    const methodSplit: Record<PaymentMethod, number> = { cash: 0, mpesa: 0, airtel: 0, card: 0, credit: 0, points: 0 }
     for (const s of todaySales) for (const t of s.tenders) methodSplit[t.method] += t.amount
 
     // Last 7 days revenue.

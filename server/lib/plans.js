@@ -1,9 +1,9 @@
 // Plan prices (KES) — mirror of the app's src/lib/plans.ts. Keep in sync.
 export const PLANS = {
-  micro: { name: 'Starter', price: 1900 },
-  standard: { name: 'Standard', price: 4900 },
-  growth: { name: 'Growth', price: 9900 },
-  chain: { name: 'Chain', price: 24900 },
+  micro: { name: 'Starter', price: 5000 },
+  standard: { name: 'Standard', price: 15000 },
+  growth: { name: 'Advanced', price: 45000 },
+  chain: { name: 'Enterprise', price: 50000 },
 }
 
 export const TRIAL_DAYS = 14

@@ -1,6 +1,6 @@
 # Duka POS
 
-> Duka POS is a simple, offline-first point-of-sale (POS) app built specifically for Kenyan shops. It works without internet, tracks mkopo (credit) debts, sends WhatsApp and SMS payment reminders with your M-PESA till included, prompts customers to pay by M-PESA STK, is KRA eTIMS-ready, and includes an AI assistant (Duka AI). Plans start at KES 1,900/month with a 14-day free trial. Built for dukas, mini-marts, pharmacies, hardware, electronics/CCTV, boutiques, wholesale, agrovets, baby shops, auto spares and restaurants.
+> Duka POS is a simple, offline-first point-of-sale (POS) app built specifically for Kenyan shops. It works without internet, tracks mkopo (credit) debts, sends WhatsApp and SMS payment reminders with your M-PESA till included, prompts customers to pay by M-PESA STK, is KRA eTIMS-ready, and includes an AI assistant (Duka AI). Plans start from KES 5,000/month with a 14-day free trial. Built for dukas, mini-marts, pharmacies, hardware, electronics/CCTV, boutiques, wholesale, agrovets, baby shops, auto spares and restaurants.
 
 ## What it is
 - Category: Point-of-sale (POS) / retail management software
@@ -21,10 +21,10 @@
 - Multi-device cloud sync
 
 ## Pricing
-- Starter — KES 1,900/month: kiosks & stalls (1 device, 1 user, 300 products)
-- Standard — KES 4,900/month: shops & mini-marts (2 devices, 5 staff, 3,000 products, Duka AI)
-- Growth — KES 9,900/month: busy retail & wholesale (4 devices, 15 staff, unlimited products, cloud sync)
-- Chain — KES 24,900/month: multiple branches (up to 5 branches, consolidated reporting)
+- Starter — from KES 5,000/month: kiosks & stalls (1 device)
+- Standard — from KES 15,000/month: shops & mini-marts (staff PINs, Duka AI)
+- Advanced — from KES 45,000/month: multi-branch & warehouse, loyalty points, cloud sync
+- Enterprise — from KES 50,000+/month (custom): chains & distributors, dedicated manager
 - Every plan: 14-day free trial, pay monthly via M-PESA, or yearly for 2 months free.
 
 ## Links

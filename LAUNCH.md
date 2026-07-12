@@ -142,7 +142,7 @@ The 5-minute script that sells:
 5. **Show Reports** (today's money, best sellers) and **Settings → Staff**
    (cashier PINs can't see your profit).
 6. **Turn on airplane mode and sell again.** *"No bundles? No problem."*
-7. Close: *"14 days free, from KES 1,900 a month, cancel anytime. Tuanze?"*
+7. Close: *"14 days free, from KES 5,000 a month, cancel anytime. Tuanze?"*
 
 Demo hygiene: after each demo, Settings → **Reset demo data** so the next
 demo starts clean. For remote demos, just send the app link on WhatsApp —
@@ -200,5 +200,5 @@ it works instantly on their phone with the same demo data.
 | Claude API for Duka AI | A few dollars/month, optional |
 | Domain (optional) | ~KES 1,000/year |
 
-One Standard-plan client (KES 4,900/mo) covers your entire monthly bill
+One Standard-plan client (from KES 15,000/mo) covers your entire monthly bill
 several times over.
