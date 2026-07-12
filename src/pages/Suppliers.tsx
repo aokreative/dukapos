@@ -145,11 +145,13 @@ function SupplierForm({ supplier, onClose }: { supplier: Supplier | null; onClos
   const addSupplier = useStore((s) => s.addSupplier)
   const updateSupplier = useStore((s) => s.updateSupplier)
   const removeSupplier = useStore((s) => s.removeSupplier)
+  const addCustomer = useStore((s) => s.addCustomer)
 
   const [name, setName] = useState(supplier?.name ?? '')
   const [phone, setPhone] = useState(supplier ? displayPhone(supplier.phone) : '')
   const [supplies, setSupplies] = useState(supplier?.supplies ?? '')
   const [customerId, setCustomerId] = useState(supplier?.customerId ?? '')
+  const [makeCustomer, setMakeCustomer] = useState(false)
   const [note, setNote] = useState(supplier?.note ?? '')
 
   return (
@@ -177,6 +179,12 @@ function SupplierForm({ supplier, onClose }: { supplier: Supplier | null; onClos
               <option key={c.id} value={c.id}>{c.name}</option>
             ))}
           </select>
+          {!customerId && (
+            <label className="mt-2 flex items-center gap-2 text-sm text-brand-900/70 dark:text-white/70">
+              <input type="checkbox" className="h-4 w-4 accent-brand-600" checked={makeCustomer} onChange={(e) => setMakeCustomer(e.target.checked)} />
+              Not in your customers yet? Create their customer record too.
+            </label>
+          )}
         </div>
         <div>
           <label className="label">Note (optional)</label>
@@ -193,7 +201,13 @@ function SupplierForm({ supplier, onClose }: { supplier: Supplier | null; onClos
           className="btn-primary flex-1"
           disabled={!name.trim()}
           onClick={() => {
-            const data = { name: name.trim(), phone: normalizePhone(phone), supplies: supplies.trim() || undefined, customerId: customerId || undefined, note: note.trim() || undefined }
+            // Make them a customer too (create the linked record if requested).
+            let linkedId = customerId
+            if (!linkedId && makeCustomer && name.trim()) {
+              const c = addCustomer({ name: name.trim(), phone: normalizePhone(phone) })
+              linkedId = c.id
+            }
+            const data = { name: name.trim(), phone: normalizePhone(phone), supplies: supplies.trim() || undefined, customerId: linkedId || undefined, note: note.trim() || undefined }
             if (supplier) updateSupplier(supplier.id, data)
             else addSupplier(data)
             onClose()
@@ -501,6 +515,11 @@ function SupplierDetails({ supplier, onClose, onEdit }: { supplier: Supplier; on
   const mine = useMemo(() => txns.filter((t) => t.supplierId === supplier.id).sort((a, b) => b.at - a.at), [txns, supplier.id])
   const bal = supplierBalance(txns, supplier.id)
   const linked = supplier.customerId ? customers.find((c) => c.id === supplier.customerId) : undefined
+  const [from, setFrom] = useState('')
+  const [to, setTo] = useState('')
+  const fromT = from ? new Date(from + 'T00:00:00').getTime() : -Infinity
+  const toT = to ? new Date(to + 'T23:59:59').getTime() : Infinity
+  const shown = mine.filter((t) => t.at >= fromT && t.at <= toT)
 
   // Reprint a purchase/payment record for a supplier — works long after the
   // account was settled, straight from the persistent history.
@@ -592,11 +611,20 @@ function SupplierDetails({ supplier, onClose, onEdit }: { supplier: Supplier; on
       </div>
 
       <h3 className="mb-1 text-xs font-bold uppercase tracking-wide text-brand-900/50 dark:text-white/50">History</h3>
+      {mine.length > 0 && (
+        <div className="mb-2 flex flex-wrap items-end gap-2">
+          <label className="text-[10px] font-semibold text-brand-900/50 dark:text-white/50">From<input type="date" className="input mt-0.5 py-1.5 text-sm" value={from} onChange={(e) => setFrom(e.target.value)} /></label>
+          <label className="text-[10px] font-semibold text-brand-900/50 dark:text-white/50">To<input type="date" className="input mt-0.5 py-1.5 text-sm" value={to} onChange={(e) => setTo(e.target.value)} /></label>
+          {(from || to) && <button className="btn-ghost py-1.5 text-xs" onClick={() => { setFrom(''); setTo('') }}>Clear</button>}
+        </div>
+      )}
       {mine.length === 0 ? (
         <p className="py-4 text-center text-sm text-brand-900/40 dark:text-white/40">No transactions yet — record a delivery or payment.</p>
+      ) : shown.length === 0 ? (
+        <p className="py-4 text-center text-sm text-brand-900/40 dark:text-white/40">No transactions in that date range.</p>
       ) : (
         <div className="max-h-72 space-y-1.5 overflow-y-auto pr-1">
-          {mine.map((t) => (
+          {shown.map((t) => (
             <div key={t.id} className="rounded-xl bg-black/5 px-3 py-2 dark:bg-white/10">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-semibold text-brand-900 dark:text-white">{TXN_LABEL[t.type]}</span>

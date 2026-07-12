@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Search, UserPlus, Phone, Pencil, Trash2, Store } from 'lucide-react'
+import { Search, UserPlus, Phone, Pencil, Trash2, Store, Truck } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { displayPhone, isValidPhone, money, normalizePhone } from '../lib/format'
 import { PageHeader, Modal, Badge, EmptyState } from '../components/ui'
@@ -13,6 +13,8 @@ export default function Customers() {
   const addCustomer = useStore((s) => s.addCustomer)
   const updateCustomer = useStore((s) => s.updateCustomer)
   const removeCustomer = useStore((s) => s.removeCustomer)
+  const suppliers = useStore((s) => s.suppliers)
+  const addSupplier = useStore((s) => s.addSupplier)
 
   const [q, setQ] = useState('')
   const [editing, setEditing] = useState<Customer | null>(null)
@@ -27,12 +29,14 @@ export default function Customers() {
 
   const filtered = useMemo(() => {
     const t = q.trim().toLowerCase()
+    const digits = t.replace(/\D/g, '')
     const list = customers.filter(
       (c) =>
         !t ||
         c.name.toLowerCase().includes(t) ||
-        c.phone.includes(t.replace(/\D/g, '')) ||
-        (c.ownerName ?? '').toLowerCase().includes(t),
+        (!!digits && c.phone.includes(digits)) ||
+        (c.ownerName ?? '').toLowerCase().includes(t) ||
+        (c.note ?? '').toLowerCase().includes(t),
     )
     return list.sort((a, b) => (balanceByCustomer.get(b.id) ?? 0) - (balanceByCustomer.get(a.id) ?? 0))
   }, [customers, q, balanceByCustomer])
@@ -91,13 +95,17 @@ export default function Customers() {
       {(creating || editing) && (
         <CustomerForm
           customer={editing}
+          isSupplier={!!editing && suppliers.some((s) => s.customerId === editing.id)}
           onClose={() => {
             setCreating(false)
             setEditing(null)
           }}
-          onSave={(data) => {
-            if (editing) updateCustomer(editing.id, data)
-            else addCustomer(data)
+          onSave={({ alsoSupplier, ...data }) => {
+            const saved = editing ? (updateCustomer(editing.id, data), { ...editing, ...data }) : addCustomer(data)
+            // Make them a supplier too (create the linked record if none yet).
+            if (alsoSupplier && !suppliers.some((s) => s.customerId === saved.id)) {
+              addSupplier({ name: saved.name, phone: saved.phone, customerId: saved.id })
+            }
             setCreating(false)
             setEditing(null)
           }}
@@ -119,13 +127,15 @@ export default function Customers() {
 
 function CustomerForm({
   customer,
+  isSupplier,
   onClose,
   onSave,
   onDelete,
 }: {
   customer: Customer | null
+  isSupplier?: boolean
   onClose: () => void
-  onSave: (data: { name: string; phone: string; isShop?: boolean; ownerName?: string; ownerPhone?: string; note?: string }) => void
+  onSave: (data: { name: string; phone: string; isShop?: boolean; ownerName?: string; ownerPhone?: string; note?: string; alsoSupplier?: boolean }) => void
   onDelete?: () => void
 }) {
   const [isShop, setIsShop] = useState(!!customer?.isShop)
@@ -134,6 +144,7 @@ function CustomerForm({
   const [ownerName, setOwnerName] = useState(customer?.ownerName ?? '')
   const [ownerPhone, setOwnerPhone] = useState(customer?.ownerPhone ? displayPhone(customer.ownerPhone) : '')
   const [note, setNote] = useState(customer?.note ?? '')
+  const [alsoSupplier, setAlsoSupplier] = useState(!!isSupplier)
   const valid = name.trim() && isValidPhone(phone) && (!ownerPhone || isValidPhone(ownerPhone))
 
   return (
@@ -170,6 +181,13 @@ function CustomerForm({
           <label className="label">Note (optional)</label>
           <input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. Regular, buys weekly" />
         </div>
+        <label className={`flex items-center gap-3 rounded-xl px-3 py-3 ${isSupplier ? 'bg-green-50 dark:bg-green-500/10' : 'bg-black/5 dark:bg-white/10'}`}>
+          <input type="checkbox" className="h-5 w-5 accent-brand-600" checked={alsoSupplier} disabled={isSupplier} onChange={(e) => setAlsoSupplier(e.target.checked)} />
+          <span className="text-sm font-medium text-brand-900 dark:text-white">
+            <Truck size={13} className="mr-1 inline" /> {isSupplier ? 'Also a supplier ✓ (you buy from them too)' : 'Also a supplier — you buy from them too'}
+            {!isSupplier && <span className="block text-xs font-normal text-brand-900/50 dark:text-white/50">Creates a linked supplier so you can record deliveries from them.</span>}
+          </span>
+        </label>
       </div>
       <div className="mt-5 flex gap-2">
         {onDelete && (
@@ -188,6 +206,7 @@ function CustomerForm({
               ownerName: isShop && ownerName.trim() ? ownerName.trim() : undefined,
               ownerPhone: isShop && ownerPhone.trim() ? normalizePhone(ownerPhone) : undefined,
               note: note.trim() || undefined,
+              alsoSupplier: alsoSupplier && !isSupplier ? true : undefined,
             })
           }
         >

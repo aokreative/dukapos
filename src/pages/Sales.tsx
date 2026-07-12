@@ -17,6 +17,8 @@ export default function Sales() {
   const role = useStore(selectRole)
   const me = useStore(selectCurrentStaff)
   const [q, setQ] = useState('')
+  const [from, setFrom] = useState('')
+  const [to, setTo] = useState('')
   const [selected, setSelected] = useState<Sale | null>(null)
 
   const nameOf = (id?: string) => (id ? customers.find((c) => c.id === id)?.name : undefined)
@@ -29,14 +31,24 @@ export default function Sales() {
 
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase()
-    if (!term) return mine
+    const fromT = from ? new Date(from + 'T00:00:00').getTime() : -Infinity
+    const toT = to ? new Date(to + 'T23:59:59').getTime() : Infinity
     return mine.filter((s) => {
+      if (s.createdAt < fromT || s.createdAt > toT) return false
+      if (!term) return true
       const cust = (nameOf(s.customerId) || '').toLowerCase()
       const items = s.lines.map((l) => l.name).join(' ').toLowerCase()
-      return s.receiptNo.toLowerCase().includes(term) || cust.includes(term) || items.includes(term) || s.cashierName.toLowerCase().includes(term)
+      const when = shortDateTime(s.createdAt).toLowerCase()
+      return (
+        s.receiptNo.toLowerCase().includes(term) ||
+        cust.includes(term) ||
+        items.includes(term) ||
+        s.cashierName.toLowerCase().includes(term) ||
+        when.includes(term)
+      )
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mine, q])
+  }, [mine, q, from, to])
 
   return (
     <div>
@@ -45,9 +57,23 @@ export default function Sales() {
         subtitle={role === 'cashier' ? 'Your past sales — tap any to reprint the receipt' : 'Every past sale — tap any to reprint the receipt'}
       />
 
-      <div className="relative mb-4">
+      <div className="relative mb-2">
         <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-brand-900/40 dark:text-white/40" size={18} />
-        <input className="input pl-10" placeholder="Search receipt no., customer, item or cashier" value={q} onChange={(e) => setQ(e.target.value)} />
+        <input className="input pl-10" placeholder="Search receipt, customer, item, cashier or date (e.g. 12 Jul)" value={q} onChange={(e) => setQ(e.target.value)} />
+      </div>
+      <div className="mb-4 flex flex-wrap items-end gap-2 text-sm">
+        <label className="text-xs font-semibold text-brand-900/60 dark:text-white/60">
+          From
+          <input type="date" className="input mt-0.5 py-2" value={from} onChange={(e) => setFrom(e.target.value)} />
+        </label>
+        <label className="text-xs font-semibold text-brand-900/60 dark:text-white/60">
+          To
+          <input type="date" className="input mt-0.5 py-2" value={to} onChange={(e) => setTo(e.target.value)} />
+        </label>
+        {(from || to || q) && (
+          <button className="btn-ghost py-2 text-sm" onClick={() => { setFrom(''); setTo(''); setQ('') }}>Clear</button>
+        )}
+        <span className="ml-auto text-xs text-brand-900/50 dark:text-white/50">{filtered.length} sale{filtered.length === 1 ? '' : 's'}</span>
       </div>
 
       {filtered.length === 0 ? (

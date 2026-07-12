@@ -23,6 +23,8 @@ export default function CustomerProfile({ customer, onClose }: { customer: Custo
 
   const [payOpen, setPayOpen] = useState(false)
   const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({})
+  const [from, setFrom] = useState('')
+  const [to, setTo] = useState('')
 
   const myDebts = useMemo(
     () => debts.filter((d) => d.customerId === customer.id).sort((a, b) => a.createdAt - b.createdAt),
@@ -50,6 +52,9 @@ export default function CustomerProfile({ customer, onClose }: { customer: Custo
   const settledDebts = myDebts.filter((d) => d.status === 'settled')
   const totalSpent = customerSales.reduce((a, s) => a + s.total, 0)
   const cur = settings.currency
+  const fromT = from ? new Date(from + 'T00:00:00').getTime() : -Infinity
+  const toT = to ? new Date(to + 'T23:59:59').getTime() : Infinity
+  const salesShown = customerSales.filter((s) => s.createdAt >= fromT && s.createdAt <= toT)
 
   // A full account statement the customer can keep — every purchase, how it was
   // paid, and what (if anything) is still pending. Works long after settlement.
@@ -229,11 +234,18 @@ export default function CustomerProfile({ customer, onClose }: { customer: Custo
         <h3 className="mb-1 mt-4 text-xs font-bold uppercase tracking-wide text-brand-900/50 dark:text-white/50">
           Purchase history (incl. paid)
         </h3>
-        {customerSales.length === 0 ? (
-          <p className="text-sm text-brand-900/40 dark:text-white/40">No purchases recorded yet.</p>
+        {customerSales.length > 0 && (
+          <div className="mb-2 flex flex-wrap items-end gap-2">
+            <label className="text-[10px] font-semibold text-brand-900/50 dark:text-white/50">From<input type="date" className="input mt-0.5 py-1.5 text-sm" value={from} onChange={(e) => setFrom(e.target.value)} /></label>
+            <label className="text-[10px] font-semibold text-brand-900/50 dark:text-white/50">To<input type="date" className="input mt-0.5 py-1.5 text-sm" value={to} onChange={(e) => setTo(e.target.value)} /></label>
+            {(from || to) && <button className="btn-ghost py-1.5 text-xs" onClick={() => { setFrom(''); setTo('') }}>Clear</button>}
+          </div>
+        )}
+        {salesShown.length === 0 ? (
+          <p className="text-sm text-brand-900/40 dark:text-white/40">{customerSales.length === 0 ? 'No purchases recorded yet.' : 'No purchases in that date range.'}</p>
         ) : (
           <div className="max-h-56 space-y-1.5 overflow-y-auto pr-1">
-            {customerSales.map((s) => {
+            {salesShown.map((s) => {
               const debt = debtBySaleId.get(s.id)
               const status: 'paid' | 'open' | 'cleared' = !debt || s.creditAmount === 0 ? 'paid' : debt.status === 'settled' ? 'cleared' : 'open'
               return (

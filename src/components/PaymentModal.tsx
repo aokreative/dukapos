@@ -1,10 +1,9 @@
-import { useState } from 'react'
-import { useMemo } from 'react'
-import { Banknote, Smartphone, CreditCard, HandCoins, Trash2, User, UserCheck, StickyNote } from 'lucide-react'
+import { useState, useMemo, useEffect } from 'react'
+import { Banknote, Smartphone, CreditCard, HandCoins, Trash2, User, UserCheck, StickyNote, Phone } from 'lucide-react'
 import { Modal } from './ui'
 import CustomerPicker from './CustomerPicker'
 import { useStore, selectCurrentStaff } from '../store/useStore'
-import { money, displayPhone } from '../lib/format'
+import { money, displayPhone, normalizePhone } from '../lib/format'
 import { mpesaCollect, mpesaCollectStatus, type ShopMpesaCreds } from '../lib/api'
 import { shopMpesaCreds, vatIncludedIn } from '../lib/reminders'
 import type { Customer, PaymentMethod, Tender } from '../types'
@@ -79,20 +78,44 @@ export default function PaymentModal({
   const vat = vatIncludedIn(total, settings)
   const staff = useStore((s) => s.staff)
   const currentStaff = useStore(selectCurrentStaff)
+  const customers = useStore((s) => s.customers)
+  const addCustomer = useStore((s) => s.addCustomer)
   const [tenders, setTenders] = useState<Tender[]>([])
   const [customer, setCustomer] = useState<Customer | null>(null)
   const [pickerOpen, setPickerOpen] = useState(false)
   const [assignedToName, setAssignedToName] = useState('')
   const [note, setNote] = useState('')
   const [showExtras, setShowExtras] = useState(false)
+  const [phone, setPhone] = useState('')
   const sellers = staff.filter((m) => m.active)
+
+  // Quick customer-by-phone: as the cashier types a number, auto-recognise a
+  // returning customer. A number with no match becomes a new customer on
+  // completion — no name search needed.
+  const phoneNorm = normalizePhone(phone)
+  const phoneValid = phoneNorm.length >= 12
+  const phoneMatch = useMemo(() => (phoneValid ? customers.find((c) => c.phone === phoneNorm) : undefined), [phoneValid, phoneNorm, customers])
+  useEffect(() => {
+    if (phoneMatch && customer?.id !== phoneMatch.id) setCustomer(phoneMatch)
+  }, [phoneMatch]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const sum = useMemo(() => tenders.reduce((a, t) => a + (t.amount || 0), 0), [tenders])
   const remaining = Math.round((total - sum) * 100) / 100
   const cashSum = tenders.filter((t) => t.method === 'cash').reduce((a, t) => a + t.amount, 0)
   const change = sum > total && cashSum > 0 ? Math.round((sum - total) * 100) / 100 : 0
   const hasCredit = tenders.some((t) => t.method === 'credit')
-  const canComplete = sum >= total - 0.001 && (!hasCredit || !!customer)
+  const canComplete = sum >= total - 0.001 && (!hasCredit || !!customer || phoneValid)
+
+  /** The customer for this sale: the picked one, an existing phone match, or a
+   *  brand-new customer created from the typed phone (so points still accrue). */
+  function resolveCustomerId(): string | undefined {
+    // A typed phone is authoritative (find or create); otherwise the picked one.
+    if (phoneValid) {
+      const found = customers.find((c) => c.phone === phoneNorm)
+      return found ? found.id : addCustomer({ name: displayPhone(phoneNorm), phone: phoneNorm }).id
+    }
+    return customer?.id
+  }
 
   function addMethod(method: PaymentMethod) {
     const fill = Math.max(0, remaining)
@@ -113,6 +136,7 @@ export default function PaymentModal({
     setAssignedToName('')
     setNote('')
     setShowExtras(false)
+    setPhone('')
   }
   function extras(): SaleExtras {
     return {
@@ -125,7 +149,7 @@ export default function PaymentModal({
     const finalTenders = tenders
       .map((t) => (t.method === 'credit' ? { ...t, amount: Math.max(0, Math.round((total - (sum - t.amount)) * 100) / 100) } : t))
       .filter((t) => t.amount > 0)
-    onComplete(finalTenders, customer?.id, extras())
+    onComplete(finalTenders, resolveCustomerId(), extras())
     reset()
   }
 
@@ -201,11 +225,36 @@ export default function PaymentModal({
           ))}
         </div>
 
-        {/* Customer — required for credit, optional otherwise. Attaching a paying
-            customer records the sale in their history as PAID, so there is never
-            an argument later about what was paid and what is still owed. */}
+        {/* Quick customer by phone — type a number, it recognises a returning
+            customer (or saves a new one) and earns loyalty points. No name search. */}
+        <div className="mt-3">
+          <label className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-brand-900/60 dark:text-white/60">
+            <Phone size={13} /> Customer phone {settings.loyaltyEnabled ? '— earns loyalty points' : '(optional)'}
+          </label>
+          <input
+            className="input"
+            inputMode="tel"
+            placeholder="07XX XXX XXX"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+          />
+          {phoneValid && (
+            <p className="mt-1 text-xs font-medium">
+              {phoneMatch ? (
+                <span className="text-green-600 dark:text-green-400">
+                  ✓ {phoneMatch.name}
+                  {settings.loyaltyEnabled ? ` · ⭐ ${phoneMatch.points ?? 0} pts` : ''} — will earn points
+                </span>
+              ) : (
+                <span className="text-brand-600 dark:text-gold-400">New customer — saved automatically for points</span>
+              )}
+            </p>
+          )}
+        </div>
+
+        {/* Or find/attach a customer by name (for credit, or full profile). */}
         <button
-          className={`mt-3 flex w-full items-center gap-3 rounded-xl border p-3 text-left ${
+          className={`mt-2 flex w-full items-center gap-3 rounded-xl border p-3 text-left ${
             customer
               ? 'border-brand-500 bg-brand-50 dark:bg-brand-900'
               : hasCredit
@@ -282,7 +331,7 @@ export default function PaymentModal({
           Complete sale
         </button>
         {tenders.length === 0 && (
-          <button className="btn-gold mt-2 w-full" onClick={() => { onComplete([{ method: 'cash', amount: total }], customer?.id, extras()); reset() }}>
+          <button className="btn-gold mt-2 w-full" onClick={() => { onComplete([{ method: 'cash', amount: total }], resolveCustomerId(), extras()); reset() }}>
             Exact cash · {money(total, currency)}
           </button>
         )}
