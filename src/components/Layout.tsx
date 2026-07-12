@@ -14,6 +14,7 @@ import {
   WifiOff,
   Lock,
   Sparkles,
+  History,
 } from 'lucide-react'
 import { useStore, selectTotalOwed, selectCurrentStaff, selectRole, selectCurrentLocation } from '../store/useStore'
 import { money } from '../lib/format'
@@ -26,6 +27,7 @@ import ShiftBar from './ShiftBar'
 
 const NAV: { to: string; label: string; icon: typeof ShoppingCart; cap?: Capability }[] = [
   { to: '/', label: 'Sell', icon: ShoppingCart },
+  { to: '/sales', label: 'Sales', icon: History },
   { to: '/debts', label: 'Debts', icon: HandCoins, cap: 'viewDebts' },
   { to: '/customers', label: 'Customers', icon: Users, cap: 'manageCustomers' },
   { to: '/products', label: 'Stock', icon: Package, cap: 'manageStock' },

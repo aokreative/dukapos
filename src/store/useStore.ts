@@ -661,11 +661,11 @@ export const useStore = create<State>()(
         }
 
         // Deduct stock at THIS branch (items flagged "don't track" are skipped).
+        // Sum across lines so multiple variations of one product all deplete it.
         const products = state.products.map((p) => {
-          const line = input.lines.find((l) => l.productId === p.id)
-          return line && p.trackStock !== false
-            ? { ...p, stockByLocation: withStockDelta(p, state.currentLocationId, -line.qty) }
-            : p
+          if (p.trackStock === false) return p
+          const qty = input.lines.filter((l) => l.productId === p.id).reduce((a, l) => a + l.qty, 0)
+          return qty > 0 ? { ...p, stockByLocation: withStockDelta(p, state.currentLocationId, -qty) } : p
         })
 
         // Create a debt if any credit was taken and a customer is attached.

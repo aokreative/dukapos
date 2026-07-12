@@ -11,6 +11,7 @@ import Reports from './pages/Reports'
 import Settings from './pages/Settings'
 import Subscription from './pages/Subscription'
 import Assistant from './pages/Assistant'
+import Sales from './pages/Sales'
 import Branches from './pages/Branches'
 import Suppliers from './pages/Suppliers'
 import Expenses from './pages/Expenses'
@@ -63,6 +64,7 @@ export default function App() {
     <Layout>
       <Routes>
         <Route path="/" element={<POS />} />
+        <Route path="/sales" element={<Sales />} />
         <Route path="/debts" element={<Guard cap="viewDebts" role={role}><Debts /></Guard>} />
         <Route path="/customers" element={<Guard cap="manageCustomers" role={role}><Customers /></Guard>} />
         <Route path="/products" element={<Guard cap="manageStock" role={role}><Products /></Guard>} />

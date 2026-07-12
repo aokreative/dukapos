@@ -4,7 +4,7 @@
 // Deliveries are itemised: pick catalog items or register brand-new products
 // on the spot, with per-delivery buying prices — stock & costs update live.
 import { useMemo, useState } from 'react'
-import { Truck, Plus, Wallet, ChevronRight, PackageOpen, FileMinus2, Pencil, Trash2, UserRound, Link2, Search, PackagePlus } from 'lucide-react'
+import { Truck, Plus, Wallet, ChevronRight, PackageOpen, FileMinus2, Pencil, Trash2, UserRound, Link2, Search, PackagePlus, Printer } from 'lucide-react'
 import { useStore, supplierBalance, selectRole, selectCurrentLocation } from '../store/useStore'
 import { money, displayPhone, normalizePhone, shortDateTime } from '../lib/format'
 import { PageHeader, Modal, Badge, EmptyState } from '../components/ui'
@@ -492,12 +492,43 @@ function NewProductInline({
 
 function SupplierDetails({ supplier, onClose, onEdit }: { supplier: Supplier; onClose: () => void; onEdit: () => void }) {
   const currency = useStore((s) => s.settings.currency)
+  const shopName = useStore((s) => s.settings.name)
+  const shopLocation = useStore((s) => s.settings.location)
   const txns = useStore((s) => s.supplierTxns)
   const customers = useStore((s) => s.customers)
 
   const mine = useMemo(() => txns.filter((t) => t.supplierId === supplier.id).sort((a, b) => b.at - a.at), [txns, supplier.id])
   const bal = supplierBalance(txns, supplier.id)
   const linked = supplier.customerId ? customers.find((c) => c.id === supplier.customerId) : undefined
+
+  // Reprint a purchase/payment record for a supplier — works long after the
+  // account was settled, straight from the persistent history.
+  function printTxn(t: (typeof mine)[number]) {
+    const w = window.open('', 'print', 'width=340,height=640')
+    if (!w) return
+    const rows = (t.lines || []).map((l) => `<tr><td>${l.qty}× ${l.name}</td><td style="text-align:right">${money(l.qty * l.unitCost, currency)}</td></tr>`).join('')
+    w.document.write(`
+      <html><head><title>${TXN_LABEL[t.type]} — ${supplier.name}</title>
+      <style>*{font-family:monospace;font-size:12px;color:#000}body{width:300px;margin:0 auto;padding:8px}h1{font-size:16px;text-align:center;margin:4px 0}.muted{text-align:center;color:#333;margin:2px 0}table{width:100%;border-collapse:collapse;margin:6px 0}hr{border:none;border-top:1px dashed #000}.total{font-weight:bold;font-size:14px}</style>
+      </head><body>
+      <h1>${shopName}</h1>
+      <div class="muted">${shopLocation || ''}</div>
+      <div class="muted">${TXN_LABEL[t.type]}</div>
+      <hr/>
+      <div>Supplier: ${supplier.name}</div>
+      <div>${displayPhone(supplier.phone)}</div>
+      <div>${shortDateTime(t.at)} · by ${t.byStaffName}</div>
+      ${t.ref ? `<div>Ref: ${t.ref}</div>` : ''}
+      <hr/>
+      ${rows ? `<table>${rows}</table><hr/>` : t.items ? `<div>${t.items}</div><hr/>` : ''}
+      <table><tr class="total"><td>${t.type === 'delivery' ? 'PURCHASE TOTAL' : t.type === 'payment' ? 'PAID' : 'CREDIT NOTE'}</td><td style="text-align:right">${money(t.amount, currency)}</td></tr></table>
+      ${t.note ? `<div class="muted">"${t.note}"</div>` : ''}
+      <hr/>
+      <div class="muted">Balance now: ${bal > 0 ? 'you owe ' + money(bal, currency) : bal < 0 ? money(-bal, currency) + ' in your favour' : 'settled'}</div>
+      <div class="muted">Asante!</div>
+      </body></html>`)
+    w.document.close(); w.focus(); w.print()
+  }
 
   return (
     <Modal open onClose={onClose} title={`${supplier.name} — record`}>
@@ -534,10 +565,15 @@ function SupplierDetails({ supplier, onClose, onEdit }: { supplier: Supplier; on
                   {t.type === 'delivery' ? '+' : '−'}{money(t.amount, currency)}
                 </span>
               </div>
-              <div className="text-[11px] text-brand-900/50 dark:text-white/50">
-                {shortDateTime(t.at)} · by {t.byStaffName}
-                {t.method ? ` · ${t.method === 'mpesa' ? 'M-PESA' : t.method === 'airtel' ? 'Airtel' : t.method}` : ''}
-                {t.ref ? ` (${t.ref})` : ''}
+              <div className="flex items-center justify-between text-[11px] text-brand-900/50 dark:text-white/50">
+                <span>
+                  {shortDateTime(t.at)} · by {t.byStaffName}
+                  {t.method ? ` · ${t.method === 'mpesa' ? 'M-PESA' : t.method === 'airtel' ? 'Airtel' : t.method}` : ''}
+                  {t.ref ? ` (${t.ref})` : ''}
+                </span>
+                <button className="flex items-center gap-1 font-semibold text-brand-600 underline dark:text-gold-400" onClick={() => printTxn(t)}>
+                  <Printer size={11} /> Receipt
+                </button>
               </div>
               {t.lines && t.lines.length > 0 ? (
                 <ul className="mt-1 space-y-0.5 text-xs text-brand-900/70 dark:text-white/70">

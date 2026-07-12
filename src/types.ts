@@ -224,6 +224,9 @@ export interface Product {
   warrantyMonths?: number
   /** Tiny product photo (compressed data URL, ~64px) shown at the till. */
   thumb?: string
+  /** Optional variations (e.g. colours or sizes). When set, the cashier picks
+   *  one at the till and it's recorded on the line & receipt. */
+  variants?: string[]
 }
 
 export interface Customer {
@@ -246,6 +249,8 @@ export interface CartLine {
   name: string
   price: number
   qty: number
+  /** Chosen variation (e.g. a colour or size) for this line. */
+  variant?: string
   /** Unit snapshot ('kg', 'm'…) — enables decimal quantities for this line. */
   unit?: string
   /** True when the wholesale price tier is applied to this line. */

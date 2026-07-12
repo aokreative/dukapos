@@ -15,6 +15,10 @@ import { stockAt } from '../lib/stock'
 import { bizLabels, getFeatures } from '../lib/labels'
 import { uid } from '../lib/id'
 
+/** Cart identity: a product plus its chosen variation (so Red and Blue are
+ *  separate lines). */
+const lineKey = (l: { productId: string; variant?: string }) => l.productId + '␟' + (l.variant ?? '')
+
 export default function POS() {
   const products = useStore((s) => s.products)
   const completeSale = useStore((s) => s.completeSale)
@@ -35,6 +39,7 @@ export default function POS() {
   const removeParkedCart = useStore((s) => s.removeParkedCart)
   const [returnOpen, setReturnOpen] = useState(false)
   const [quickOpen, setQuickOpen] = useState(false)
+  const [variantFor, setVariantFor] = useState<Product | null>(null)
 
   const [q, setQ] = useState('')
   const [cat, setCat] = useState<string>('All')
@@ -70,20 +75,27 @@ export default function POS() {
     return { price: p.price, wholesale: false }
   }
 
-  function add(p: Product) {
+  function add(p: Product, variant?: string) {
+    // A product with variations asks the cashier to pick one first.
+    if (p.variants && p.variants.length > 0 && variant === undefined) {
+      setVariantFor(p)
+      return
+    }
+    const k = lineKey({ productId: p.id, variant })
     setCart((c) => {
-      const found = c.find((l) => l.productId === p.id)
+      const found = c.find((l) => lineKey(l) === k)
       if (found) {
         const qty = found.qty + 1
         const { price, wholesale } = priceFor(p, qty)
-        return c.map((l) => (l.productId === p.id ? { ...l, qty, price, wholesale } : l))
+        return c.map((l) => (lineKey(l) === k ? { ...l, qty, price, wholesale } : l))
       }
       const { price, wholesale } = priceFor(p, 1)
       return [
         ...c,
         {
           productId: p.id,
-          name: p.name,
+          name: variant ? `${p.name} · ${variant}` : p.name,
+          variant,
           price,
           qty: 1,
           wholesale,
@@ -93,12 +105,12 @@ export default function POS() {
       ]
     })
   }
-  function setQty(productId: string, qty: number) {
+  function setQty(key: string, qty: number) {
     setCart((c) => {
-      if (qty <= 0) return c.filter((l) => l.productId !== productId)
+      if (qty <= 0) return c.filter((l) => lineKey(l) !== key)
       return c.map((l) => {
-        if (l.productId !== productId) return l
-        const p = products.find((x) => x.id === productId)
+        if (lineKey(l) !== key) return l
+        const p = products.find((x) => x.id === l.productId)
         const { price, wholesale } = p ? priceFor(p, qty) : { price: l.price, wholesale: l.wholesale ?? false }
         return { ...l, qty, price, wholesale }
       })
@@ -303,6 +315,21 @@ export default function POS() {
       <PaymentModal open={payOpen} onClose={() => setPayOpen(false)} total={total} onComplete={onComplete} />
       <Receipt sale={lastSale} open={receiptOpen} onClose={() => setReceiptOpen(false)} onNewSale={() => setReceiptOpen(false)} />
       {returnOpen && <ReturnModal onClose={() => setReturnOpen(false)} />}
+      {variantFor && (
+        <Modal open onClose={() => setVariantFor(null)} title={`Choose a variation — ${variantFor.name}`}>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {variantFor.variants!.map((v) => (
+              <button
+                key={v}
+                className="chip justify-center bg-black/5 py-3 text-sm font-semibold text-brand-900 hover:bg-brand-600 hover:text-white dark:bg-white/10 dark:text-white"
+                onClick={() => { add(variantFor, v); setVariantFor(null) }}
+              >
+                {v}
+              </button>
+            ))}
+          </div>
+        </Modal>
+      )}
       {quickOpen && (
         <QuickItemModal
           currency={currency}
@@ -413,8 +440,10 @@ function CartPanel({
         <p className="py-8 text-center text-sm text-brand-900/40 dark:text-white/40">Tap products to add them.</p>
       ) : (
         <div className="max-h-[46vh] space-y-2 overflow-y-auto">
-          {cart.map((l) => (
-            <div key={l.productId} className="flex items-center gap-2">
+          {cart.map((l) => {
+            const k = l.productId + '␟' + (l.variant ?? '')
+            return (
+            <div key={k} className="flex items-center gap-2">
               <div className="min-w-0 flex-1">
                 <div className="truncate text-sm font-semibold text-brand-900 dark:text-white">{l.name}</div>
                 <div className="text-xs text-brand-900/50 dark:text-white/50">
@@ -423,7 +452,7 @@ function CartPanel({
                 </div>
               </div>
               <div className="flex items-center gap-1">
-                <button className="rounded-lg bg-black/5 p-1.5 dark:bg-white/10" onClick={() => setQty(l.productId, Math.round((l.qty - 1) * 100) / 100)}>
+                <button className="rounded-lg bg-black/5 p-1.5 dark:bg-white/10" onClick={() => setQty(k, Math.round((l.qty - 1) * 100) / 100)}>
                   <Minus size={14} />
                 </button>
                 {l.unit ? (
@@ -433,22 +462,22 @@ function CartPanel({
                     value={l.qty || ''}
                     onChange={(e) => {
                       const v = parseFloat(e.target.value)
-                      setQty(l.productId, isNaN(v) ? 0.01 : v)
+                      setQty(k, isNaN(v) ? 0.01 : v)
                     }}
                   />
                 ) : (
                   <span className="w-7 text-center font-bold text-brand-900 dark:text-white">{l.qty}</span>
                 )}
-                <button className="rounded-lg bg-black/5 p-1.5 dark:bg-white/10" onClick={() => setQty(l.productId, Math.round((l.qty + 1) * 100) / 100)}>
+                <button className="rounded-lg bg-black/5 p-1.5 dark:bg-white/10" onClick={() => setQty(k, Math.round((l.qty + 1) * 100) / 100)}>
                   <Plus size={14} />
                 </button>
               </div>
               <div className="w-20 text-right text-sm font-bold text-brand-900 dark:text-white">{money(l.price * l.qty, currency)}</div>
-              <button className="text-red-400" onClick={() => setQty(l.productId, 0)}>
+              <button className="text-red-400" onClick={() => setQty(k, 0)}>
                 <Trash2 size={15} />
               </button>
             </div>
-          ))}
+          )})}
         </div>
       )}
 

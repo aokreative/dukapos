@@ -75,10 +75,15 @@ export async function askAI({ question, context, history, persona }) {
     contents,
     config: {
       systemInstruction,
-      maxOutputTokens: 800,
+      // Generous cap so answers are never cut off mid-sentence. (The old 800
+      // truncated longer replies — the "leaves answers halfway" bug.)
+      maxOutputTokens: 2048,
       temperature: 0.3,
     },
   })
-  const answer = (response.text || '').trim()
+  let answer = (response.text || '').trim()
+  // If the model still hit the ceiling, tidy the tail so it doesn't end abruptly.
+  const finish = response.candidates?.[0]?.finishReason
+  if (finish === 'MAX_TOKENS' && answer) answer += ' …'
   return { configured: true, answer: answer || 'I could not produce an answer — please try rephrasing.' }
 }

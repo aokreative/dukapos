@@ -240,6 +240,7 @@ function ProductForm({
     unit?: string
     thumb?: string
     brand?: string
+    variants?: string[]
     wholesalePrice?: number
     wholesaleMinQty?: number
     expiryDate?: string
@@ -258,6 +259,7 @@ function ProductForm({
   const [unit, setUnit] = useState<string>(product?.unit ?? 'pc')
   const [thumb, setThumb] = useState<string>(product?.thumb ?? '')
   const [brand, setBrand] = useState<string>(product?.brand ?? '')
+  const [variants, setVariants] = useState<string>((product?.variants ?? []).join(', '))
   const all = useStore((s) => s.products)
   const existingCategories = useMemo(() => [...new Set(all.map((p) => p.category).filter(Boolean))].sort(), [all])
   const existingBrands = useMemo(() => [...new Set(all.map((p) => p.brand).filter((b): b is string => !!b))].sort(), [all])
@@ -348,6 +350,11 @@ function ProductForm({
             )}
           </div>
         </div>
+        <div>
+          <label className="label">Variations (optional) — colours / sizes</label>
+          <input className="input" value={variants} onChange={(e) => setVariants(e.target.value)} placeholder="e.g. Red, Blue, Black  ·  or  S, M, L, XL" />
+          <p className="mt-1 text-xs text-brand-900/50 dark:text-white/50">Separate with commas. At the till, the cashier picks one and it's printed on the receipt.</p>
+        </div>
         {features.wholesale && (
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -415,6 +422,9 @@ function ProductForm({
               unit: unit !== 'pc' ? unit : undefined,
               thumb: thumb || undefined,
               brand: brand.trim() || undefined,
+              variants: variants.split(',').map((v) => v.trim()).filter(Boolean).length
+                ? variants.split(',').map((v) => v.trim()).filter(Boolean)
+                : undefined,
               wholesalePrice: features.wholesale && wholesalePrice > 0 ? wholesalePrice : undefined,
               wholesaleMinQty: features.wholesale && wholesalePrice > 0 ? wholesaleMinQty || 12 : undefined,
               expiryDate: features.expiry && expiryDate ? expiryDate : undefined,

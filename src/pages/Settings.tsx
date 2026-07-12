@@ -402,12 +402,18 @@ function CloudSection() {
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
+  const [recovery, setRecovery] = useState(false)
+  const [newPassword, setNewPassword] = useState('')
 
   useEffect(() => {
     const sb = supabase()
     if (!sb) return
     sb.auth.getSession().then(({ data }) => setSessionEmail(data.session?.user?.email ?? null))
-    const { data } = sb.auth.onAuthStateChange((_e, s) => setSessionEmail(s?.user?.email ?? null))
+    const { data } = sb.auth.onAuthStateChange((event, s) => {
+      setSessionEmail(s?.user?.email ?? null)
+      // Fired when the user returns via the "reset password" email link.
+      if (event === 'PASSWORD_RECOVERY') setRecovery(true)
+    })
     return () => data.subscription.unsubscribe()
   }, [])
 
@@ -422,6 +428,31 @@ function CloudSection() {
     setBusy(false)
     if (error) setMsg(error.message)
     else setMsg(create ? 'Account created — this shop now syncs across devices.' : 'Signed in — syncing.')
+  }
+
+  async function resetPassword() {
+    const sb = supabase()
+    if (!sb || !email) return setMsg('Enter your account email first, then tap “Forgot password”.')
+    setBusy(true)
+    setMsg('')
+    const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin })
+    setBusy(false)
+    setMsg(error ? error.message : `Reset link sent to ${email}. Open it on this device, then set a new password here.`)
+  }
+
+  async function updatePassword() {
+    const sb = supabase()
+    if (!sb || newPassword.length < 6) return
+    setBusy(true)
+    setMsg('')
+    const { error } = await sb.auth.updateUser({ password: newPassword })
+    setBusy(false)
+    if (error) setMsg(error.message)
+    else {
+      setMsg('Password updated — you can now sign in with it.')
+      setRecovery(false)
+      setNewPassword('')
+    }
   }
 
   return (
@@ -463,6 +494,20 @@ function CloudSection() {
             <button className="btn-ghost flex-1" disabled={busy || !email || password.length < 6} onClick={() => signIn(true)}>
               Create shop account
             </button>
+          </div>
+          <button className="text-xs font-semibold text-brand-600 underline disabled:opacity-40 dark:text-gold-400" disabled={busy || !email} onClick={resetPassword}>
+            Forgot password?
+          </button>
+        </div>
+      )}
+
+      {/* Set a new password — shown after returning via the reset-email link. */}
+      {cloudConfigured && recovery && (
+        <div className="mt-3 space-y-2 rounded-xl bg-gold-400/10 p-3">
+          <div className="text-sm font-semibold text-brand-900 dark:text-white">Set a new password</div>
+          <div className="flex gap-2">
+            <input className="input" type="password" placeholder="New password (6+ chars)" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
+            <button className="btn-primary shrink-0" disabled={busy || newPassword.length < 6} onClick={updatePassword}>Save</button>
           </div>
         </div>
       )}

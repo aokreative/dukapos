@@ -1,0 +1,82 @@
+// Sales history — review past sales and reprint a receipt any time, long after
+// the sale. Cashiers see only their own sales; owner/manager see everything.
+import { useMemo, useState } from 'react'
+import { Search, ReceiptText, Printer } from 'lucide-react'
+import { PageHeader, EmptyState } from '../components/ui'
+import Receipt from '../components/Receipt'
+import { useStore, selectRole, selectCurrentStaff } from '../store/useStore'
+import { money, shortDateTime } from '../lib/format'
+import type { Sale } from '../types'
+
+export default function Sales() {
+  const sales = useStore((s) => s.sales)
+  const customers = useStore((s) => s.customers)
+  const currency = useStore((s) => s.settings.currency)
+  const role = useStore(selectRole)
+  const me = useStore(selectCurrentStaff)
+  const [q, setQ] = useState('')
+  const [selected, setSelected] = useState<Sale | null>(null)
+
+  const nameOf = (id?: string) => (id ? customers.find((c) => c.id === id)?.name : undefined)
+
+  // Cashiers only see the sales they made (or that were assigned to them).
+  const mine = useMemo(() => {
+    if (role === 'cashier' && me) return sales.filter((s) => s.cashierName === me.name || s.assignedToName === me.name)
+    return sales
+  }, [sales, role, me])
+
+  const filtered = useMemo(() => {
+    const term = q.trim().toLowerCase()
+    if (!term) return mine
+    return mine.filter((s) => {
+      const cust = (nameOf(s.customerId) || '').toLowerCase()
+      const items = s.lines.map((l) => l.name).join(' ').toLowerCase()
+      return s.receiptNo.toLowerCase().includes(term) || cust.includes(term) || items.includes(term) || s.cashierName.toLowerCase().includes(term)
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mine, q])
+
+  return (
+    <div>
+      <PageHeader
+        title="Sales history"
+        subtitle={role === 'cashier' ? 'Your past sales — tap any to reprint the receipt' : 'Every past sale — tap any to reprint the receipt'}
+      />
+
+      <div className="relative mb-4">
+        <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-brand-900/40 dark:text-white/40" size={18} />
+        <input className="input pl-10" placeholder="Search receipt no., customer, item or cashier" value={q} onChange={(e) => setQ(e.target.value)} />
+      </div>
+
+      {filtered.length === 0 ? (
+        <EmptyState icon={<ReceiptText size={30} />} title="No sales yet" hint="Completed sales appear here. You can reprint any receipt at any time." />
+      ) : (
+        <div className="space-y-2">
+          {filtered.map((s) => {
+            const cust = nameOf(s.customerId)
+            return (
+              <button key={s.id} onClick={() => setSelected(s)} className="card flex w-full items-center gap-3 p-3 text-left transition hover:ring-2 hover:ring-brand-500/30">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-white/10 dark:text-gold-400">
+                  <ReceiptText size={18} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-brand-900 dark:text-white">{money(s.total, currency)}</span>
+                    <span className="text-xs text-brand-900/40 dark:text-white/40">#{s.receiptNo}</span>
+                    {s.creditAmount > 0 && <span className="chip bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300">mkopo</span>}
+                  </div>
+                  <div className="truncate text-xs text-brand-900/50 dark:text-white/50">
+                    {shortDateTime(s.createdAt)} · {s.cashierName}{cust ? ` · ${cust}` : ''} · {s.lines.reduce((a, l) => a + l.qty, 0)} item(s)
+                  </div>
+                </div>
+                <Printer size={16} className="shrink-0 text-brand-900/40 dark:text-white/40" />
+              </button>
+            )
+          })}
+        </div>
+      )}
+
+      <Receipt sale={selected} open={!!selected} onClose={() => setSelected(null)} onNewSale={() => setSelected(null)} />
+    </div>
+  )
+}
