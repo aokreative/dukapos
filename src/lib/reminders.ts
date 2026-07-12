@@ -7,9 +7,28 @@
 // anything from a server, we hand the ready message to WhatsApp / the SMS app.
 // ---------------------------------------------------------------------------
 
-import type { BusinessSettings, Customer, Debt } from '../types'
+import type { BizLocation, BusinessSettings, Customer, Debt } from '../types'
 import type { ShopMpesaCreds } from './api'
 import { money, normalizePhone } from './format'
+
+/**
+ * Merge a branch's own Till/Paybill over the shop default. When a branch has
+ * its own M-PESA number set, sales made there show/collect to THAT number on
+ * receipts and reminders; otherwise the shop-wide default (Settings) applies.
+ */
+export function settingsForLocation(
+  s: BusinessSettings,
+  loc?: Pick<BizLocation, 'mpesaType' | 'mpesaTill' | 'mpesaPaybill' | 'mpesaAccount'> | null,
+): BusinessSettings {
+  if (!loc || !loc.mpesaType) return s
+  return {
+    ...s,
+    mpesaType: loc.mpesaType,
+    mpesaTill: loc.mpesaType === 'till' ? (loc.mpesaTill || '').trim() : s.mpesaTill,
+    mpesaPaybill: loc.mpesaType === 'paybill' ? (loc.mpesaPaybill || '').trim() : s.mpesaPaybill,
+    mpesaAccount: loc.mpesaAccount != null && loc.mpesaAccount !== '' ? loc.mpesaAccount.trim() : s.mpesaAccount,
+  }
+}
 
 /**
  * The shop's OWN M-PESA STK credentials, ready to send to the backend so a

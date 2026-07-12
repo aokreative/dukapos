@@ -26,8 +26,10 @@ export default function Reports() {
   const shifts = useStore((s) => s.shifts)
 
   const stats = useMemo(() => {
+    // Voided (reversed) sales never count towards revenue, profit or cash-up.
+    const live = sales.filter((s) => !s.voided)
     const todayStart = startOfDay(Date.now())
-    const todaySales = sales.filter((s) => s.createdAt >= todayStart)
+    const todaySales = live.filter((s) => s.createdAt >= todayStart)
     const todayRevenue = todaySales.reduce((a, s) => a + s.total, 0)
 
     // Payment method split (today), by tender.
@@ -39,13 +41,13 @@ export default function Reports() {
     for (let i = 6; i >= 0; i--) {
       const dayStart = startOfDay(Date.now() - i * DAY)
       const dayEnd = dayStart + DAY
-      const rev = sales.filter((s) => s.createdAt >= dayStart && s.createdAt < dayEnd).reduce((a, s) => a + s.total, 0)
+      const rev = live.filter((s) => s.createdAt >= dayStart && s.createdAt < dayEnd).reduce((a, s) => a + s.total, 0)
       days.push({ label: new Date(dayStart).toLocaleDateString('en-KE', { weekday: 'short' }), value: rev })
     }
 
     // Top products by revenue (all-time).
     const revByProduct = new Map<string, { name: string; revenue: number; qty: number }>()
-    for (const s of sales)
+    for (const s of live)
       for (const l of s.lines) {
         const cur = revByProduct.get(l.name) ?? { name: l.name, revenue: 0, qty: 0 }
         cur.revenue += l.price * l.qty

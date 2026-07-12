@@ -47,6 +47,14 @@ export interface BizLocation {
   /** Optional salesperson/keeper responsible for this location. */
   assignedStaffId?: string
   createdAt: number
+  // --- Optional per-branch M-PESA override -----------------------------------
+  // A branch with its own Till/Paybill collects into ITS OWN number. When set,
+  // receipts and reminders for sales made at this branch use these instead of
+  // the shop's default (Settings). Leave unset and the shop default applies.
+  mpesaType?: 'till' | 'paybill'
+  mpesaTill?: string
+  mpesaPaybill?: string
+  mpesaAccount?: string
 }
 
 export interface TransferLine {
@@ -291,6 +299,15 @@ export interface Sale {
   pointsEarned?: number
   /** Loyalty points redeemed as payment on this sale. */
   pointsRedeemed?: number
+  // --- Void (reverse a mistaken/faulty sale) ---------------------------------
+  // A voided sale stays in history for the record but is struck through and
+  // excluded from all revenue, profit, cash-up and tax figures. Voiding puts the
+  // stock back, cancels any mkopo debt it created, and reverses loyalty points.
+  voided?: boolean
+  voidedAt?: number
+  /** Who authorised the void (the manager/owner, even if a cashier rang it). */
+  voidedBy?: string
+  voidReason?: string
 }
 
 export type DebtStatus = 'open' | 'settled'

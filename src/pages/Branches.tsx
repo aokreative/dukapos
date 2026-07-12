@@ -325,6 +325,21 @@ function LocationModal({ location, onClose }: { location: BizLocation | null; on
   const [name, setName] = useState(location?.name ?? '')
   const [type, setType] = useState<BizLocation['type']>(location?.type ?? 'branch')
   const [assignedStaffId, setAssigned] = useState(location?.assignedStaffId ?? '')
+  // Optional per-branch Till/Paybill — 'none' means use the shop default.
+  const [mpesaMode, setMpesaMode] = useState<'none' | 'till' | 'paybill'>(location?.mpesaType ?? 'none')
+  const [mpesaTill, setMpesaTill] = useState(location?.mpesaTill ?? '')
+  const [mpesaPaybill, setMpesaPaybill] = useState(location?.mpesaPaybill ?? '')
+  const [mpesaAccount, setMpesaAccount] = useState(location?.mpesaAccount ?? '')
+
+  const mpesaFields =
+    mpesaMode === 'none'
+      ? { mpesaType: undefined, mpesaTill: undefined, mpesaPaybill: undefined, mpesaAccount: undefined }
+      : {
+          mpesaType: mpesaMode,
+          mpesaTill: mpesaMode === 'till' ? mpesaTill.trim() || undefined : undefined,
+          mpesaPaybill: mpesaMode === 'paybill' ? mpesaPaybill.trim() || undefined : undefined,
+          mpesaAccount: mpesaMode === 'paybill' ? mpesaAccount.trim() || undefined : undefined,
+        }
 
   return (
     <Modal open onClose={onClose} title={location ? 'Edit location' : 'Add branch or warehouse'}>
@@ -352,6 +367,38 @@ function LocationModal({ location, onClose }: { location: BizLocation | null; on
             ))}
           </select>
         </div>
+
+        {/* Per-branch M-PESA — only for branches that sell (warehouses don't). */}
+        {type === 'branch' && (
+          <div className="rounded-xl bg-black/5 p-3 dark:bg-white/10">
+            <label className="label">This branch's own M-PESA (optional)</label>
+            <div className="mb-2 flex gap-2">
+              {([['none', 'Shop default'], ['till', 'Own Till'], ['paybill', 'Own Paybill']] as const).map(([v, lbl]) => (
+                <button
+                  key={v}
+                  onClick={() => setMpesaMode(v)}
+                  className={`chip flex-1 justify-center py-2 text-xs ${mpesaMode === v ? 'bg-brand-600 text-white' : 'bg-white text-brand-900/70 dark:bg-white/10 dark:text-white/70'}`}
+                >
+                  {lbl}
+                </button>
+              ))}
+            </div>
+            {mpesaMode === 'till' && (
+              <input className="input py-2 text-sm" inputMode="numeric" placeholder="Till (Buy Goods) number" value={mpesaTill} onChange={(e) => setMpesaTill(e.target.value)} />
+            )}
+            {mpesaMode === 'paybill' && (
+              <div className="space-y-2">
+                <input className="input py-2 text-sm" inputMode="numeric" placeholder="Paybill number" value={mpesaPaybill} onChange={(e) => setMpesaPaybill(e.target.value)} />
+                <input className="input py-2 text-sm" placeholder="Account (optional)" value={mpesaAccount} onChange={(e) => setMpesaAccount(e.target.value)} />
+              </div>
+            )}
+            <p className="mt-2 text-[11px] text-brand-900/50 dark:text-white/50">
+              {mpesaMode === 'none'
+                ? 'Receipts & reminders for this branch use the shop’s Till/Paybill from Settings.'
+                : 'Sales made at this branch show this number on receipts and reminders, so money lands in the right account.'}
+            </p>
+          </div>
+        )}
       </div>
       <div className="mt-5 flex gap-2">
         {location && locations.length > 1 && (
@@ -370,8 +417,8 @@ function LocationModal({ location, onClose }: { location: BizLocation | null; on
           className="btn-primary flex-1"
           disabled={!name.trim()}
           onClick={() => {
-            if (location) updateLocation(location.id, { name: name.trim(), type, assignedStaffId: assignedStaffId || undefined })
-            else addLocation({ name: name.trim(), type, assignedStaffId: assignedStaffId || undefined })
+            if (location) updateLocation(location.id, { name: name.trim(), type, assignedStaffId: assignedStaffId || undefined, ...mpesaFields })
+            else addLocation({ name: name.trim(), type, assignedStaffId: assignedStaffId || undefined, ...mpesaFields })
             onClose()
           }}
         >

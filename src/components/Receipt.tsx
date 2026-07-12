@@ -1,9 +1,11 @@
-import { Printer, MessageCircle, Send, Plus } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Printer, MessageCircle, Send, Plus, Undo2, ShieldAlert } from 'lucide-react'
 import { Modal } from './ui'
-import { useStore } from '../store/useStore'
+import { useStore, selectRole, selectCurrentStaff } from '../store/useStore'
 import type { Sale, BusinessSettings } from '../types'
 import { money, shortDateTime } from '../lib/format'
-import { paymentInstructionsShort, smsLink, whatsappLink, vatIncludedIn } from '../lib/reminders'
+import { can, canStaff } from '../lib/permissions'
+import { paymentInstructionsShort, settingsForLocation, smsLink, whatsappLink, vatIncludedIn } from '../lib/reminders'
 
 const METHOD_LABEL: Record<string, string> = {
   cash: 'Cash',
@@ -13,6 +15,9 @@ const METHOD_LABEL: Record<string, string> = {
   credit: 'Credit (Mkopo)',
   points: 'Points ⭐',
 }
+
+// Quick reasons a cashier can tap instead of typing — the common mistakes.
+const VOID_REASONS = ['Wrong item', 'Wrong quantity', 'Wrong price', 'Wrong size/colour', 'Faulty item', 'Customer cancelled']
 
 export function buildReceiptText(sale: Sale, settings: BusinessSettings): string {
   const shopName = settings.name
@@ -56,6 +61,27 @@ export default function Receipt({
 }) {
   const settings = useStore((s) => s.settings)
   const customers = useStore((s) => s.customers)
+  const locations = useStore((s) => s.locations)
+  const staff = useStore((s) => s.staff)
+  const role = useStore(selectRole)
+  const currentStaff = useStore(selectCurrentStaff)
+  const voidSale = useStore((s) => s.voidSale)
+  // Live voided state so the banner appears the instant the sale is reversed.
+  const voided = useStore((s) => (sale ? !!s.sales.find((x) => x.id === sale.id)?.voided : false))
+
+  const [voidOpen, setVoidOpen] = useState(false)
+  const [reason, setReason] = useState('')
+  const [pin, setPin] = useState('')
+  const [err, setErr] = useState('')
+
+  // Reset the void panel whenever a different receipt is shown.
+  useEffect(() => {
+    setVoidOpen(false)
+    setReason('')
+    setPin('')
+    setErr('')
+  }, [sale?.id])
+
   if (!sale) return null
 
   const customer = sale.customerId ? customers.find((c) => c.id === sale.customerId) : undefined
@@ -63,6 +89,25 @@ export default function Receipt({
   const cashTender = sale.tenders.find((t) => t.method === 'cash')
   const receiptText = buildReceiptText(sale, settings)
   const vat = vatIncludedIn(sale.total, settings)
+  // Sales made at a branch with its own Till/Paybill show THAT number.
+  const branch = locations.find((l) => l.id === sale.locationId)
+  const eff = settingsForLocation(settings, branch)
+  const payTo = paymentInstructionsShort(eff)
+  const canVoidDirect = can(role, 'voidRefund')
+
+  function confirmVoid() {
+    if (!sale) return
+    if (!reason.trim()) return setErr('Please choose or type a reason.')
+    let byName = currentStaff?.name
+    if (!canVoidDirect) {
+      const mgr = staff.find((m) => m.active && m.pin === pin.trim() && canStaff(m, 'voidRefund'))
+      if (!mgr) return setErr('Manager PIN not recognised.')
+      byName = mgr.name
+    }
+    voidSale(sale.id, reason.trim(), byName)
+    setVoidOpen(false)
+    setErr('')
+  }
 
   function printReceipt() {
     const w = window.open('', 'print', 'width=320,height=600')
@@ -87,14 +132,16 @@ export default function Receipt({
         body{width:280px;margin:0 auto;padding:8px}
         h1{font-size:16px;text-align:center;margin:4px 0}
         .muted{text-align:center;color:#333;margin:2px 0}
+        .void{text-align:center;color:#b3261e;font-weight:bold;font-size:15px;border:2px solid #b3261e;padding:4px;margin:6px 0}
         table{width:100%;border-collapse:collapse;margin:6px 0}
         hr{border:none;border-top:1px dashed #000}
         .total{font-weight:bold;font-size:14px}
       </style></head><body>
       <h1>${settings.name}</h1>
-      <div class="muted">${settings.location || ''}</div>
+      <div class="muted">${branch ? branch.name + ' · ' : ''}${settings.location || ''}</div>
+      ${voided ? `<div class="void">VOIDED / REVERSED${sale!.voidReason ? `<br/><span style="font-weight:normal;font-size:11px">${sale!.voidReason}</span>` : ''}</div>` : ''}
       ${settings.etimsEnabled && settings.kraPin ? `<div class="muted">KRA PIN: ${settings.kraPin} · eTIMS</div>` : ''}
-      <div class="muted">${paymentInstructionsShort(settings)}</div>
+      <div class="muted">${payTo}</div>
       <hr/>
       <div>Receipt: ${sale!.receiptNo}</div>
       <div>${shortDateTime(sale!.createdAt)}</div>
@@ -122,10 +169,19 @@ export default function Receipt({
 
   return (
     <Modal open={open} onClose={onClose} title={`Receipt ${sale.receiptNo}`}>
-      <div className="rounded-2xl bg-brand-50 p-4 dark:bg-brand-900">
+      {voided && (
+        <div className="mb-3 flex items-center gap-2 rounded-xl border border-red-300 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-300">
+          <ShieldAlert size={16} className="shrink-0" />
+          <span>
+            Voided / reversed{sale.voidedBy ? ` by ${sale.voidedBy}` : ''}
+            {sale.voidReason ? ` — "${sale.voidReason}"` : ''}. Stock, any debt and points were reversed.
+          </span>
+        </div>
+      )}
+      <div className={`rounded-2xl bg-brand-50 p-4 dark:bg-brand-900 ${voided ? 'opacity-60' : ''}`}>
         <div className="text-center">
           <div className="text-xs uppercase tracking-wide text-brand-900/50 dark:text-white/50">Total</div>
-          <div className="text-3xl font-black text-brand-700 dark:text-gold-400">{money(sale.total, settings.currency)}</div>
+          <div className={`text-3xl font-black text-brand-700 dark:text-gold-400 ${voided ? 'line-through' : ''}`}>{money(sale.total, settings.currency)}</div>
           {vat > 0 && (
             <div className="text-xs text-brand-900/50 dark:text-white/50">Incl. VAT ({settings.vatRate}%): {money(vat, settings.currency)}</div>
           )}
@@ -139,6 +195,7 @@ export default function Receipt({
         <div className="mt-3 border-t border-black/10 pt-3 text-xs text-brand-900/60 dark:border-white/10 dark:text-white/60">
           <div>{shortDateTime(sale.createdAt)}</div>
           <div>Served by {sale.cashierName}{sale.assignedToName ? ` (for ${sale.assignedToName})` : ''}</div>
+          {branch && <div>Branch: {branch.name}</div>}
           {customer && <div>Customer: {customer.name}</div>}
           {sale.note && <div className="italic">Note: "{sale.note}"</div>}
         </div>
@@ -190,6 +247,9 @@ export default function Receipt({
               {customer && <span>Bal: {customer.points ?? 0}</span>}
             </div>
           )}
+          {payTo && payTo !== 'Contact shop' && (
+            <div className="mt-1 text-xs text-brand-900/50 dark:text-white/50">Pay to: {payTo}</div>
+          )}
         </div>
       </div>
 
@@ -213,8 +273,68 @@ export default function Receipt({
         )}
       </div>
 
+      {/* Void / reverse — for a mistaken or faulty sale. Puts stock back, cancels
+          any mkopo debt, and reverses loyalty points. Then ring the correct one. */}
+      {!voided && (
+        <div className="mt-3 border-t border-black/10 pt-3 dark:border-white/10">
+          {!voidOpen ? (
+            <button
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-red-200 py-2 text-sm font-semibold text-red-600 hover:bg-red-50 dark:border-red-500/30 dark:text-red-400 dark:hover:bg-red-500/10"
+              onClick={() => setVoidOpen(true)}
+            >
+              <Undo2 size={16} /> Void / reverse this sale
+            </button>
+          ) : (
+            <div className="rounded-xl bg-red-50 p-3 dark:bg-red-500/10">
+              <p className="mb-2 text-xs font-semibold text-red-700 dark:text-red-300">
+                Reverse this sale? Stock goes back, any credit is cancelled and loyalty points are undone.
+              </p>
+              <div className="mb-2 flex flex-wrap gap-1.5">
+                {VOID_REASONS.map((r) => (
+                  <button
+                    key={r}
+                    onClick={() => { setReason(r); setErr('') }}
+                    className={`chip px-2.5 py-1 text-xs ${reason === r ? 'bg-red-600 text-white' : 'bg-white text-brand-900/70 dark:bg-white/10 dark:text-white/70'}`}
+                  >
+                    {r}
+                  </button>
+                ))}
+              </div>
+              <input
+                className="input py-2 text-sm"
+                placeholder="Reason (required)"
+                value={reason}
+                onChange={(e) => { setReason(e.target.value); setErr('') }}
+              />
+              {!canVoidDirect && (
+                <div className="mt-2">
+                  <label className="mb-1 block text-xs font-semibold text-red-700 dark:text-red-300">Manager PIN to authorise</label>
+                  <input
+                    className="input py-2 text-sm"
+                    inputMode="numeric"
+                    type="password"
+                    placeholder="Manager / owner PIN"
+                    value={pin}
+                    onChange={(e) => { setPin(e.target.value); setErr('') }}
+                  />
+                </div>
+              )}
+              {err && <p className="mt-1.5 text-xs font-semibold text-red-600">{err}</p>}
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <button className="btn-ghost py-2 text-sm" onClick={() => { setVoidOpen(false); setErr(''); setPin('') }}>
+                  Cancel
+                </button>
+                <button className="btn-danger py-2 text-sm" onClick={confirmVoid}>
+                  <Undo2 size={16} /> Void sale
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       <button className="btn-primary mt-3 w-full" onClick={onNewSale}>
-        <Plus size={18} /> New sale
+        <Plus size={18} /> {voided ? 'Ring the correct sale' : 'New sale'}
       </button>
     </Modal>
   )

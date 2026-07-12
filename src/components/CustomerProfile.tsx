@@ -34,7 +34,8 @@ export default function CustomerProfile({ customer, onClose }: { customer: Custo
   const totalOwed = openDebts.reduce((a, d) => a + d.balance, 0)
 
   const customerSales = useMemo(
-    () => sales.filter((s) => s.customerId === customer.id).sort((a, b) => b.createdAt - a.createdAt),
+    // Voided (reversed) sales are left out of the customer's statement entirely.
+    () => sales.filter((s) => s.customerId === customer.id && !s.voided).sort((a, b) => b.createdAt - a.createdAt),
     [sales, customer.id],
   )
   const debtBySaleId = useMemo(() => {

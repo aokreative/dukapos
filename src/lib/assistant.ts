@@ -55,6 +55,8 @@ export interface ShopSnapshot {
   recentReturns?: { when: string; receipt: string; amount: number; how: string; items: string }[]
   /** Items already expired or expiring within 90 days. */
   expiringSoon?: { name: string; date: string; expired: boolean }[]
+  /** Voided (reversed) sales — an integrity signal; frequent voids = watch. */
+  voids?: { today: number; week: number; total: number; recent: { receipt: string; amount: number; by?: string; reason?: string; when: string }[] }
 }
 
 const DAY = 24 * 60 * 60 * 1000
@@ -84,7 +86,11 @@ export function buildShopSnapshot(input: {
    *  their own debts/sales. */
   restrictedFor?: string
 }): ShopSnapshot {
-  const { sales, products, customers, debts, suppliers = [], supplierTxns = [] } = input
+  const { products, customers, debts, suppliers = [], supplierTxns = [] } = input
+  // Voided (reversed) sales are excluded from every figure the assistant sees;
+  // they are surfaced separately below so the owner can spot frequent voids.
+  const sales = input.sales.filter((s) => !s.voided)
+  const voidedSales = input.sales.filter((s) => s.voided)
   const t0 = startOfToday()
   const costOf = new Map(products.map((p) => [p.id, p.cost]))
 
@@ -253,10 +259,29 @@ export function buildShopSnapshot(input: {
     .slice(0, 10)
     .map((x) => ({ name: x.name, date: x.date, expired: x.t < Date.now() }))
 
+  // Voided sales — an integrity signal for the owner (spot frequent reversals).
+  const voidsToday = voidedSales.filter((s) => (s.voidedAt ?? s.createdAt) >= t0)
+  const voidsWeek = voidedSales.filter((s) => (s.voidedAt ?? s.createdAt) >= t0 - 6 * DAY)
+  const voids = voidedSales.length
+    ? {
+        today: voidsToday.length,
+        week: voidsWeek.length,
+        total: voidedSales.length,
+        recent: voidedSales.slice(0, 6).map((s) => ({
+          receipt: s.receiptNo,
+          amount: s.total,
+          by: s.voidedBy,
+          reason: s.voidReason,
+          when: shortDateTime(s.voidedAt ?? s.createdAt),
+        })),
+      }
+    : undefined
+
   const full: ShopSnapshot = {
     businessType: input.businessType,
     staffNames: (input.staff ?? []).filter((m) => m.active).map((m) => `${m.name} (${m.role})`),
     expiringSoon: expiringSoon.length ? expiringSoon : undefined,
+    voids,
     locations: (input.locations ?? []).map((l) => ({ name: l.name, type: l.type })),
     catalog,
     recentSales,
@@ -334,8 +359,18 @@ export function localAnswer(question: string, s: ShopSnapshot): string {
 
   // Cashiers may never see profit/margins/revenue, other staff's numbers,
   // or supplier/payables (money the shop owes) — owner & manager only.
-  if (s.restricted && /(profit|margin|revenue|how much (did|have) (we|i|the shop) (make|made|sell)|takings|earn|income|other cashier|fellow|colleague|branch|supplier|wholesaler|distributor|payable|creditor|top customer|best customer|loyal|loyalty|most valuable|biggest (customer|spender)|reward points)/.test(q)) {
-    return 'Sorry — sales totals, profit, supplier payments, top-customer/loyalty and other staff or branch figures are for the owner and manager only. I can help you with stock availability and customer debts.'
+  if (s.restricted && /(profit|margin|revenue|how much (did|have) (we|i|the shop) (make|made|sell)|takings|earn|income|other cashier|fellow|colleague|branch|supplier|wholesaler|distributor|payable|creditor|top customer|best customer|loyal|loyalty|most valuable|biggest (customer|spender)|reward points|void|reversed|cancelled sale|refund)/.test(q)) {
+    return 'Sorry — sales totals, profit, supplier payments, top-customer/loyalty, voids and other staff or branch figures are for the owner and manager only. I can help you with stock availability and customer debts.'
+  }
+
+  // --- "How many voids / reversed sales?" (integrity) -----------------------
+  if (/(void|reversed|cancelled sale|reversal)/.test(q)) {
+    if (!s.voids || s.voids.total === 0) return 'No sales have been voided — clean books ✓'
+    const list = s.voids.recent
+      .map((v) => `• ${v.receipt} — ${money(v.amount, cur)}${v.by ? ` · by ${v.by}` : ''}${v.reason ? ` (${v.reason})` : ''} · ${v.when}`)
+      .join('\n')
+    const flag = s.voids.today >= 3 ? '\n\n⚠️ 3+ voids today — worth a quick look at what is being reversed and by whom.' : ''
+    return `Voided sales: ${s.voids.today} today, ${s.voids.week} this week, ${s.voids.total} in total.\n\nMost recent:\n${list}${flag}`
   }
 
   // --- "How much do X and I owe each other?" (two-way balances) ------------

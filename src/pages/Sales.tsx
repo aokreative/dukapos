@@ -89,9 +89,10 @@ export default function Sales() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="font-bold text-brand-900 dark:text-white">{money(s.total, currency)}</span>
+                    <span className={`font-bold text-brand-900 dark:text-white ${s.voided ? 'line-through opacity-60' : ''}`}>{money(s.total, currency)}</span>
                     <span className="text-xs text-brand-900/40 dark:text-white/40">#{s.receiptNo}</span>
-                    {s.creditAmount > 0 && <span className="chip bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300">mkopo</span>}
+                    {s.voided && <span className="chip bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300">voided</span>}
+                    {!s.voided && s.creditAmount > 0 && <span className="chip bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300">mkopo</span>}
                   </div>
                   <div className="truncate text-xs text-brand-900/50 dark:text-white/50">
                     {shortDateTime(s.createdAt)} · served by {s.cashierName}{s.assignedToName ? ` (for ${s.assignedToName})` : ''}{cust ? ` · ${cust}` : ''}

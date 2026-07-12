@@ -230,6 +230,10 @@ interface State {
 
   // sales + debts
   completeSale: (input: CompleteSaleInput) => Sale
+  /** Reverse a mistaken/faulty completed sale: put stock back, cancel any mkopo
+   *  debt it created, reverse loyalty points, and mark it VOIDED (kept in
+   *  history but excluded from revenue). `byName` records who authorised it. */
+  voidSale: (saleId: string, reason: string, byName?: string) => void
   recordDebtPayment: (debtId: string, amount: number, method: PaymentMethod, ref?: string, note?: string) => void
   markReminderSent: (debtId: string, channel: 'whatsapp' | 'sms') => void
 
@@ -551,9 +555,10 @@ export const useStore = create<State>()(
         if (!staff) return null
         const open = s.shifts.find((sh) => sh.staffId === staff.id && sh.locationId === s.currentLocationId && !sh.closedAt)
         if (!open) return null
-        // Everything this cashier rang up during the shift at this branch.
+        // Everything this cashier rang up during the shift at this branch
+        // (voided sales are excluded — that cash was handed back).
         const mySales = s.sales.filter(
-          (x) => x.createdAt >= open.openedAt && x.cashierName === staff.name && (x.locationId ?? s.currentLocationId) === open.locationId,
+          (x) => !x.voided && x.createdAt >= open.openedAt && x.cashierName === staff.name && (x.locationId ?? s.currentLocationId) === open.locationId,
         )
         const cashIn = mySales.reduce((a, x) => a + x.tenders.filter((t) => t.method === 'cash').reduce((b, t) => b + t.amount, 0), 0)
         const cashExpenses = s.expenses
@@ -705,6 +710,35 @@ export const useStore = create<State>()(
         })
         return sale
       },
+
+      voidSale: (saleId, reason, byName) =>
+        set((s) => {
+          const sale = s.sales.find((x) => x.id === saleId)
+          if (!sale || sale.voided) return s
+          const who = byName || s.staff.find((m) => m.id === s.currentStaffId)?.name || 'Staff'
+          // Goods go back on the shelf at the branch that made the sale.
+          const loc = sale.locationId ?? s.currentLocationId
+          const products = s.products.map((p) => {
+            if (p.trackStock === false) return p
+            const qty = sale.lines.filter((l) => l.productId === p.id).reduce((a, l) => a + l.qty, 0)
+            return qty > 0 ? { ...p, stockByLocation: withStockDelta(p, loc, qty) } : p
+          })
+          // Reverse loyalty: take back points earned, return points redeemed.
+          const customers =
+            sale.customerId && (sale.pointsEarned || sale.pointsRedeemed)
+              ? s.customers.map((c) =>
+                  c.id === sale.customerId
+                    ? { ...c, points: Math.max(0, (c.points || 0) - (sale.pointsEarned || 0) + (sale.pointsRedeemed || 0)) }
+                    : c,
+                )
+              : s.customers
+          // Cancel any mkopo debt this sale created — the whole sale is reversed.
+          const debts = s.debts.filter((d) => d.saleId !== sale.id)
+          const sales = s.sales.map((x) =>
+            x.id === saleId ? { ...x, voided: true, voidedAt: Date.now(), voidedBy: who, voidReason: reason.trim() || undefined } : x,
+          )
+          return { products, customers, debts, sales }
+        }),
 
       recordDebtPayment: (debtId, amount, method, ref, note) =>
         set((s) => ({
