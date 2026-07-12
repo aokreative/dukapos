@@ -4,11 +4,11 @@
 // supply you), every debt in detail with its comment thread, and the complete
 // purchase history with PAID / on credit / cleared badges.
 import { useMemo, useState } from 'react'
-import { Wallet, ReceiptText, CheckCircle2, MessageCircle, Phone, Store, Link2 } from 'lucide-react'
+import { Wallet, ReceiptText, CheckCircle2, MessageCircle, Phone, Store, Link2, Printer, Send } from 'lucide-react'
 import { Modal, Badge } from './ui'
 import { useStore } from '../store/useStore'
 import { money, displayPhone, shortDate, shortDateTime } from '../lib/format'
-import { buildCombinedReminder, whatsappLink } from '../lib/reminders'
+import { buildCombinedReminder, whatsappLink, smsLink } from '../lib/reminders'
 import type { Customer, Debt, PaymentMethod } from '../types'
 
 const METHOD: Record<string, string> = { cash: 'Cash', mpesa: 'M-PESA', airtel: 'Airtel', card: 'Card', credit: 'Credit' }
@@ -46,6 +46,57 @@ export default function CustomerProfile({ customer, onClose }: { customer: Custo
   const shopOwesThem = linkedSupplier
     ? Math.max(0, supplierTxns.reduce((a, t) => (t.supplierId === linkedSupplier.id ? a + (t.type === 'delivery' ? t.amount : -t.amount) : a), 0))
     : 0
+
+  const settledDebts = myDebts.filter((d) => d.status === 'settled')
+  const totalSpent = customerSales.reduce((a, s) => a + s.total, 0)
+  const cur = settings.currency
+
+  // A full account statement the customer can keep — every purchase, how it was
+  // paid, and what (if anything) is still pending. Works long after settlement.
+  function statementText(): string {
+    const rows = customerSales
+      .map((s) => {
+        const debt = debtBySaleId.get(s.id)
+        const tag = !debt || s.creditAmount === 0 ? 'PAID' : debt.status === 'settled' ? 'credit — cleared ✓' : `credit — ${money(debt.balance, cur)} pending`
+        return `${shortDate(s.createdAt)}  ${s.receiptNo}: ${money(s.total, cur)}  [${tag}]`
+      })
+      .join('\n')
+    return (
+      `*${settings.name} — Statement*\n${customer.name} · ${displayPhone(customer.phone)}\nAs of ${shortDate(Date.now())}\n\n` +
+      `${rows || 'No purchases recorded yet.'}\n\n` +
+      `Total purchases: ${money(totalSpent, cur)}\nStill pending: ${totalOwed > 0 ? money(totalOwed, cur) : 'nothing ✓'}` +
+      (customer.points ? `\nPoints: ${customer.points}` : '') +
+      `\n\nAsante! Karibu tena.`
+    )
+  }
+
+  function printStatement() {
+    const w = window.open('', 'print', 'width=380,height=680')
+    if (!w) return
+    const rows = customerSales
+      .map((s) => {
+        const debt = debtBySaleId.get(s.id)
+        const tag = !debt || s.creditAmount === 0 ? 'PAID' : debt.status === 'settled' ? 'cleared ✓' : `${money(debt.balance, cur)} due`
+        const pays = debt && debt.payments.length ? `<div class="pays">${debt.payments.map((p) => `paid ${money(p.amount, cur)} · ${shortDate(p.at)} · ${(p.method || '').toUpperCase()}`).join('<br/>')}</div>` : ''
+        return `<tr><td>${shortDate(s.createdAt)}<br/><span class="r">${s.receiptNo}</span></td><td>${s.lines.map((l) => `${l.qty}× ${l.name}`).join(', ')}${pays}</td><td class="a">${money(s.total, cur)}<br/><span class="tag">${tag}</span></td></tr>`
+      })
+      .join('')
+    w.document.write(`
+      <html><head><title>Statement — ${customer.name}</title>
+      <style>*{font-family:system-ui,Arial,sans-serif;font-size:12px;color:#111}body{max-width:420px;margin:0 auto;padding:16px}h1{font-size:18px;margin:0}.sub{color:#555;font-size:12px;margin:2px 0 12px}table{width:100%;border-collapse:collapse}th,td{text-align:left;border-bottom:1px solid #eee;padding:6px 4px;vertical-align:top}th{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#166534}.a{text-align:right;white-space:nowrap}.r{color:#888}.tag{font-size:10px;color:#666}.pays{color:#0a7a37;font-size:10px;margin-top:2px}.tot{display:flex;justify-content:space-between;margin-top:12px;font-weight:700}.due{color:#b3261e}.muted{color:#888;font-size:11px;margin-top:14px;text-align:center}</style>
+      </head><body>
+      <h1>${settings.name}</h1>
+      <div class="sub">${settings.location || ''} · Customer statement</div>
+      <div><b>${customer.name}</b> · ${displayPhone(customer.phone)}</div>
+      <div class="sub">As of ${shortDateTime(Date.now())}</div>
+      <table><thead><tr><th>Date</th><th>Items / payments</th><th class="a">Amount</th></tr></thead><tbody>${rows || '<tr><td colspan="3">No purchases yet.</td></tr>'}</tbody></table>
+      <div class="tot"><span>Total purchases</span><span>${money(totalSpent, cur)}</span></div>
+      <div class="tot ${totalOwed > 0 ? 'due' : ''}"><span>Still pending</span><span>${totalOwed > 0 ? money(totalOwed, cur) : 'nothing ✓'}</span></div>
+      ${customer.points ? `<div class="tot"><span>Loyalty points</span><span>⭐ ${customer.points}</span></div>` : ''}
+      <div class="muted">Thank you for your business — Asante!</div>
+      </body></html>`)
+    w.document.close(); w.focus(); w.print()
+  }
 
   return (
     <>
@@ -146,6 +197,34 @@ export default function CustomerProfile({ customer, onClose }: { customer: Custo
           </>
         )}
 
+        {/* Settled debts — kept forever so a customer can see how they cleared. */}
+        {settledDebts.length > 0 && (
+          <>
+            <h3 className="mb-1 mt-4 text-xs font-bold uppercase tracking-wide text-brand-900/50 dark:text-white/50">Cleared debts — how they paid</h3>
+            <div className="max-h-48 space-y-1.5 overflow-y-auto pr-1">
+              {settledDebts.map((d) => (
+                <div key={d.id} className="rounded-xl bg-black/5 px-3 py-2 dark:bg-white/10">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-semibold text-brand-900 dark:text-white">{d.receiptNo}</span>
+                    <Badge color="green"><CheckCircle2 size={11} /> cleared</Badge>
+                  </div>
+                  <div className="text-[11px] text-brand-900/50 dark:text-white/50">taken {shortDate(d.createdAt)} · {money(d.originalAmount, settings.currency)}</div>
+                  {d.payments.length > 0 && (
+                    <ul className="mt-1 space-y-0.5 text-xs">
+                      {d.payments.map((p) => (
+                        <li key={p.id} className="flex justify-between text-brand-900/70 dark:text-white/70">
+                          <span>{shortDate(p.at)} · {METHOD[p.method] || p.method}{p.ref ? ` (${p.ref})` : ''}</span>
+                          <span className="font-semibold text-green-700 dark:text-green-400">-{money(p.amount, settings.currency)}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
         {/* Purchase history incl. fully-paid sales */}
         <h3 className="mb-1 mt-4 text-xs font-bold uppercase tracking-wide text-brand-900/50 dark:text-white/50">
           Purchase history (incl. paid)
@@ -182,24 +261,34 @@ export default function CustomerProfile({ customer, onClose }: { customer: Custo
         )}
 
         {/* Actions */}
-        <div className="mt-4 grid grid-cols-2 gap-2">
-          {totalOwed > 0 ? (
-            <>
-              <button className="btn-primary" onClick={() => setPayOpen(true)}>
-                <Wallet size={16} /> Record payment
-              </button>
-              <a
-                className="btn-ghost"
-                href={whatsappLink(customer.phone, buildCombinedReminder(settings, customer, openDebts))}
-                target="_blank"
-                rel="noreferrer"
-              >
-                <MessageCircle size={16} /> Remind
-              </a>
-            </>
-          ) : (
-            <button className="btn-ghost col-span-2" onClick={onClose}>Close</button>
-          )}
+        {totalOwed > 0 && (
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            <button className="btn-primary" onClick={() => setPayOpen(true)}>
+              <Wallet size={16} /> Record payment
+            </button>
+            <a
+              className="btn-ghost"
+              href={whatsappLink(customer.phone, buildCombinedReminder(settings, customer, openDebts))}
+              target="_blank"
+              rel="noreferrer"
+            >
+              <MessageCircle size={16} /> Remind
+            </a>
+          </div>
+        )}
+
+        {/* Statement — full purchase & payment history; works after settlement. */}
+        <h3 className="mb-1 mt-4 text-xs font-bold uppercase tracking-wide text-brand-900/50 dark:text-white/50">Give the customer their statement</h3>
+        <div className="grid grid-cols-3 gap-2">
+          <button className="btn-ghost text-sm" onClick={printStatement}>
+            <Printer size={16} /> Print
+          </button>
+          <a className="btn-ghost text-sm" href={whatsappLink(customer.phone, statementText())} target="_blank" rel="noreferrer">
+            <MessageCircle size={16} /> WhatsApp
+          </a>
+          <a className="btn-ghost text-sm" href={smsLink(customer.phone, statementText())}>
+            <Send size={16} /> SMS
+          </a>
         </div>
       </Modal>
 
