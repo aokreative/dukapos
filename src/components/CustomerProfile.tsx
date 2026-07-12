@@ -250,10 +250,20 @@ export default function CustomerProfile({ customer, onClose }: { customer: Custo
                     </span>
                   </div>
                   <div className="text-[11px] text-brand-900/50 dark:text-white/50">
-                    {shortDateTime(s.createdAt)} · served by {s.cashierName}
-                    {s.assignedToName ? ` (for ${s.assignedToName})` : ''} · {s.lines.map((l) => `${l.qty}× ${l.name}`).join(', ')}
-                    {s.note ? <span className="italic"> · "{s.note}"</span> : ''}
+                    {shortDateTime(s.createdAt)} · served by {s.cashierName}{s.assignedToName ? ` (for ${s.assignedToName})` : ''}
                   </div>
+                  <ul className="mt-1 space-y-0.5 text-[11px] text-brand-900/60 dark:text-white/60">
+                    {s.lines.map((l, i) => (
+                      <li key={i} className="flex justify-between gap-2">
+                        <span>{l.qty}{l.unit ? l.unit : ''}× {l.name} <span className="text-brand-900/35 dark:text-white/35">@ {money(l.price, settings.currency)}</span></span>
+                        <span className="shrink-0 font-semibold">{money(l.price * l.qty, settings.currency)}</span>
+                      </li>
+                    ))}
+                    <li className="flex justify-between gap-2 border-t border-black/5 pt-0.5 dark:border-white/5">
+                      <span>Paid by {s.tenders.map((t) => METHOD[t.method] || t.method).join(', ')}</span>
+                      {s.note ? <span className="italic text-brand-900/40 dark:text-white/40">"{s.note}"</span> : null}
+                    </li>
+                  </ul>
                 </div>
               )
             })}

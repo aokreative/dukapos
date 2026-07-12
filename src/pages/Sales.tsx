@@ -8,6 +8,8 @@ import { useStore, selectRole, selectCurrentStaff } from '../store/useStore'
 import { money, shortDateTime } from '../lib/format'
 import type { Sale } from '../types'
 
+const METHOD_LABEL: Record<string, string> = { cash: 'Cash', mpesa: 'M-PESA', airtel: 'Airtel', card: 'Card', credit: 'Credit', points: 'Points' }
+
 export default function Sales() {
   const sales = useStore((s) => s.sales)
   const customers = useStore((s) => s.customers)
@@ -66,7 +68,10 @@ export default function Sales() {
                     {s.creditAmount > 0 && <span className="chip bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300">mkopo</span>}
                   </div>
                   <div className="truncate text-xs text-brand-900/50 dark:text-white/50">
-                    {shortDateTime(s.createdAt)} · {s.cashierName}{cust ? ` · ${cust}` : ''} · {s.lines.reduce((a, l) => a + l.qty, 0)} item(s)
+                    {shortDateTime(s.createdAt)} · served by {s.cashierName}{s.assignedToName ? ` (for ${s.assignedToName})` : ''}{cust ? ` · ${cust}` : ''}
+                  </div>
+                  <div className="truncate text-xs text-brand-900/40 dark:text-white/40">
+                    {s.lines.map((l) => `${l.qty}× ${l.name}`).join(', ')} · {s.tenders.map((t) => METHOD_LABEL[t.method] || t.method).join(', ')}
                   </div>
                 </div>
                 <Printer size={16} className="shrink-0 text-brand-900/40 dark:text-white/40" />

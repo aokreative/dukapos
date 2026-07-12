@@ -121,7 +121,7 @@ export default function Receipt({
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Sale complete ✓">
+    <Modal open={open} onClose={onClose} title={`Receipt ${sale.receiptNo}`}>
       <div className="rounded-2xl bg-brand-50 p-4 dark:bg-brand-900">
         <div className="text-center">
           <div className="text-xs uppercase tracking-wide text-brand-900/50 dark:text-white/50">Total</div>
@@ -135,7 +135,37 @@ export default function Receipt({
           )}
         </div>
 
-        <div className="mt-4 space-y-1 text-sm">
+        {/* Who served it & when */}
+        <div className="mt-3 border-t border-black/10 pt-3 text-xs text-brand-900/60 dark:border-white/10 dark:text-white/60">
+          <div>{shortDateTime(sale.createdAt)}</div>
+          <div>Served by {sale.cashierName}{sale.assignedToName ? ` (for ${sale.assignedToName})` : ''}</div>
+          {customer && <div>Customer: {customer.name}</div>}
+          {sale.note && <div className="italic">Note: "{sale.note}"</div>}
+        </div>
+
+        {/* Itemised — every item, quantity, unit price and line total */}
+        <div className="mt-3 space-y-1 border-t border-black/10 pt-3 dark:border-white/10">
+          <div className="mb-1 text-[10px] font-bold uppercase tracking-wide text-brand-900/40 dark:text-white/40">Items</div>
+          {sale.lines.map((l, i) => (
+            <div key={i} className="flex justify-between gap-2 text-sm">
+              <span className="min-w-0 text-brand-900/80 dark:text-white/80">
+                <span className="font-semibold">{l.qty}{l.unit ? l.unit : ''} × {l.name}</span>
+                <span className="text-brand-900/40 dark:text-white/40"> @ {money(l.price, settings.currency)}{l.unit ? `/${l.unit}` : ''}</span>
+                {l.warrantyMonths ? <span className="text-brand-900/40 dark:text-white/40"> · {l.warrantyMonths}mo warranty</span> : ''}
+              </span>
+              <span className="shrink-0 font-semibold text-brand-900 dark:text-white">{money(l.price * l.qty, settings.currency)}</span>
+            </div>
+          ))}
+          {sale.discount > 0 && (
+            <div className="flex justify-between border-t border-black/5 pt-1 text-sm text-brand-900/60 dark:border-white/5 dark:text-white/60">
+              <span>Discount</span>
+              <span>-{money(sale.discount, settings.currency)}</span>
+            </div>
+          )}
+        </div>
+
+        <div className="mt-3 space-y-1 border-t border-black/10 pt-3 text-sm dark:border-white/10">
+          <div className="mb-1 text-[10px] font-bold uppercase tracking-wide text-brand-900/40 dark:text-white/40">Payment</div>
           {sale.tenders.map((t, i) => (
             <div key={i} className="flex justify-between text-brand-900/80 dark:text-white/80">
               <span>{METHOD_LABEL[t.method]}{t.ref ? ` · ${t.ref}` : ''}</span>
