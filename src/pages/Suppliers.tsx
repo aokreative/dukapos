@@ -4,9 +4,10 @@
 // Deliveries are itemised: pick catalog items or register brand-new products
 // on the spot, with per-delivery buying prices — stock & costs update live.
 import { useMemo, useState } from 'react'
-import { Truck, Plus, Wallet, ChevronRight, PackageOpen, FileMinus2, Pencil, Trash2, UserRound, Link2, Search, PackagePlus, Printer } from 'lucide-react'
+import { Truck, Plus, Wallet, ChevronRight, PackageOpen, FileMinus2, Pencil, Trash2, UserRound, Link2, Search, PackagePlus, Printer, MessageCircle } from 'lucide-react'
 import { useStore, supplierBalance, selectRole, selectCurrentLocation } from '../store/useStore'
 import { money, displayPhone, normalizePhone, shortDateTime } from '../lib/format'
+import { whatsappLink } from '../lib/reminders'
 import { PageHeader, Modal, Badge, EmptyState } from '../components/ui'
 import { can } from '../lib/permissions'
 import { stockAt } from '../lib/stock'
@@ -530,6 +531,44 @@ function SupplierDetails({ supplier, onClose, onEdit }: { supplier: Supplier; on
     w.document.close(); w.focus(); w.print()
   }
 
+  const totalPurchases = mine.filter((t) => t.type === 'delivery').reduce((a, t) => a + t.amount, 0)
+  const totalPaid = mine.filter((t) => t.type === 'payment').reduce((a, t) => a + t.amount, 0)
+  const balLabel = bal > 0 ? `you owe ${money(bal, currency)}` : bal < 0 ? `${money(-bal, currency)} in your favour` : 'settled ✓'
+
+  function statementText() {
+    const rows = mine
+      .map((t) => `${shortDateTime(t.at)}  ${TXN_LABEL[t.type]}: ${t.type === 'delivery' ? '+' : '−'}${money(t.amount, currency)}${t.lines?.length ? ` (${t.lines.map((l) => `${l.qty}× ${l.name}`).join(', ')})` : t.items ? ` (${t.items})` : ''}`)
+      .join('\n')
+    return (
+      `*${shopName} — Supplier statement*\n${supplier.name} · ${displayPhone(supplier.phone)}\nAs of ${shortDateTime(Date.now())}\n\n` +
+      `${rows || 'No transactions yet.'}\n\n` +
+      `Total purchases: ${money(totalPurchases, currency)}\nTotal paid: ${money(totalPaid, currency)}\nBalance: ${balLabel}\n\nAsante!`
+    )
+  }
+
+  function printStatement() {
+    const w = window.open('', 'print', 'width=400,height=680')
+    if (!w) return
+    const rows = mine
+      .map((t) => `<tr><td>${shortDateTime(t.at)}<br/><span class="r">${TXN_LABEL[t.type]}</span></td><td>${t.lines?.length ? t.lines.map((l) => `${l.qty}× ${l.name}`).join(', ') : t.items || ''}${t.note ? `<div class="n">"${t.note}"</div>` : ''}</td><td class="a" style="color:${t.type === 'delivery' ? '#b3261e' : '#0a7a37'}">${t.type === 'delivery' ? '+' : '−'}${money(t.amount, currency)}</td></tr>`)
+      .join('')
+    w.document.write(`
+      <html><head><title>Supplier statement — ${supplier.name}</title>
+      <style>*{font-family:system-ui,Arial,sans-serif;font-size:12px;color:#111}body{max-width:440px;margin:0 auto;padding:16px}h1{font-size:18px;margin:0}.sub{color:#555;font-size:12px;margin:2px 0 12px}table{width:100%;border-collapse:collapse}th,td{text-align:left;border-bottom:1px solid #eee;padding:6px 4px;vertical-align:top}th{font-size:10px;text-transform:uppercase;color:#166534}.a{text-align:right;white-space:nowrap;font-weight:700}.r{color:#888}.n{color:#666;font-style:italic;font-size:10px}.tot{display:flex;justify-content:space-between;margin-top:12px;font-weight:700}.muted{color:#888;font-size:11px;margin-top:14px;text-align:center}</style>
+      </head><body>
+      <h1>${shopName}</h1>
+      <div class="sub">${shopLocation || ''} · Supplier statement</div>
+      <div><b>${supplier.name}</b> · ${displayPhone(supplier.phone)}</div>
+      <div class="sub">As of ${shortDateTime(Date.now())}</div>
+      <table><thead><tr><th>Date</th><th>Details</th><th class="a">Amount</th></tr></thead><tbody>${rows || '<tr><td colspan="3">No transactions yet.</td></tr>'}</tbody></table>
+      <div class="tot"><span>Total purchases</span><span>${money(totalPurchases, currency)}</span></div>
+      <div class="tot"><span>Total paid</span><span>${money(totalPaid, currency)}</span></div>
+      <div class="tot"><span>Balance</span><span>${balLabel}</span></div>
+      <div class="muted">Asante!</div>
+      </body></html>`)
+    w.document.close(); w.focus(); w.print()
+  }
+
   return (
     <Modal open onClose={onClose} title={`${supplier.name} — record`}>
       <div className="mb-3 rounded-2xl bg-brand-50 p-4 dark:bg-brand-900">
@@ -598,7 +637,16 @@ function SupplierDetails({ supplier, onClose, onEdit }: { supplier: Supplier; on
         </div>
       )}
 
-      <button className="btn-ghost mt-4 w-full" onClick={onClose}>Close</button>
+      <h3 className="mb-1 mt-4 text-xs font-bold uppercase tracking-wide text-brand-900/50 dark:text-white/50">Statement</h3>
+      <div className="grid grid-cols-2 gap-2">
+        <button className="btn-ghost text-sm" onClick={printStatement}>
+          <Printer size={16} /> Print statement
+        </button>
+        <a className="btn-ghost text-sm" href={whatsappLink(supplier.phone, statementText())} target="_blank" rel="noreferrer">
+          <MessageCircle size={16} /> WhatsApp
+        </a>
+      </div>
+      <button className="btn-ghost mt-2 w-full" onClick={onClose}>Close</button>
     </Modal>
   )
 }

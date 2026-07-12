@@ -123,9 +123,9 @@ export default function Products() {
             return (
               <div key={p.id} className="card flex items-center gap-3 p-3">
                 {p.thumb ? (
-                  <img src={p.thumb} alt="" className="h-10 w-10 shrink-0 rounded-lg object-cover" />
+                  <img src={p.thumb} alt="" className="h-14 w-14 shrink-0 rounded-xl object-cover ring-1 ring-black/5 dark:ring-white/10" />
                 ) : (
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-xs font-black text-brand-600 dark:bg-white/10 dark:text-gold-400">
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-base font-black text-brand-600 dark:bg-white/10 dark:text-gold-400">
                     {p.name.charAt(0).toUpperCase()}
                   </div>
                 )}

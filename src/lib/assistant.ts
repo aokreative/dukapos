@@ -21,6 +21,8 @@ export interface CustomerInsight {
   /** Days their oldest open debt has been unpaid (null = nothing open). */
   oldestOpenDays: number | null
   payer: 'prompt' | 'ok' | 'slow' | 'overdue' | 'no history'
+  /** Loyalty points balance. */
+  points: number
 }
 
 export interface ShopSnapshot {
@@ -34,6 +36,8 @@ export interface ShopSnapshot {
   customersDetail: CustomerInsight[]
   /** Who buys what: top buyers per product (registered customers only). */
   buyersByProduct: { product: string; buyers: { name: string; qty: number }[] }[]
+  /** Best/most-valuable customers by lifetime spend (with loyalty points). */
+  topCustomers: { name: string; spent: number; purchases: number; points: number }[]
   suppliersOwed: { name: string; owed: number }[]
   productCount: number
   customerCount: number
@@ -168,8 +172,16 @@ export function buildShopSnapshot(input: {
       avgSettleDays,
       oldestOpenDays,
       payer,
+      points: c.points ?? 0,
     }
   })
+
+  // Best customers by lifetime spend (with their loyalty points).
+  const topCustomers = [...customersDetail]
+    .filter((c) => c.totalSpent > 0 || c.points > 0)
+    .sort((a, b) => b.totalSpent - a.totalSpent)
+    .slice(0, 8)
+    .map((c) => ({ name: c.name, spent: c.totalSpent, purchases: c.purchases, points: c.points }))
 
   // --- Who buys what (registered customers only) ----------------------------
   const buyersMap = new Map<string, Map<string, number>>()
@@ -269,6 +281,7 @@ export function buildShopSnapshot(input: {
     },
     customersDetail,
     buyersByProduct,
+    topCustomers,
     suppliersOwed,
     productCount: products.filter((p) => p.active).length,
     customerCount: customers.length,
@@ -294,6 +307,7 @@ export function buildShopSnapshot(input: {
       topProducts: [],
       customersDetail: [],
       buyersByProduct: [],
+      topCustomers: [],
       suppliersOwed: [],
       productCount: full.productCount,
       customerCount: full.customerCount,
@@ -320,8 +334,8 @@ export function localAnswer(question: string, s: ShopSnapshot): string {
 
   // Cashiers may never see profit/margins/revenue, other staff's numbers,
   // or supplier/payables (money the shop owes) — owner & manager only.
-  if (s.restricted && /(profit|margin|revenue|how much (did|have) (we|i|the shop) (make|made|sell)|takings|earn|income|other cashier|fellow|colleague|branch|supplier|wholesaler|distributor|payable|creditor)/.test(q)) {
-    return 'Sorry — sales totals, profit, supplier payments and other staff or branch figures are for the owner and manager only. I can help you with stock availability and customer debts.'
+  if (s.restricted && /(profit|margin|revenue|how much (did|have) (we|i|the shop) (make|made|sell)|takings|earn|income|other cashier|fellow|colleague|branch|supplier|wholesaler|distributor|payable|creditor|top customer|best customer|loyal|loyalty|most valuable|biggest (customer|spender)|reward points)/.test(q)) {
+    return 'Sorry — sales totals, profit, supplier payments, top-customer/loyalty and other staff or branch figures are for the owner and manager only. I can help you with stock availability and customer debts.'
   }
 
   // --- "How much do X and I owe each other?" (two-way balances) ------------
@@ -378,6 +392,20 @@ export function localAnswer(question: string, s: ShopSnapshot): string {
       out += `${out ? '\n\n' : ''}⚠️ Currently overdue (14+ days): ` + overdue.map((c) => `${c.name} (${money(c.owedToShop, cur)}, ${c.oldestOpenDays}d)`).join(', ')
     }
     return out
+  }
+
+  // --- "Who are my top / most loyal customers?" ----------------------------
+  if (
+    /(top|best|loyal|regular|frequent|valuable|biggest).*(customer|client|buyer|shopper|spender)|(customer|client).*(loyal|reward|spend|spent|most)|loyalty|reward points|most points/.test(q)
+  ) {
+    if (!s.topCustomers || s.topCustomers.length === 0)
+      return 'No customer purchases recorded yet. Attach a customer at checkout and I can rank your best and most loyal shoppers — and their loyalty points.'
+    const wantsPoints = /(point|reward|loyal)/.test(q)
+    const ranked = wantsPoints ? [...s.topCustomers].sort((a, b) => b.points - a.points) : s.topCustomers
+    const list = ranked
+      .map((c, i) => `${i + 1}. ${c.name} — ${money(c.spent, cur)} over ${c.purchases} purchase${c.purchases === 1 ? '' : 's'}${c.points ? ` · ⭐ ${c.points} pts` : ''}`)
+      .join('\n')
+    return `Your ${wantsPoints ? 'most loyal customers (by points)' : 'top customers (by spend)'}:\n${list}\n\nTip: look after the top few — a small reward keeps them loyal.`
   }
 
   // --- "Who do I owe? / Which suppliers do I owe?" (shop → SUPPLIERS) --------
@@ -452,6 +480,7 @@ export function localAnswer(question: string, s: ShopSnapshot): string {
 export const SUGGESTED_QUESTIONS = [
   'How are sales today?',
   'Who owes me money?',
+  'Who are my top customers?',
   'Which suppliers do I owe?',
   'Who pays their debts promptly?',
   'What should I restock?',

@@ -226,22 +226,27 @@ export default function POS() {
             const low = tracked && here <= p.reorderLevel
             const unitTag = p.unit && p.unit !== 'pc' ? `/${p.unit}` : ''
             return (
-              <button key={p.id} onClick={() => add(p)} className="card flex flex-col p-3 text-left transition active:scale-[0.97]">
-                <div className="flex flex-1 gap-2">
-                  {p.thumb && <img src={p.thumb} alt="" className="h-10 w-10 shrink-0 rounded-lg object-cover" />}
-                  <div className="min-w-0">
-                    <div className="line-clamp-2 font-semibold text-brand-900 dark:text-white">{p.name}</div>
-                    <div className="mt-0.5 text-xs text-brand-900/40 dark:text-white/40">{p.category}</div>
+              <button key={p.id} onClick={() => add(p)} className="card flex flex-col overflow-hidden p-0 text-left transition active:scale-[0.97]">
+                {p.thumb && (
+                  <div className="relative">
+                    <img src={p.thumb} alt="" className="h-28 w-full object-cover" />
+                    {p.variants && p.variants.length > 0 && (
+                      <span className="absolute bottom-1 left-1 rounded-md bg-black/55 px-1.5 py-0.5 text-[10px] font-semibold text-white">{p.variants.length} options</span>
+                    )}
                   </div>
-                </div>
-                <div className="mt-2 flex items-end justify-between">
-                  <span className="font-black text-brand-700 dark:text-gold-400">
-                    {money(p.price, currency)}
-                    {unitTag && <span className="text-[10px] font-semibold text-brand-900/40 dark:text-white/40">{unitTag}</span>}
-                  </span>
-                  {tracked && (
-                    <span className={`text-[10px] font-semibold ${low ? 'text-red-500' : 'text-brand-900/40 dark:text-white/40'}`}>{here} left</span>
-                  )}
+                )}
+                <div className="flex flex-1 flex-col p-3">
+                  <div className="line-clamp-2 font-semibold text-brand-900 dark:text-white">{p.name}</div>
+                  <div className="mt-0.5 text-xs text-brand-900/40 dark:text-white/40">{p.category}</div>
+                  <div className="mt-auto flex items-end justify-between pt-2">
+                    <span className="font-black text-brand-700 dark:text-gold-400">
+                      {money(p.price, currency)}
+                      {unitTag && <span className="text-[10px] font-semibold text-brand-900/40 dark:text-white/40">{unitTag}</span>}
+                    </span>
+                    {tracked && (
+                      <span className={`text-[10px] font-semibold ${low ? 'text-red-500' : 'text-brand-900/40 dark:text-white/40'}`}>{here} left</span>
+                    )}
+                  </div>
                 </div>
               </button>
             )
