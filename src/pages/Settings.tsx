@@ -12,6 +12,31 @@ import { ROLE_LABEL, ROLE_BLURB, GRANTABLE, CAP_LABEL } from '../lib/permissions
 import { BUSINESS_TYPE_LABEL, PRESET_FEATURES, FEATURE_LABEL, getFeatures } from '../lib/labels'
 import type { BusinessSettings, BusinessType, Customer, Debt, FeatureFlags, Role, StaffMember } from '../types'
 
+/** Compress an uploaded logo: keep its shape, cap the longest side, PNG so
+ *  transparent backgrounds survive. Small enough to live in settings/sync. */
+function shrinkLogo(file: File): Promise<string> {
+  return new Promise((resolve) => {
+    const img = new Image()
+    const url = URL.createObjectURL(file)
+    img.onload = () => {
+      const max = 240
+      const scale = Math.min(1, max / Math.max(img.width, img.height))
+      const w = Math.max(1, Math.round(img.width * scale))
+      const h = Math.max(1, Math.round(img.height * scale))
+      const canvas = document.createElement('canvas')
+      canvas.width = w
+      canvas.height = h
+      const ctx = canvas.getContext('2d')!
+      ctx.imageSmoothingQuality = 'high'
+      ctx.drawImage(img, 0, 0, w, h)
+      URL.revokeObjectURL(url)
+      resolve(canvas.toDataURL('image/png'))
+    }
+    img.onerror = () => resolve('')
+    img.src = url
+  })
+}
+
 export default function Settings() {
   const settings = useStore((s) => s.settings)
   const updateSettings = useStore((s) => s.updateSettings)
@@ -22,6 +47,9 @@ export default function Settings() {
   const [confirmClear, setConfirmClear] = useState(false)
   const [saved, setSaved] = useState(false)
   const [demoOffer, setDemoOffer] = useState<BusinessType | null>(null)
+  // The full business-type grid stays tucked away once a type is chosen —
+  // clients see only THEIR profile; tap "Change" to see all (demo/testing).
+  const [showTypes, setShowTypes] = useState(false)
 
   function set<K extends keyof BusinessSettings>(key: K, value: BusinessSettings[K]) {
     updateSettings({ [key]: value })
@@ -41,23 +69,38 @@ export default function Settings() {
       {/* Business profile */}
       <Section icon={<Store size={18} />} title="Business profile">
         <Field label="What kind of business is this?">
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            {(Object.keys(BUSINESS_TYPE_LABEL) as BusinessType[]).map((t) => (
-              <button
-                key={t}
-                onClick={() => {
-                  updateSettings({ businessType: t, features: PRESET_FEATURES[t] })
-                  if (demoProductsFor(t)) setDemoOffer(t)
-                }}
-                className={`chip justify-center py-2.5 text-center text-xs sm:text-sm ${(settings.businessType ?? 'shop') === t ? 'bg-brand-600 text-white' : 'bg-black/5 text-brand-900/70 dark:bg-white/10 dark:text-white/70'}`}
-              >
-                {t === 'restaurant' ? <UtensilsCrossed size={13} /> : <Store size={13} />} {BUSINESS_TYPE_LABEL[t]}
+          {!showTypes ? (
+            <div className="flex items-center justify-between rounded-xl bg-black/5 px-3 py-3 dark:bg-white/10">
+              <span className="flex items-center gap-2 text-sm font-semibold text-brand-900 dark:text-white">
+                {(settings.businessType ?? 'shop') === 'restaurant' ? <UtensilsCrossed size={15} /> : <Store size={15} />}
+                {BUSINESS_TYPE_LABEL[settings.businessType ?? 'shop']}
+              </span>
+              <button className="text-xs font-semibold text-brand-600 underline dark:text-gold-400" onClick={() => setShowTypes(true)}>
+                Change type…
               </button>
-            ))}
-          </div>
-          <p className="mt-1 text-xs text-brand-900/40 dark:text-white/40">
-            Picking a type switches on the right extras below — you can still toggle any of them yourself.
-          </p>
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {(Object.keys(BUSINESS_TYPE_LABEL) as BusinessType[]).map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => {
+                      updateSettings({ businessType: t, features: PRESET_FEATURES[t] })
+                      setShowTypes(false)
+                      if (demoProductsFor(t)) setDemoOffer(t)
+                    }}
+                    className={`chip justify-center py-2.5 text-center text-xs sm:text-sm ${(settings.businessType ?? 'shop') === t ? 'bg-brand-600 text-white' : 'bg-black/5 text-brand-900/70 dark:bg-white/10 dark:text-white/70'}`}
+                  >
+                    {t === 'restaurant' ? <UtensilsCrossed size={13} /> : <Store size={13} />} {BUSINESS_TYPE_LABEL[t]}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-1 text-xs text-brand-900/40 dark:text-white/40">
+                Picking a type switches on the right extras below — you can still toggle any of them yourself.
+              </p>
+            </>
+          )}
         </Field>
         <Field label="Extras for your kind of business">
           <div className="space-y-2">
@@ -83,6 +126,37 @@ export default function Settings() {
         <Field label="Shop name">
           <input className="input" value={settings.name} onChange={(e) => set('name', e.target.value)} />
         </Field>
+        <Field label="Business logo (printed on receipts & statements)">
+          <div className="flex items-center gap-3">
+            {settings.logo ? (
+              <img src={settings.logo} alt="logo" className="h-14 w-14 rounded-xl border border-black/10 bg-white object-contain p-1 dark:border-white/10" />
+            ) : (
+              <div className="flex h-14 w-14 items-center justify-center rounded-xl border border-dashed border-black/20 text-xs text-brand-900/40 dark:border-white/20 dark:text-white/40">none</div>
+            )}
+            <label className="btn-ghost cursor-pointer py-2 text-sm">
+              {settings.logo ? 'Change logo' : 'Upload logo'}
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={async (e) => {
+                  const f = e.target.files?.[0]
+                  if (f) {
+                    const data = await shrinkLogo(f)
+                    if (data) set('logo', data)
+                  }
+                  e.target.value = ''
+                }}
+              />
+            </label>
+            {settings.logo && (
+              <button className="text-xs font-semibold text-red-500 underline" onClick={() => set('logo', undefined)}>remove</button>
+            )}
+          </div>
+          <p className="mt-1 text-xs text-brand-900/40 dark:text-white/40">
+            Shows in the app, on printed/PDF receipts, and on customer & supplier statements.
+          </p>
+        </Field>
         <Field label="Tagline (shown on receipt)">
           <input className="input" value={settings.tagline} onChange={(e) => set('tagline', e.target.value)} />
         </Field>
@@ -94,6 +168,18 @@ export default function Settings() {
             <input className="input" value={settings.location} onChange={(e) => set('location', e.target.value)} />
           </Field>
         </div>
+        {/* Contact details printed on receipts & statements */}
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Email (on receipts)">
+            <input className="input" type="email" value={settings.email || ''} onChange={(e) => set('email', e.target.value.trim() || undefined)} placeholder="shop@example.com" />
+          </Field>
+          <Field label="P.O. Box (on receipts)">
+            <input className="input" value={settings.poBox || ''} onChange={(e) => set('poBox', e.target.value || undefined)} placeholder="e.g. P.O. Box 123-00100 Nairobi" />
+          </Field>
+        </div>
+        <Field label="Website (on receipts)">
+          <input className="input" value={settings.website || ''} onChange={(e) => set('website', e.target.value.trim() || undefined)} placeholder="e.g. www.mydukashop.co.ke" />
+        </Field>
         <Field label="Cashier name (on receipts)">
           <input className="input" value={settings.cashierName} onChange={(e) => set('cashierName', e.target.value)} />
         </Field>
@@ -218,6 +304,30 @@ export default function Settings() {
           <span className="text-sm font-medium text-brand-900 dark:text-white">Charge VAT ({settings.vatRate}%)</span>
           <input type="checkbox" className="h-5 w-5 accent-brand-600" checked={settings.vatEnabled} onChange={(e) => set('vatEnabled', e.target.checked)} />
         </label>
+        {settings.vatEnabled && (
+          <Field label="How VAT applies">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <button
+                onClick={() => set('vatMode', 'exclusive')}
+                className={`rounded-xl px-3 py-2.5 text-left text-sm ${settings.vatMode !== 'inclusive' ? 'bg-brand-600 text-white' : 'bg-black/5 text-brand-900/70 dark:bg-white/10 dark:text-white/70'}`}
+              >
+                <span className="block font-semibold">Add on top at checkout</span>
+                <span className={`block text-xs ${settings.vatMode !== 'inclusive' ? 'text-white/80' : 'text-brand-900/50 dark:text-white/50'}`}>
+                  Goods 2,100 + 16% (336) = grand total 2,436. Cashier can switch it off per sale.
+                </span>
+              </button>
+              <button
+                onClick={() => set('vatMode', 'inclusive')}
+                className={`rounded-xl px-3 py-2.5 text-left text-sm ${settings.vatMode === 'inclusive' ? 'bg-brand-600 text-white' : 'bg-black/5 text-brand-900/70 dark:bg-white/10 dark:text-white/70'}`}
+              >
+                <span className="block font-semibold">My prices already include VAT</span>
+                <span className={`block text-xs ${settings.vatMode === 'inclusive' ? 'text-white/80' : 'text-brand-900/50 dark:text-white/50'}`}>
+                  Customer pays the shelf price; the receipt states the VAT portion inside it.
+                </span>
+              </button>
+            </div>
+          </Field>
+        )}
         <label className="mt-2 flex items-center justify-between rounded-xl bg-black/5 px-3 py-3 dark:bg-white/10">
           <span className="text-sm font-medium text-brand-900 dark:text-white">eTIMS tax invoices (show KRA PIN on receipts)</span>
           <input type="checkbox" className="h-5 w-5 accent-brand-600" checked={!!settings.etimsEnabled} onChange={(e) => set('etimsEnabled', e.target.checked)} />
@@ -423,7 +533,9 @@ function CloudSection() {
     setBusy(true)
     setMsg('')
     const { error } = create
-      ? await sb.auth.signUp({ email, password })
+      ? // Send the confirm-email link back to THIS deployment (not localhost) —
+        // fixes "this link can't be reached" after tapping the email.
+        await sb.auth.signUp({ email, password, options: { emailRedirectTo: window.location.origin } })
       : await sb.auth.signInWithPassword({ email, password })
     setBusy(false)
     if (error) setMsg(error.message)

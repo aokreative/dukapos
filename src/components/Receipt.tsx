@@ -3,7 +3,7 @@ import { Printer, MessageCircle, Send, Plus, Undo2, ShieldAlert } from 'lucide-r
 import { Modal } from './ui'
 import { useStore, selectRole, selectCurrentStaff } from '../store/useStore'
 import type { Sale, BusinessSettings } from '../types'
-import { money, shortDateTime } from '../lib/format'
+import { money, shortDateTime, displayPhone } from '../lib/format'
 import { can, canStaff } from '../lib/permissions'
 import { paymentInstructionsShort, settingsForLocation, smsLink, whatsappLink, vatIncludedIn } from '../lib/reminders'
 
@@ -19,6 +19,13 @@ const METHOD_LABEL: Record<string, string> = {
 // Quick reasons a cashier can tap instead of typing — the common mistakes.
 const VOID_REASONS = ['Wrong item', 'Wrong quantity', 'Wrong price', 'Wrong size/colour', 'Faulty item', 'Customer cancelled']
 
+/** One line of shop contact details: phone · P.O. Box · email · website. */
+export function contactLine(s: BusinessSettings): string {
+  return [s.phone ? `Tel ${displayPhone(s.phone)}` : '', s.poBox || '', s.email || '', s.website || '']
+    .filter(Boolean)
+    .join(' · ')
+}
+
 export function buildReceiptText(sale: Sale, settings: BusinessSettings): string {
   const shopName = settings.name
   const currency = settings.currency
@@ -28,9 +35,14 @@ export function buildReceiptText(sale: Sale, settings: BusinessSettings): string
     .filter((l) => l.warrantyMonths)
     .map((l) => `Warranty: ${l.name} — ${l.warrantyMonths} months`)
     .join('\n')
-  const vat = vatIncludedIn(sale.total, settings)
+  // VAT added on top → show the full breakdown up to the grand total.
+  const vatX = sale.vatAmount ?? 0
+  const goods = Math.round((sale.total - vatX) * 100) / 100
+  const vatIncl = vatX > 0 ? 0 : settings.vatMode === 'inclusive' ? vatIncludedIn(sale.total, settings) : 0
+  const contacts = contactLine(settings)
   return (
     `*${shopName}*\n` +
+    (contacts ? `${contacts}\n` : '') +
     (settings.etimsEnabled && settings.kraPin ? `KRA PIN: ${settings.kraPin} · eTIMS\n` : '') +
     `Receipt ${sale.receiptNo}\n` +
     `${shortDateTime(sale.createdAt)}\n` +
@@ -38,8 +50,10 @@ export function buildReceiptText(sale: Sale, settings: BusinessSettings): string
     `${lines}\n` +
     `--------------------------\n` +
     (sale.discount > 0 ? `Discount: -${money(sale.discount, currency)}\n` : '') +
-    `*TOTAL: ${money(sale.total, currency)}*\n` +
-    (vat > 0 ? `VAT (${settings.vatRate}%) incl.: ${money(vat, currency)}\n` : '') +
+    (vatX > 0
+      ? `Goods: ${money(goods, currency)}\nVAT (${settings.vatRate}%): ${money(vatX, currency)}\n*GRAND TOTAL: ${money(sale.total, currency)}*\n`
+      : `*TOTAL: ${money(sale.total, currency)}*\n` +
+        (vatIncl > 0 ? `VAT (${settings.vatRate}%) incl.: ${money(vatIncl, currency)}\n` : '')) +
     `${tenders}\n` +
     (sale.creditAmount > 0 ? `\nBalance on credit: ${money(sale.creditAmount, currency)}\n` : '') +
     (sale.pointsEarned ? `⭐ Points earned: +${sale.pointsEarned}\n` : '') +
@@ -88,7 +102,10 @@ export default function Receipt({
   const paid = sale.tenders.filter((t) => t.method !== 'credit').reduce((a, t) => a + t.amount, 0)
   const cashTender = sale.tenders.find((t) => t.method === 'cash')
   const receiptText = buildReceiptText(sale, settings)
-  const vat = vatIncludedIn(sale.total, settings)
+  // VAT added on top (stored on the sale) vs. informational VAT-in-price.
+  const vatX = sale.vatAmount ?? 0
+  const goods = Math.round((sale.total - vatX) * 100) / 100
+  const vatIncl = vatX > 0 ? 0 : settings.vatMode === 'inclusive' ? vatIncludedIn(sale.total, settings) : 0
   // Sales made at a branch with its own Till/Paybill show THAT number.
   const branch = locations.find((l) => l.id === sale.locationId)
   const eff = settingsForLocation(settings, branch)
@@ -137,8 +154,10 @@ export default function Receipt({
         hr{border:none;border-top:1px dashed #000}
         .total{font-weight:bold;font-size:14px}
       </style></head><body>
+      ${settings.logo ? `<img src="${settings.logo}" style="display:block;margin:2px auto 4px;max-height:60px;max-width:150px"/>` : ''}
       <h1>${settings.name}</h1>
       <div class="muted">${branch ? branch.name + ' · ' : ''}${settings.location || ''}</div>
+      ${contactLine(settings) ? `<div class="muted">${contactLine(settings)}</div>` : ''}
       ${voided ? `<div class="void">VOIDED / REVERSED${sale!.voidReason ? `<br/><span style="font-weight:normal;font-size:11px">${sale!.voidReason}</span>` : ''}</div>` : ''}
       ${settings.etimsEnabled && settings.kraPin ? `<div class="muted">KRA PIN: ${settings.kraPin} · eTIMS</div>` : ''}
       <div class="muted">${payTo}</div>
@@ -152,8 +171,14 @@ export default function Receipt({
       <hr/>
       <table>
         ${sale!.discount > 0 ? `<tr><td>Discount</td><td style="text-align:right">-${money(sale!.discount, settings.currency)}</td></tr>` : ''}
-        <tr class="total"><td>TOTAL</td><td style="text-align:right">${money(sale!.total, settings.currency)}</td></tr>
-        ${vat > 0 ? `<tr><td>VAT (${settings.vatRate}%) incl.</td><td style="text-align:right">${money(vat, settings.currency)}</td></tr>` : ''}
+        ${
+          vatX > 0
+            ? `<tr><td>Goods</td><td style="text-align:right">${money(goods, settings.currency)}</td></tr>
+               <tr><td>VAT (${settings.vatRate}%)</td><td style="text-align:right">${money(vatX, settings.currency)}</td></tr>
+               <tr class="total"><td>GRAND TOTAL</td><td style="text-align:right">${money(sale!.total, settings.currency)}</td></tr>`
+            : `<tr class="total"><td>TOTAL</td><td style="text-align:right">${money(sale!.total, settings.currency)}</td></tr>
+               ${vatIncl > 0 ? `<tr><td>VAT (${settings.vatRate}%) incl.</td><td style="text-align:right">${money(vatIncl, settings.currency)}</td></tr>` : ''}`
+        }
         ${tenders}
         ${sale!.creditAmount > 0 ? `<tr><td>On credit</td><td style="text-align:right">${money(sale!.creditAmount, settings.currency)}</td></tr>` : ''}
         ${sale!.pointsEarned ? `<tr><td>Points earned</td><td style="text-align:right">+${sale!.pointsEarned}</td></tr>` : ''}
@@ -180,10 +205,17 @@ export default function Receipt({
       )}
       <div className={`rounded-2xl bg-brand-50 p-4 dark:bg-brand-900 ${voided ? 'opacity-60' : ''}`}>
         <div className="text-center">
-          <div className="text-xs uppercase tracking-wide text-brand-900/50 dark:text-white/50">Total</div>
+          {settings.logo && <img src={settings.logo} alt="" className="mx-auto mb-1 max-h-12 max-w-[130px] object-contain" />}
+          {contactLine(settings) !== '' && (
+            <div className="mb-1 text-[10px] leading-tight text-brand-900/40 dark:text-white/40">{contactLine(settings)}</div>
+          )}
+          <div className="text-xs uppercase tracking-wide text-brand-900/50 dark:text-white/50">{vatX > 0 ? 'Grand total' : 'Total'}</div>
           <div className={`text-3xl font-black text-brand-700 dark:text-gold-400 ${voided ? 'line-through' : ''}`}>{money(sale.total, settings.currency)}</div>
-          {vat > 0 && (
-            <div className="text-xs text-brand-900/50 dark:text-white/50">Incl. VAT ({settings.vatRate}%): {money(vat, settings.currency)}</div>
+          {vatX > 0 && (
+            <div className="text-xs text-brand-900/60 dark:text-white/60">Goods {money(goods, settings.currency)} + VAT ({settings.vatRate}%) {money(vatX, settings.currency)}</div>
+          )}
+          {vatIncl > 0 && (
+            <div className="text-xs text-brand-900/50 dark:text-white/50">Incl. VAT ({settings.vatRate}%): {money(vatIncl, settings.currency)}</div>
           )}
           <div className="text-xs text-brand-900/50 dark:text-white/50">Receipt {sale.receiptNo}</div>
           {settings.etimsEnabled && settings.kraPin && (

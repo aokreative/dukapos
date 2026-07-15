@@ -28,7 +28,7 @@ export function Modal({
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center" role="dialog" aria-modal="true">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
       <div
-        className={`relative z-10 max-h-[92vh] w-full overflow-y-auto rounded-t-3xl bg-white p-5 shadow-xl dark:bg-brand-800 sm:rounded-3xl ${
+        className={`relative z-10 max-h-[92vh] w-full overflow-y-auto rounded-t-3xl bg-white/85 p-5 shadow-xl ring-1 ring-white/50 backdrop-blur-2xl dark:bg-brand-800/85 dark:ring-white/10 sm:rounded-3xl ${
           wide ? 'sm:max-w-2xl' : 'sm:max-w-md'
         }`}
       >

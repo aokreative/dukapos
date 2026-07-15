@@ -54,10 +54,45 @@ export function shopMpesaCreds(s: BusinessSettings): ShopMpesaCreds | null {
   }
 }
 
-/** VAT that is *included* in a VAT-inclusive total (Kenyan convention). */
+/** VAT that is *included* in a VAT-inclusive total (for shops whose shelf
+ *  prices already contain VAT — vatMode 'inclusive'). */
 export function vatIncludedIn(total: number, s: Pick<BusinessSettings, 'vatEnabled' | 'vatRate'>): number {
   if (!s.vatEnabled || !s.vatRate) return 0
   return Math.round((total * s.vatRate) / (100 + s.vatRate))
+}
+
+/** VAT to ADD ON TOP of a goods amount (vatMode 'exclusive', the default):
+ *  goods 2,100 → VAT 336 → grand total 2,436. Returns 0 when VAT is off or
+ *  prices are configured as VAT-inclusive. */
+export function vatAddedTo(goods: number, s: Pick<BusinessSettings, 'vatEnabled' | 'vatRate' | 'vatMode'>): number {
+  if (!s.vatEnabled || !s.vatRate || s.vatMode === 'inclusive') return 0
+  return Math.round((goods * s.vatRate) / 100)
+}
+
+/**
+ * STK credentials for the branch this device is selling at. A branch that has
+ * its own till/Paybill AND its own Daraja keys prompts into ITS OWN account;
+ * otherwise we fall back to the shop-level keys from Settings (and if those
+ * are off too, the till simply takes manual payment).
+ */
+export function branchMpesaCreds(s: BusinessSettings, loc?: BizLocation | null): ShopMpesaCreds | null {
+  if (loc?.stkEnabled) {
+    const shortcode = ((loc.mpesaType === 'paybill' ? loc.mpesaPaybill : loc.mpesaTill) || '').trim()
+    const key = (loc.stkConsumerKey || '').trim()
+    const secret = (loc.stkConsumerSecret || '').trim()
+    const passkey = (loc.stkPasskey || '').trim()
+    if (key && secret && passkey && shortcode) {
+      return {
+        consumerKey: key,
+        consumerSecret: secret,
+        passkey,
+        shortcode,
+        env: loc.stkEnv === 'sandbox' ? 'sandbox' : 'production',
+        txType: loc.mpesaType === 'paybill' ? 'CustomerPayBillOnline' : 'CustomerBuyGoodsOnline',
+      }
+    }
+  }
+  return shopMpesaCreds(s)
 }
 
 /**

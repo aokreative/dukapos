@@ -19,6 +19,7 @@ export default function Reports() {
   const currency = useStore((s) => s.settings.currency)
   const shopName = useStore((s) => s.settings.name)
   const shopPhone = useStore((s) => s.settings.phone)
+  const shopLogo = useStore((s) => s.settings.logo)
   const totalOwed = useStore(selectTotalOwed)
   const expenses = useStore((s) => s.expenses)
   const debts = useStore((s) => s.debts)
@@ -31,6 +32,8 @@ export default function Reports() {
     const todayStart = startOfDay(Date.now())
     const todaySales = live.filter((s) => s.createdAt >= todayStart)
     const todayRevenue = todaySales.reduce((a, s) => a + s.total, 0)
+    // VAT charged on top today — collected for KRA, never counted as profit.
+    const vatToday = Math.round(todaySales.reduce((a, s) => a + (s.vatAmount || 0), 0) * 100) / 100
 
     // Payment method split (today), by tender.
     const methodSplit: Record<PaymentMethod, number> = { cash: 0, mpesa: 0, airtel: 0, card: 0, credit: 0, points: 0 }
@@ -63,8 +66,10 @@ export default function Reports() {
     const costOf = new Map(products.map((p) => [p.id, p.cost]))
     let cogs = 0
     for (const s of todaySales) for (const l of s.lines) cogs += (costOf.get(l.productId) ?? 0) * l.qty
-    const grossProfit = Math.round((todayRevenue - cogs) * 100) / 100
-    const marginPct = todayRevenue > 0 ? Math.round((grossProfit / todayRevenue) * 100) : 0
+    // Profit is on the goods money only — the VAT portion belongs to KRA.
+    const netRevenue = Math.round((todayRevenue - vatToday) * 100) / 100
+    const grossProfit = Math.round((netRevenue - cogs) * 100) / 100
+    const marginPct = netRevenue > 0 ? Math.round((grossProfit / netRevenue) * 100) : 0
     const expensesToday = expenses.filter((e) => e.at >= todayStart).reduce((a, e) => a + e.amount, 0)
     const netProfit = Math.round((grossProfit - expensesToday) * 100) / 100
     const suppliersPaidToday = supplierTxns
@@ -108,7 +113,7 @@ export default function Reports() {
       stockValue,
       potentialProfit,
       cashiers,
-      dayClose: { cogs, grossProfit, marginPct, expensesToday, netProfit, suppliersPaidToday, debtsCollectedToday, mostSold, topMargin, shiftsToday },
+      dayClose: { cogs, grossProfit, marginPct, expensesToday, netProfit, suppliersPaidToday, debtsCollectedToday, vatToday, mostSold, topMargin, shiftsToday },
     }
   }, [sales, products, expenses, debts, supplierTxns, shifts])
 
@@ -236,6 +241,7 @@ export default function Reports() {
         currency={currency}
         shopName={shopName}
         shopPhone={shopPhone}
+        logo={shopLogo}
         revenue={stats.todayRevenue}
         txCount={stats.todayCount}
         d={stats.dayClose}
@@ -249,6 +255,7 @@ function DayCloseCard({
   currency,
   shopName,
   shopPhone,
+  logo,
   revenue,
   txCount,
   d,
@@ -257,6 +264,7 @@ function DayCloseCard({
   currency: string
   shopName: string
   shopPhone: string
+  logo?: string
   revenue: number
   txCount: number
   d: {
@@ -267,6 +275,7 @@ function DayCloseCard({
     netProfit: number
     suppliersPaidToday: number
     debtsCollectedToday: number
+    vatToday: number
     mostSold?: { name: string; qty: number }
     topMargin: { name: string; qty: number; profit: number }[]
     shiftsToday: { id: string; staffName: string; closedAt?: number; totalSales?: number; variance?: number }[]
@@ -284,6 +293,7 @@ function DayCloseCard({
     ['Debts collected', money(d.debtsCollectedToday, currency)],
     ['Suppliers paid (stock, not expense)', money(d.suppliersPaidToday, currency)],
   ]
+  if (d.vatToday > 0) rows.push(['VAT collected (belongs to KRA)', money(d.vatToday, currency)])
   if (d.mostSold) rows.push(['Most sold product', `${d.mostSold.name} (${d.mostSold.qty} sold)`])
 
   const summaryText =
@@ -308,6 +318,7 @@ function DayCloseCard({
         h2{font-size:13px;margin:16px 0 4px;text-transform:uppercase;letter-spacing:.05em;color:#166534}
         .muted{color:#777;font-size:11px;margin-top:16px}
       </style></head><body>
+      ${logo ? `<img src="${logo}" style="display:block;margin:0 0 8px;max-height:56px;max-width:150px"/>` : ''}
       <h1>${shopName} — Close of Business</h1>
       <div class="sub">${today}</div>
       <table>

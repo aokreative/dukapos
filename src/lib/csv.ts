@@ -194,7 +194,7 @@ export function customersToCSV(customers: Customer[]): (string | number)[][] {
 
 export function salesToCSV(sales: Sale[], customerName: (id?: string) => string): (string | number)[][] {
   return [
-    ['Date', 'Receipt', 'Customer', 'Items', 'Subtotal', 'Discount', 'Total', 'Payment', 'Cashier', 'Note'],
+    ['Date', 'Receipt', 'Customer', 'Items', 'Subtotal', 'Discount', 'VAT', 'Total', 'Payment', 'Cashier', 'Note'],
     // Voided (reversed) sales are not exported — they are not revenue.
     ...sales.filter((s) => !s.voided).map((s) => [
       new Date(s.createdAt).toISOString(),
@@ -203,6 +203,7 @@ export function salesToCSV(sales: Sale[], customerName: (id?: string) => string)
       s.lines.map((l) => `${l.qty}x ${l.name}`).join('; '),
       s.subtotal,
       s.discount,
+      s.vatAmount ?? 0,
       s.total,
       s.tenders.map((t) => `${t.method}:${t.amount}`).join('; '),
       s.cashierName,

@@ -50,6 +50,8 @@ export function PaySubscriptionModal({
   const [phone, setPhone] = useState(displayPhone(settings.phone))
   const [state, setState] = useState<'idle' | 'pending' | 'done' | 'error'>('idle')
   const [detail, setDetail] = useState('')
+  // True when the server confirmed WITHOUT moving real money (no Daraja keys).
+  const [wasSimulated, setWasSimulated] = useState(false)
 
   async function refreshServer() {
     if (isLive && tenantId) {
@@ -58,14 +60,17 @@ export function PaySubscriptionModal({
     }
   }
 
-  function finishOk() {
+  function finishOk(simulated: boolean) {
+    setWasSimulated(simulated)
     recordSubscriptionPayment(planId, cycle, 'mpesa')
     setState('done')
+    // Give the TEST warning time to be read; real payments close quickly.
     setTimeout(() => {
       onPaid()
       onClose()
       setState('idle')
-    }, 1100)
+      setWasSimulated(false)
+    }, simulated ? 3500 : 1100)
   }
 
   async function pay() {
@@ -86,9 +91,10 @@ export function PaySubscriptionModal({
       return
     }
     if (res.simulated) {
-      // Demo mode or a backend without M-PESA keys: treat as paid.
+      // No Daraja keys on the server (or no backend at all): the payment is
+      // SIMULATED for demos — clearly labelled so nobody mistakes it for money.
       setTimeout(refreshServer, 1800) // server renews the tenant shortly after
-      finishOk()
+      finishOk(true)
       return
     }
     // Real STK push initiated — wait for the customer to confirm on their phone.
@@ -104,7 +110,7 @@ export function PaySubscriptionModal({
     }
     if (confirmed) {
       await refreshServer()
-      finishOk()
+      finishOk(false)
     } else {
       setState('error')
       setDetail('Payment not completed. If you entered your PIN, give it a moment and check the Billing page.')
@@ -120,10 +126,22 @@ export function PaySubscriptionModal({
       </div>
 
       {state === 'done' ? (
-        <div className="mt-5 flex flex-col items-center gap-2 py-4 text-green-600 dark:text-green-400">
-          <Check size={40} />
-          <p className="font-semibold">Payment received — account active for 30 days.</p>
-        </div>
+        wasSimulated ? (
+          <div className="mt-5 rounded-2xl bg-amber-50 p-4 text-center dark:bg-amber-500/10">
+            <AlertTriangle size={36} className="mx-auto text-amber-500" />
+            <p className="mt-2 font-bold text-amber-700 dark:text-amber-300">TEST payment — no real money was taken</p>
+            <p className="mt-1 text-sm text-amber-800/80 dark:text-amber-200/80">
+              This server has no M-PESA (Daraja) keys yet, so payments are simulated for demos.
+              The account is marked active for testing only. Add your Daraja keys on the server
+              (MPESA_CONSUMER_KEY, SECRET, SHORTCODE, PASSKEY) to collect real subscriptions into your till.
+            </p>
+          </div>
+        ) : (
+          <div className="mt-5 flex flex-col items-center gap-2 py-4 text-green-600 dark:text-green-400">
+            <Check size={40} />
+            <p className="font-semibold">Payment received — account active for 30 days.</p>
+          </div>
+        )
       ) : (
         <>
           <div className="mt-4">

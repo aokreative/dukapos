@@ -262,7 +262,10 @@ function ProductForm({
   const [cost, setCost] = useState<number>(product?.cost ?? 0)
   const [stock, setStock] = useState<number>(product ? stockAt(product, locId) : 0)
   const [reorderLevel, setReorder] = useState<number>(product?.reorderLevel ?? 5)
-  const [trackStock, setTrackStock] = useState<boolean>(product?.trackStock !== false)
+  // New restaurant dishes are made to order — stock counting off by default.
+  const [trackStock, setTrackStock] = useState<boolean>(
+    product ? product.trackStock !== false : useStore.getState().settings.businessType !== 'restaurant',
+  )
   const [unit, setUnit] = useState<string>(product?.unit ?? 'pc')
   const [thumb, setThumb] = useState<string>(product?.thumb ?? '')
   const [brand, setBrand] = useState<string>(product?.brand ?? '')

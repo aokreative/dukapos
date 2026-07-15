@@ -75,7 +75,18 @@ export default function POS() {
     return { price: p.price, wholesale: false }
   }
 
+  /** How many units of this product the cart already holds (all variants share
+   *  the same stock). Tracked items can never be sold beyond what's on the
+   *  shelf at THIS branch. */
+  function inCartQty(productId: string, excludeKey?: string): number {
+    return cart.filter((l) => l.productId === productId && lineKey(l) !== excludeKey).reduce((a, l) => a + l.qty, 0)
+  }
+
   function add(p: Product, variant?: string) {
+    const tracked = p.trackStock !== false
+    // Never sell what isn't there: tracked items with nothing left at this
+    // branch can't go in the cart (made-to-order items skip the check).
+    if (tracked && stockAt(p, locId) - inCartQty(p.id) <= 0) return
     // A product with variations asks the cashier to pick one first.
     if (p.variants && p.variants.length > 0 && variant === undefined) {
       setVariantFor(p)
@@ -84,12 +95,18 @@ export default function POS() {
     const k = lineKey({ productId: p.id, variant })
     setCart((c) => {
       const found = c.find((l) => lineKey(l) === k)
+      // What this line may hold at most: shelf stock minus its siblings
+      // (other colours/sizes of the same product already in the cart).
+      const others = c.filter((l) => l.productId === p.id && lineKey(l) !== k).reduce((a, l) => a + l.qty, 0)
+      const allowed = tracked ? Math.max(0, stockAt(p, locId) - others) : Infinity
       if (found) {
-        const qty = found.qty + 1
+        const qty = Math.min(found.qty + 1, allowed)
         const { price, wholesale } = priceFor(p, qty)
         return c.map((l) => (lineKey(l) === k ? { ...l, qty, price, wholesale } : l))
       }
-      const { price, wholesale } = priceFor(p, 1)
+      const first = Math.min(1, allowed)
+      if (first <= 0) return c
+      const { price, wholesale } = priceFor(p, first)
       return [
         ...c,
         {
@@ -97,7 +114,7 @@ export default function POS() {
           name: variant ? `${p.name} · ${variant}` : p.name,
           variant,
           price,
-          qty: 1,
+          qty: first,
           wholesale,
           unit: p.unit && p.unit !== 'pc' ? p.unit : undefined,
           warrantyMonths: features.warranty ? p.warrantyMonths : undefined,
@@ -111,8 +128,16 @@ export default function POS() {
       return c.map((l) => {
         if (lineKey(l) !== key) return l
         const p = products.find((x) => x.id === l.productId)
-        const { price, wholesale } = p ? priceFor(p, qty) : { price: l.price, wholesale: l.wholesale ?? false }
-        return { ...l, qty, price, wholesale }
+        // Cap at what's actually on the shelf here (minus other lines of the
+        // same product, e.g. its other colours already in the cart).
+        let capped = qty
+        if (p && p.trackStock !== false) {
+          const allowed = Math.max(0, stockAt(p, locId) - inCartQty(p.id, key))
+          capped = Math.min(qty, allowed)
+          if (capped <= 0) return l // nothing more available — keep as is
+        }
+        const { price, wholesale } = p ? priceFor(p, capped) : { price: l.price, wholesale: l.wholesale ?? false }
+        return { ...l, qty: capped, price, wholesale }
       })
     })
   }
@@ -149,12 +174,13 @@ export default function POS() {
     removeParkedCart(id)
   }
 
-  function onComplete(tenders: Tender[], customerId?: string, extras?: { assignedToName?: string; note?: string }) {
+  function onComplete(tenders: Tender[], customerId?: string, extras?: { assignedToName?: string; note?: string; vatAmount?: number }) {
     const sale = completeSale({ lines: cart, discount, tenders, customerId, ...extras })
     // KRA eTIMS: submit the invoice in the background when enabled.
     const st = useStore.getState().settings
     if (st.etimsEnabled) {
-      const vat = st.vatEnabled ? Math.round((sale.total * st.vatRate) / (100 + st.vatRate)) : 0
+      // VAT actually charged on top; VAT-inclusive shops report the included part.
+      const vat = sale.vatAmount ?? (st.vatEnabled ? Math.round((sale.total * st.vatRate) / (100 + st.vatRate)) : 0)
       void submitEtimsInvoice({
         receiptNo: sale.receiptNo,
         total: sale.total,
@@ -223,10 +249,18 @@ export default function POS() {
           {filtered.map((p) => {
             const here = stockAt(p, locId)
             const tracked = p.trackStock !== false
-            const low = tracked && here <= p.reorderLevel
+            // Out of stock at this branch (counting what's already in the cart)
+            // — the tile goes grey and cannot be sold.
+            const out = tracked && here - inCartQty(p.id) <= 0
+            const low = tracked && !out && here <= p.reorderLevel
             const unitTag = p.unit && p.unit !== 'pc' ? `/${p.unit}` : ''
             return (
-              <button key={p.id} onClick={() => add(p)} className="card flex flex-col overflow-hidden p-0 text-left transition active:scale-[0.97]">
+              <button
+                key={p.id}
+                onClick={() => add(p)}
+                disabled={out}
+                className={`card flex flex-col overflow-hidden p-0 text-left transition ${out ? 'cursor-not-allowed opacity-50 grayscale' : 'active:scale-[0.97]'}`}
+              >
                 {p.thumb && (
                   <div className="relative">
                     <img src={p.thumb} alt="" className="h-28 w-full object-cover" />
@@ -244,7 +278,11 @@ export default function POS() {
                       {unitTag && <span className="text-[10px] font-semibold text-brand-900/40 dark:text-white/40">{unitTag}</span>}
                     </span>
                     {tracked && (
-                      <span className={`text-[10px] font-semibold ${low ? 'text-red-500' : 'text-brand-900/40 dark:text-white/40'}`}>{here} left</span>
+                      out ? (
+                        <span className="rounded-md bg-red-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-red-600 dark:bg-red-500/20 dark:text-red-300">Out of stock</span>
+                      ) : (
+                        <span className={`text-[10px] font-semibold ${low ? 'text-red-500' : 'text-brand-900/40 dark:text-white/40'}`}>{here} left</span>
+                      )
                     )}
                   </div>
                 </div>
@@ -274,6 +312,8 @@ export default function POS() {
           onPark={park}
           held={held}
           canDiscount={canDiscount}
+          parkLabel={labels.park}
+          parkHint={labels.parkHint}
         />
       </div>
 
@@ -311,6 +351,8 @@ export default function POS() {
               onPark={park}
               held={held}
               canDiscount={canDiscount}
+              parkLabel={labels.park}
+              parkHint={labels.parkHint}
               embedded
             />
           </div>
@@ -404,6 +446,8 @@ function CartPanel({
   held,
   canDiscount,
   embedded,
+  parkLabel,
+  parkHint,
 }: {
   cart: CartLine[]
   subtotal: number
@@ -418,6 +462,8 @@ function CartPanel({
   held?: boolean
   canDiscount?: boolean
   embedded?: boolean
+  parkLabel?: string
+  parkHint?: string
 }) {
   return (
     <div className={embedded ? '' : 'card sticky top-4 p-4'}>
@@ -429,8 +475,8 @@ function CartPanel({
           {cart.length > 0 && (
             <div className="flex items-center gap-3">
               {onPark && (
-                <button className="flex items-center gap-1 text-xs font-semibold text-amber-600 dark:text-amber-400" onClick={onPark} title="Park this sale and serve the next customer">
-                  <PauseCircle size={13} /> Park
+                <button className="flex items-center gap-1 text-xs font-semibold text-amber-600 dark:text-amber-400" onClick={onPark} title={parkHint ?? 'Park this sale and serve the next customer'}>
+                  <PauseCircle size={13} /> {parkLabel ?? 'Park'}
                 </button>
               )}
               <button className="text-xs font-semibold text-red-500" onClick={clearCart}>
@@ -460,19 +506,16 @@ function CartPanel({
                 <button className="rounded-lg bg-black/5 p-1.5 dark:bg-white/10" onClick={() => setQty(k, Math.round((l.qty - 1) * 100) / 100)}>
                   <Minus size={14} />
                 </button>
-                {l.unit ? (
-                  <input
-                    className="w-14 rounded-lg border border-black/10 bg-white py-1 text-center text-sm font-bold text-brand-900 dark:border-white/10 dark:bg-white/10 dark:text-white"
-                    inputMode="decimal"
-                    value={l.qty || ''}
-                    onChange={(e) => {
-                      const v = parseFloat(e.target.value)
-                      setQty(k, isNaN(v) ? 0.01 : v)
-                    }}
-                  />
-                ) : (
-                  <span className="w-7 text-center font-bold text-brand-900 dark:text-white">{l.qty}</span>
-                )}
+                {/* Type the quantity directly — no need to tap + ten times. */}
+                <input
+                  className="w-14 rounded-lg border border-black/10 bg-white py-1 text-center text-sm font-bold text-brand-900 dark:border-white/10 dark:bg-white/10 dark:text-white"
+                  inputMode={l.unit ? 'decimal' : 'numeric'}
+                  value={l.qty || ''}
+                  onChange={(e) => {
+                    const v = l.unit ? parseFloat(e.target.value) : parseInt(e.target.value)
+                    setQty(k, isNaN(v) ? (l.unit ? 0.01 : 1) : v)
+                  }}
+                />
                 <button className="rounded-lg bg-black/5 p-1.5 dark:bg-white/10" onClick={() => setQty(k, Math.round((l.qty + 1) * 100) / 100)}>
                   <Plus size={14} />
                 </button>
@@ -516,7 +559,7 @@ function CartPanel({
           </button>
           {embedded && onPark && cart.length > 0 && (
             <button className="btn-ghost mt-2 w-full" onClick={onPark}>
-              <PauseCircle size={16} /> Park this sale — serve the next customer
+              <PauseCircle size={16} /> {parkHint ?? 'Park this sale — serve the next customer'}
             </button>
           )}
         </>

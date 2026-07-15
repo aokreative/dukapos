@@ -509,6 +509,9 @@ function SupplierDetails({ supplier, onClose, onEdit }: { supplier: Supplier; on
   const currency = useStore((s) => s.settings.currency)
   const shopName = useStore((s) => s.settings.name)
   const shopLocation = useStore((s) => s.settings.location)
+  const shopLogo = useStore((s) => s.settings.logo)
+  const shopSettings = useStore((s) => s.settings)
+  const shopContacts = [shopSettings.phone ? 'Tel ' + displayPhone(shopSettings.phone) : '', shopSettings.poBox, shopSettings.email, shopSettings.website].filter(Boolean).join(' · ')
   const txns = useStore((s) => s.supplierTxns)
   const customers = useStore((s) => s.customers)
 
@@ -531,8 +534,10 @@ function SupplierDetails({ supplier, onClose, onEdit }: { supplier: Supplier; on
       <html><head><title>${TXN_LABEL[t.type]} — ${supplier.name}</title>
       <style>*{font-family:monospace;font-size:12px;color:#000}body{width:300px;margin:0 auto;padding:8px}h1{font-size:16px;text-align:center;margin:4px 0}.muted{text-align:center;color:#333;margin:2px 0}table{width:100%;border-collapse:collapse;margin:6px 0}hr{border:none;border-top:1px dashed #000}.total{font-weight:bold;font-size:14px}</style>
       </head><body>
+      ${shopLogo ? `<img src="${shopLogo}" style="display:block;margin:2px auto 4px;max-height:56px;max-width:150px"/>` : ''}
       <h1>${shopName}</h1>
       <div class="muted">${shopLocation || ''}</div>
+      ${shopContacts ? `<div class="muted">${shopContacts}</div>` : ''}
       <div class="muted">${TXN_LABEL[t.type]}</div>
       <hr/>
       <div>Supplier: ${supplier.name}</div>
@@ -575,8 +580,9 @@ function SupplierDetails({ supplier, onClose, onEdit }: { supplier: Supplier; on
       <html><head><title>Supplier statement — ${supplier.name}</title>
       <style>*{font-family:system-ui,Arial,sans-serif;font-size:12px;color:#111}body{max-width:440px;margin:0 auto;padding:16px}h1{font-size:18px;margin:0}.sub{color:#555;font-size:12px;margin:2px 0 12px}table{width:100%;border-collapse:collapse}th,td{text-align:left;border-bottom:1px solid #eee;padding:6px 4px;vertical-align:top}th{font-size:10px;text-transform:uppercase;color:#166534}.a{text-align:right;white-space:nowrap;font-weight:700}.r{color:#888}.n{color:#666;font-style:italic;font-size:10px}.tot{display:flex;justify-content:space-between;margin-top:12px;font-weight:700}.muted{color:#888;font-size:11px;margin-top:14px;text-align:center}</style>
       </head><body>
+      ${shopLogo ? `<img src="${shopLogo}" style="display:block;margin:0 0 6px;max-height:56px;max-width:150px"/>` : ''}
       <h1>${shopName}</h1>
-      <div class="sub">${shopLocation || ''} · Supplier statement</div>
+      <div class="sub">${[shopLocation, shopContacts].filter(Boolean).join(' · ')} · Supplier statement</div>
       <div><b>${supplier.name}</b> · ${displayPhone(supplier.phone)}</div>
       <div class="sub">As of ${shortDateTime(Date.now())}</div>
       <table><thead><tr><th>Date</th><th>Details</th><th class="a">Amount</th></tr></thead><tbody>${rows || '<tr><td colspan="3">No transactions yet.</td></tr>'}</tbody></table>

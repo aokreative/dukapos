@@ -12,6 +12,9 @@ export interface BizLabels {
   item: string
   searchHint: string
   addLabel: string
+  /** "Park a sale" wording — restaurants hold orders per table/customer. */
+  park: string
+  parkHint: string
 }
 
 export function bizLabels(t: BusinessType | undefined): BizLabels {
@@ -22,6 +25,8 @@ export function bizLabels(t: BusinessType | undefined): BizLabels {
       item: 'Menu item',
       searchHint: 'Search menu…',
       addLabel: 'Add dish',
+      park: 'Hold order',
+      parkHint: 'Hold this table’s order — start the next one',
     }
   }
   return {
@@ -30,6 +35,8 @@ export function bizLabels(t: BusinessType | undefined): BizLabels {
     item: 'Product',
     searchHint: 'Search product or scan barcode…',
     addLabel: 'Add',
+    park: 'Park',
+    parkHint: 'Park this sale and serve the next customer',
   }
 }
 

@@ -65,8 +65,8 @@ export default function Layout({ children }: { children: ReactNode }) {
   return (
     <div className="mx-auto flex min-h-full max-w-6xl flex-col md:flex-row">
       {/* Desktop side rail */}
-      <aside className="sticky top-0 hidden h-screen w-56 shrink-0 flex-col border-r border-black/5 bg-white px-3 py-5 dark:border-white/10 dark:bg-brand-900 md:flex">
-        <Brand shopName={shopName} />
+      <aside className="glass sticky top-0 hidden h-screen w-56 shrink-0 flex-col border-r border-white/40 px-3 py-5 dark:border-white/10 md:flex">
+        <Brand shopName={shopName} logo={settings.logo} />
         {features.branches && multiLoc && location && (
           <NavLink to="/branches" className="mt-2 flex items-center gap-1.5 rounded-lg bg-black/5 px-2.5 py-1.5 text-[11px] font-semibold text-brand-900/60 hover:bg-black/10 dark:bg-white/10 dark:text-white/60 dark:hover:bg-white/15">
             <Building2 size={12} /> At: {location.name}
@@ -102,8 +102,8 @@ export default function Layout({ children }: { children: ReactNode }) {
       {/* Content column */}
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Mobile top bar */}
-        <header className="sticky top-0 z-30 flex items-center justify-between border-b border-black/5 bg-white px-4 py-3 dark:border-white/10 dark:bg-brand-900 md:hidden">
-          <Brand shopName={shopName} />
+        <header className="glass sticky top-0 z-30 flex items-center justify-between border-b border-white/40 px-4 py-3 dark:border-white/10 md:hidden">
+          <Brand shopName={shopName} logo={settings.logo} />
           <div className="flex items-center gap-1">
             <span
               className={`chip ${online ? 'bg-green-100 text-green-800 dark:bg-green-500/20 dark:text-green-300' : 'bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300'}`}
@@ -134,7 +134,7 @@ export default function Layout({ children }: { children: ReactNode }) {
       </div>
 
       {/* Mobile bottom nav */}
-      <nav className="fixed inset-x-0 bottom-0 z-30 flex overflow-x-auto border-t border-black/5 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur dark:border-white/10 dark:bg-brand-900/95 md:hidden">
+      <nav className="glass fixed inset-x-0 bottom-0 z-30 flex overflow-x-auto border-t border-white/40 pb-[env(safe-area-inset-bottom)] dark:border-white/10 md:hidden">
         {nav.map((n) => (
           <NavLink key={n.to} to={n.to} className={({ isActive }) => tabClass(isActive)} end={n.to === '/'}>
             <div className="relative">
@@ -155,10 +155,14 @@ export default function Layout({ children }: { children: ReactNode }) {
   )
 }
 
-function Brand({ shopName }: { shopName: string }) {
+function Brand({ shopName, logo }: { shopName: string; logo?: string }) {
   return (
     <div className="flex items-center gap-2">
-      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 font-black text-gold-400 shadow-sm shadow-brand-900/30">D</div>
+      {logo ? (
+        <img src={logo} alt="" className="h-9 w-9 rounded-xl bg-white object-contain p-0.5 shadow-sm shadow-brand-900/20" />
+      ) : (
+        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 font-black text-gold-400 shadow-sm shadow-brand-900/30">D</div>
+      )}
       <div className="leading-tight">
         <div className="text-base font-black tracking-tight text-brand-900 dark:text-white">{shopName || 'Duka'}</div>
         <div className="text-[10px] font-medium uppercase tracking-wide text-brand-900/40 dark:text-white/40">POS</div>

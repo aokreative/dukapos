@@ -16,14 +16,22 @@ body {
   margin: 0;
   -webkit-tap-highlight-color: transparent;
   overscroll-behavior-y: none;
-  /* Soft, living off-white with a whisper of green — not flat grey. */
-  background: linear-gradient(180deg, #f4f8f5 0%, #eaf1ec 100%);
+  /* Liquid-glass ambience: soft emerald & gold glows floating on off-white,
+     so the frosted cards above have something to refract. */
+  background:
+    radial-gradient(560px 380px at 88% -10%, rgba(212, 175, 55, 0.16), transparent 60%),
+    radial-gradient(700px 480px at -12% 12%, rgba(22, 101, 52, 0.14), transparent 62%),
+    radial-gradient(520px 420px at 50% 118%, rgba(16, 185, 129, 0.12), transparent 65%),
+    linear-gradient(180deg, #f5f9f6 0%, #e9f1ec 100%);
   background-attachment: fixed;
   color: #0a1f14;
 }
 
 .dark body {
-  background: linear-gradient(180deg, #0c241a 0%, #08150f 100%);
+  background:
+    radial-gradient(560px 380px at 88% -10%, rgba(212, 175, 55, 0.1), transparent 60%),
+    radial-gradient(700px 480px at -12% 12%, rgba(34, 197, 94, 0.08), transparent 62%),
+    linear-gradient(180deg, #0c241a 0%, #08150f 100%);
   background-attachment: fixed;
 }
 
@@ -45,10 +53,15 @@ body {
     @apply btn bg-red-600 text-white shadow-sm shadow-red-900/20 hover:bg-red-700;
   }
   .card {
-    @apply rounded-2xl bg-white shadow-card ring-1 ring-black/[0.04] dark:bg-brand-800 dark:shadow-none dark:ring-white/10;
+    /* Frosted glass panel: translucent, blurred, with a bright inner edge. */
+    @apply rounded-2xl bg-white/75 shadow-card ring-1 ring-white/60 backdrop-blur-xl dark:bg-brand-800/70 dark:shadow-none dark:ring-white/10;
   }
   .input {
-    @apply w-full rounded-xl border border-black/10 bg-white px-3 py-3 text-base text-brand-900 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/30 dark:border-white/15 dark:bg-brand-900 dark:text-white;
+    @apply w-full rounded-xl border border-black/10 bg-white/80 px-3 py-3 text-base text-brand-900 outline-none backdrop-blur-sm focus:border-brand-500 focus:ring-2 focus:ring-brand-500/30 dark:border-white/15 dark:bg-brand-900/70 dark:text-white;
+  }
+  .glass {
+    /* Frosted chrome for bars & rails (sidebar, headers, sheets). */
+    @apply bg-white/70 backdrop-blur-xl dark:bg-brand-900/70;
   }
   .label {
     @apply mb-1 block text-sm font-medium text-brand-800/80 dark:text-white/70;

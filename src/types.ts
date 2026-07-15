@@ -55,6 +55,15 @@ export interface BizLocation {
   mpesaTill?: string
   mpesaPaybill?: string
   mpesaAccount?: string
+  // --- Optional per-branch STK auto-prompt ------------------------------------
+  // Daraja keys for THIS branch's till/Paybill, so the 📲 Prompt at this branch
+  // pushes the bill straight into this branch's own account. When off/incomplete
+  // the shop-level STK keys (Settings) apply, and failing that it's manual pay.
+  stkEnabled?: boolean
+  stkConsumerKey?: string
+  stkConsumerSecret?: string
+  stkPasskey?: string
+  stkEnv?: 'sandbox' | 'production'
 }
 
 export interface TransferLine {
@@ -281,7 +290,11 @@ export interface Sale {
   lines: CartLine[]
   subtotal: number
   discount: number
+  /** What the customer pays: goods (subtotal − discount) + any VAT added on top. */
   total: number
+  /** VAT charged ON TOP of the goods amount (0/absent when VAT was off or the
+   *  cashier switched it off for this sale, or prices are VAT-inclusive). */
+  vatAmount?: number
   tenders: Tender[]
   /** Portion sold on credit (mkopo) — becomes/updates a debt. */
   creditAmount: number
@@ -350,6 +363,12 @@ export interface DebtComment {
 export interface BusinessSettings {
   name: string
   tagline: string
+  /** Business logo (small compressed data URL) — sidebar, receipts, statements. */
+  logo?: string
+  /** Contact details printed on receipts & statements. */
+  email?: string
+  poBox?: string
+  website?: string
   /** Chosen at onboarding — sets wording & feature presets for the vertical. */
   businessType: BusinessType
   /** Explicit feature switches; when unset, the businessType preset applies. */
@@ -381,6 +400,12 @@ export interface BusinessSettings {
   reminderTemplate: string
   vatEnabled: boolean
   vatRate: number // e.g. 16
+  /** How VAT applies:
+   *  'exclusive' (default) — VAT is ADDED ON TOP at checkout: goods 2,100 +
+   *  16% (336) = grand total 2,436. The cashier can switch it off per sale.
+   *  'inclusive' — shelf prices already contain VAT; receipts just state the
+   *  VAT portion inside the total. */
+  vatMode?: 'exclusive' | 'inclusive'
   /** Loyalty points: customers earn loyaltyRate% of each sale back as points
    *  (1 point = KES 1), redeemable at the till. Off by default. */
   loyaltyEnabled?: boolean

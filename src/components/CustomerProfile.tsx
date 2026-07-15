@@ -91,8 +91,9 @@ export default function CustomerProfile({ customer, onClose }: { customer: Custo
       <html><head><title>Statement — ${customer.name}</title>
       <style>*{font-family:system-ui,Arial,sans-serif;font-size:12px;color:#111}body{max-width:420px;margin:0 auto;padding:16px}h1{font-size:18px;margin:0}.sub{color:#555;font-size:12px;margin:2px 0 12px}table{width:100%;border-collapse:collapse}th,td{text-align:left;border-bottom:1px solid #eee;padding:6px 4px;vertical-align:top}th{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#166534}.a{text-align:right;white-space:nowrap}.r{color:#888}.tag{font-size:10px;color:#666}.pays{color:#0a7a37;font-size:10px;margin-top:2px}.tot{display:flex;justify-content:space-between;margin-top:12px;font-weight:700}.due{color:#b3261e}.muted{color:#888;font-size:11px;margin-top:14px;text-align:center}</style>
       </head><body>
+      ${settings.logo ? `<img src="${settings.logo}" style="display:block;margin:0 0 6px;max-height:56px;max-width:150px"/>` : ''}
       <h1>${settings.name}</h1>
-      <div class="sub">${settings.location || ''} · Customer statement</div>
+      <div class="sub">${[settings.location, settings.phone ? 'Tel ' + displayPhone(settings.phone) : '', settings.poBox, settings.email, settings.website].filter(Boolean).join(' · ')} · Customer statement</div>
       <div><b>${customer.name}</b> · ${displayPhone(customer.phone)}</div>
       <div class="sub">As of ${shortDateTime(Date.now())}</div>
       <table><thead><tr><th>Date</th><th>Items / payments</th><th class="a">Amount</th></tr></thead><tbody>${rows || '<tr><td colspan="3">No purchases yet.</td></tr>'}</tbody></table>

@@ -113,6 +113,8 @@ export interface CompleteSaleInput {
   /** Credit the sale to this staff name (defaults to the signed-in cashier). */
   assignedToName?: string
   note?: string
+  /** VAT charged ON TOP of the goods amount for this sale (0/absent = none). */
+  vatAmount?: number
 }
 
 interface State {
@@ -631,7 +633,10 @@ export const useStore = create<State>()(
         // Exchange credit from a return is applied automatically as discount.
         const credit = Math.min(state.exchangeCredit, subtotal)
         const discount = Math.min((input.discount || 0) + credit, subtotal)
-        const total = subtotal - discount
+        // Goods amount, then any VAT added on top → the grand total charged.
+        const goods = subtotal - discount
+        const vatAmount = Math.max(0, Math.round((input.vatAmount || 0) * 100) / 100)
+        const total = Math.round((goods + vatAmount) * 100) / 100
         const creditAmount = input.tenders
           .filter((t) => t.method === 'credit')
           .reduce((sum, t) => sum + t.amount, 0)
@@ -640,11 +645,11 @@ export const useStore = create<State>()(
         const currentStaff = state.staff.find((m) => m.id === state.currentStaffId)
         const cashierName = currentStaff?.name || state.settings.cashierName || 'Cashier'
 
-        // Loyalty: earn a % of the sale back as points, and redeem any points
-        // tendered (1 point = KES 1). Only when a customer is attached.
+        // Loyalty: earn a % of the GOODS value back as points (never on tax),
+        // and redeem any points tendered (1 point = KES 1). Customer required.
         const loyaltyOn = !!state.settings.loyaltyEnabled && !!input.customerId
         const pointsRedeemed = input.tenders.filter((t) => t.method === 'points').reduce((s, t) => s + t.amount, 0)
-        const pointsEarned = loyaltyOn ? Math.floor((total * (state.settings.loyaltyRate ?? 1)) / 100) : 0
+        const pointsEarned = loyaltyOn ? Math.floor((goods * (state.settings.loyaltyRate ?? 1)) / 100) : 0
 
         const sale: Sale = {
           id: uid('s_'),
@@ -654,6 +659,7 @@ export const useStore = create<State>()(
           subtotal,
           discount,
           total,
+          vatAmount: vatAmount || undefined,
           tenders: input.tenders,
           creditAmount,
           customerId: input.customerId,

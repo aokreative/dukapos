@@ -5,21 +5,22 @@ import CustomerPicker from './CustomerPicker'
 import { useStore, selectCurrentStaff } from '../store/useStore'
 import { money, displayPhone, normalizePhone } from '../lib/format'
 import { mpesaCollect, mpesaCollectStatus, type ShopMpesaCreds } from '../lib/api'
-import { shopMpesaCreds, vatIncludedIn } from '../lib/reminders'
+import { branchMpesaCreds, vatAddedTo, vatIncludedIn } from '../lib/reminders'
 import type { Customer, PaymentMethod, Tender } from '../types'
 
-/** Prompt the customer's phone with an STK push instead of typing the code. */
-function MpesaPrompt({ amount, defaultPhone, onConfirmed }: { amount: number; defaultPhone?: string; onConfirmed: (ref: string) => void }) {
-  const settings = useStore((s) => s.settings)
-  const creds: ShopMpesaCreds | null = shopMpesaCreds(settings)
+/** Prompt the customer's phone with an STK push instead of typing the code.
+ *  `creds` are the branch's own Daraja keys when set, else the shop's. */
+function MpesaPrompt({ amount, defaultPhone, creds, onConfirmed }: { amount: number; defaultPhone?: string; creds: ShopMpesaCreds | null; onConfirmed: (ref: string) => void }) {
   const [phone, setPhone] = useState(defaultPhone ? displayPhone(defaultPhone) : '')
-  const [state, setState] = useState<'idle' | 'sending' | 'waiting' | 'done' | 'failed'>('idle')
+  const [state, setState] = useState<'idle' | 'sending' | 'waiting' | 'done' | 'sim' | 'failed'>('idle')
 
   async function prompt() {
     if (!phone.trim() || amount <= 0) return
     setState('sending')
     const out = await mpesaCollect(phone, amount, 'Sale', creds)
     if (!out) return setState('failed')
+    // Honesty first: a simulated prompt never claims the customer paid.
+    if (out.simulated) return setState('sim')
     setState('waiting')
     for (let i = 0; i < 20; i++) {
       await new Promise((r) => setTimeout(r, 3000))
@@ -35,6 +36,14 @@ function MpesaPrompt({ amount, defaultPhone, onConfirmed }: { amount: number; de
   }
 
   if (state === 'done') return <div className="mt-2 text-xs font-semibold text-green-600 dark:text-green-400">✓ Customer paid via M-PESA prompt</div>
+  if (state === 'sim')
+    return (
+      <div className="mt-2 rounded-lg bg-amber-50 px-2.5 py-2 text-xs font-medium text-amber-800 dark:bg-amber-500/10 dark:text-amber-300">
+        ⚠ TEST prompt only — no real request reached the customer's phone. Add your own Daraja keys
+        (Settings → Auto-prompt, or per branch) to prompt for real. Confirm their payment on your till
+        messages and type the M-PESA code above.
+      </div>
+    )
   return (
     <div className="mt-2 flex items-center gap-2">
       <input className="input py-1.5 text-sm" inputMode="tel" placeholder="Customer phone for STK prompt" value={phone} onChange={(e) => setPhone(e.target.value)} disabled={state === 'sending' || state === 'waiting'} />
@@ -52,6 +61,8 @@ function MpesaPrompt({ amount, defaultPhone, onConfirmed }: { amount: number; de
 export interface SaleExtras {
   assignedToName?: string
   note?: string
+  /** VAT charged on top for this sale (0/absent when off or switched off). */
+  vatAmount?: number
 }
 
 const METHODS: { key: PaymentMethod; label: string; icon: typeof Banknote }[] = [
@@ -75,11 +86,12 @@ export default function PaymentModal({
 }) {
   const settings = useStore((s) => s.settings)
   const currency = settings.currency
-  const vat = vatIncludedIn(total, settings)
   const staff = useStore((s) => s.staff)
   const currentStaff = useStore(selectCurrentStaff)
   const customers = useStore((s) => s.customers)
   const addCustomer = useStore((s) => s.addCustomer)
+  const locations = useStore((s) => s.locations)
+  const currentLocationId = useStore((s) => s.currentLocationId)
   const [tenders, setTenders] = useState<Tender[]>([])
   const [customer, setCustomer] = useState<Customer | null>(null)
   const [pickerOpen, setPickerOpen] = useState(false)
@@ -87,7 +99,21 @@ export default function PaymentModal({
   const [note, setNote] = useState('')
   const [showExtras, setShowExtras] = useState(false)
   const [phone, setPhone] = useState('')
+  // VAT on top (default when enabled) — the cashier can switch it off for
+  // customers who don't want VAT added to this particular purchase.
+  const [chargeVat, setChargeVat] = useState(true)
   const sellers = staff.filter((m) => m.active)
+
+  // `total` is the GOODS amount (after discount). When VAT mode is "add on
+  // top", the customer pays goods + VAT — the grand total below.
+  const vatIfOn = vatAddedTo(total, settings)
+  const vatX = chargeVat ? vatIfOn : 0
+  const grand = Math.round((total + vatX) * 100) / 100
+  // Inclusive mode keeps the old informational line (VAT inside the price).
+  const vatIncl = settings.vatMode === 'inclusive' ? vatIncludedIn(total, settings) : 0
+  // STK prompt collects into the current branch's own till when it has keys.
+  const branch = locations.find((l) => l.id === currentLocationId)
+  const stkCreds = branchMpesaCreds(settings, branch)
 
   // Quick customer-by-phone: as the cashier types a number, auto-recognise a
   // returning customer. A number with no match becomes a new customer on
@@ -100,11 +126,11 @@ export default function PaymentModal({
   }, [phoneMatch]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const sum = useMemo(() => tenders.reduce((a, t) => a + (t.amount || 0), 0), [tenders])
-  const remaining = Math.round((total - sum) * 100) / 100
+  const remaining = Math.round((grand - sum) * 100) / 100
   const cashSum = tenders.filter((t) => t.method === 'cash').reduce((a, t) => a + t.amount, 0)
-  const change = sum > total && cashSum > 0 ? Math.round((sum - total) * 100) / 100 : 0
+  const change = sum > grand && cashSum > 0 ? Math.round((sum - grand) * 100) / 100 : 0
   const hasCredit = tenders.some((t) => t.method === 'credit')
-  const canComplete = sum >= total - 0.001 && (!hasCredit || !!customer || phoneValid)
+  const canComplete = sum >= grand - 0.001 && (!hasCredit || !!customer || phoneValid)
 
   /** The customer for this sale: the picked one, an existing phone match, or a
    *  brand-new customer created from the typed phone (so points still accrue). */
@@ -137,17 +163,19 @@ export default function PaymentModal({
     setNote('')
     setShowExtras(false)
     setPhone('')
+    setChargeVat(true)
   }
   function extras(): SaleExtras {
     return {
       assignedToName: assignedToName || undefined,
       note: note.trim() || undefined,
+      vatAmount: vatX || undefined,
     }
   }
   function complete() {
     // Clamp a credit tender to the exact remaining so we never over-credit.
     const finalTenders = tenders
-      .map((t) => (t.method === 'credit' ? { ...t, amount: Math.max(0, Math.round((total - (sum - t.amount)) * 100) / 100) } : t))
+      .map((t) => (t.method === 'credit' ? { ...t, amount: Math.max(0, Math.round((grand - (sum - t.amount)) * 100) / 100) } : t))
       .filter((t) => t.amount > 0)
     onComplete(finalTenders, resolveCustomerId(), extras())
     reset()
@@ -164,12 +192,32 @@ export default function PaymentModal({
         title="Take payment"
       >
         <div className="rounded-2xl bg-brand-50 p-4 text-center dark:bg-brand-900">
-          <div className="text-xs uppercase tracking-wide text-brand-900/50 dark:text-white/50">Amount due</div>
-          <div className="text-3xl font-black text-brand-700 dark:text-gold-400">{money(total, currency)}</div>
-          {vat > 0 && (
-            <div className="mt-1 text-xs text-brand-900/50 dark:text-white/50">Incl. VAT ({settings.vatRate}%): {money(vat, currency)}</div>
+          <div className="text-xs uppercase tracking-wide text-brand-900/50 dark:text-white/50">
+            {vatX > 0 ? 'Grand total (incl. VAT)' : 'Amount due'}
+          </div>
+          <div className="text-3xl font-black text-brand-700 dark:text-gold-400">{money(grand, currency)}</div>
+          {vatX > 0 && (
+            <div className="mt-1 text-xs text-brand-900/60 dark:text-white/60">
+              Goods {money(total, currency)} + VAT ({settings.vatRate}%) {money(vatX, currency)}
+            </div>
+          )}
+          {vatIncl > 0 && (
+            <div className="mt-1 text-xs text-brand-900/50 dark:text-white/50">Incl. VAT ({settings.vatRate}%): {money(vatIncl, currency)}</div>
           )}
         </div>
+
+        {/* Per-sale VAT switch — for customers who don't want VAT added. */}
+        {settings.vatEnabled && settings.vatMode !== 'inclusive' && total > 0 && (
+          <label className="mt-3 flex items-center justify-between rounded-xl bg-black/5 px-3 py-2.5 dark:bg-white/10">
+            <span className="text-sm font-medium text-brand-900 dark:text-white">
+              Charge VAT ({settings.vatRate}%) on this sale
+              <span className="block text-xs text-brand-900/50 dark:text-white/50">
+                {chargeVat ? `+${money(vatIfOn, currency)} → customer pays ${money(grand, currency)}` : `Off — customer pays ${money(total, currency)} (no VAT)`}
+              </span>
+            </span>
+            <input type="checkbox" className="h-5 w-5 shrink-0 accent-brand-600" checked={chargeVat} onChange={(e) => setChargeVat(e.target.checked)} />
+          </label>
+        )}
 
         {/* Method buttons */}
         <div className="mt-4 grid grid-cols-5 gap-2">
@@ -218,6 +266,7 @@ export default function PaymentModal({
                 <MpesaPrompt
                   amount={t.amount}
                   defaultPhone={customer?.phone}
+                  creds={stkCreds}
                   onConfirmed={(ref) => setRef(i, ref)}
                 />
               )}
@@ -331,8 +380,8 @@ export default function PaymentModal({
           Complete sale
         </button>
         {tenders.length === 0 && (
-          <button className="btn-gold mt-2 w-full" onClick={() => { onComplete([{ method: 'cash', amount: total }], resolveCustomerId(), extras()); reset() }}>
-            Exact cash · {money(total, currency)}
+          <button className="btn-gold mt-2 w-full" onClick={() => { onComplete([{ method: 'cash', amount: grand }], resolveCustomerId(), extras()); reset() }}>
+            Exact cash · {money(grand, currency)}
           </button>
         )}
       </Modal>

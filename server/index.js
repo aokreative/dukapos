@@ -135,9 +135,15 @@ async function chargeTenant(t) {
     callbackUrl: `${PUBLIC_URL}/api/mpesa/callback`,
   })
   if (!out.configured) {
-    await renew(t.id, { ref: rand('Q'), method: 'mpesa' }) // simulation: treat as paid
-    console.log(`[billing] (sim) auto-charged ${t.business} KES ${amount}`)
-    return { simulated: true, amount }
+    // No Daraja keys: only pretend-charge when the operator explicitly opted
+    // into demo mode. Otherwise skip — never silently mark accounts paid.
+    if (process.env.BILLING_SIMULATE === 'true') {
+      await renew(t.id, { ref: rand('Q'), method: 'mpesa' })
+      console.log(`[billing] (sim) auto-charged ${t.business} KES ${amount}`)
+      return { simulated: true, amount }
+    }
+    console.log(`[billing] skipped auto-charge for ${t.business} — M-PESA not configured`)
+    return { simulated: false, skipped: true, amount }
   }
   payments.set(out.checkoutId, { status: 'pending', tenantId: t.id, amount, planId: t.planId, cycle: t.cycle, phone: t.phone })
   console.log(`[billing] STK push sent to ${t.phone} for KES ${amount}`)
@@ -169,6 +175,17 @@ app.post('/api/subscription/pay', async (req, res) => {
       callbackUrl: `${PUBLIC_URL}/api/mpesa/callback`,
     })
     if (!out.configured) {
+      // No Daraja keys on this server. NEVER fake a successful payment unless
+      // the operator explicitly opted into demo mode — otherwise anyone could
+      // "subscribe" without paying a shilling.
+      if (process.env.BILLING_SIMULATE !== 'true') {
+        return res.status(503).json({
+          error:
+            'M-PESA payments are not set up on this server yet — nothing was charged and the account was NOT activated. ' +
+            'Owner: add MPESA_CONSUMER_KEY / MPESA_CONSUMER_SECRET / MPESA_SHORTCODE / MPESA_PASSKEY (your Daraja keys) on the server, ' +
+            'or set BILLING_SIMULATE=true for demo environments only.',
+        })
+      }
       const checkoutId = rand('ws_CO_')
       payments.set(checkoutId, { status: 'pending', tenantId, amount, planId, cycle, phone })
       setTimeout(async () => {
@@ -178,7 +195,7 @@ app.post('/api/subscription/pay', async (req, res) => {
         payments.set(checkoutId, { ...p, status: 'success', ref })
         if (p.tenantId) await renew(p.tenantId, { ref, cycle: p.cycle })
       }, 1500)
-      return res.json({ simulated: true, checkoutId, ref: rand('Q'), detail: 'Simulated M-PESA payment confirmed' })
+      return res.json({ simulated: true, checkoutId, ref: rand('Q'), detail: 'Simulated M-PESA payment confirmed (BILLING_SIMULATE demo mode)' })
     }
     payments.set(out.checkoutId, { status: 'pending', tenantId, amount, planId, cycle, phone })
     return res.json({ simulated: false, checkoutId: out.checkoutId, detail: 'STK push sent — confirm on phone' })
@@ -202,6 +219,14 @@ app.post('/api/airtel/pay', async (req, res) => {
   try {
     const out = await airtelPush({ phone, amount, reference: `Duka ${planId || ''}`.trim() })
     if (!out.configured) {
+      // Same rule as M-PESA: no keys → no fake activations unless demo mode.
+      if (process.env.BILLING_SIMULATE !== 'true') {
+        return res.status(503).json({
+          error:
+            'Airtel Money payments are not set up on this server yet — nothing was charged and the account was NOT activated. ' +
+            'Owner: add the AIRTEL_* keys on the server, or set BILLING_SIMULATE=true for demo environments only.',
+        })
+      }
       const txId = rand('AIRTEL_')
       payments.set(txId, { status: 'pending', tenantId, amount, planId, cycle, phone, provider: 'airtel' })
       setTimeout(async () => {
@@ -211,7 +236,7 @@ app.post('/api/airtel/pay', async (req, res) => {
         payments.set(txId, { ...p, status: 'success', ref })
         if (p.tenantId) await renew(p.tenantId, { ref, cycle: p.cycle, method: 'airtel' })
       }, 1500)
-      return res.json({ simulated: true, checkoutId: txId, ref: rand('AM'), detail: 'Simulated Airtel Money payment confirmed' })
+      return res.json({ simulated: true, checkoutId: txId, ref: rand('AM'), detail: 'Simulated Airtel Money payment confirmed (BILLING_SIMULATE demo mode)' })
     }
     payments.set(out.transactionId, { status: 'pending', tenantId, amount, planId, cycle, phone, provider: 'airtel' })
     return res.json({ simulated: false, checkoutId: out.transactionId, detail: 'Airtel Money prompt sent — confirm on phone' })
