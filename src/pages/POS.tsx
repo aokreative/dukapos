@@ -263,7 +263,7 @@ export default function POS() {
               >
                 {p.thumb && (
                   <div className="relative">
-                    <img src={p.thumb} alt="" className="h-28 w-full object-cover" />
+                    <img src={p.thumb} alt="" className="h-36 w-full object-cover lg:h-40" />
                     {p.variants && p.variants.length > 0 && (
                       <span className="absolute bottom-1 left-1 rounded-md bg-black/55 px-1.5 py-0.5 text-[10px] font-semibold text-white">{p.variants.length} options</span>
                     )}

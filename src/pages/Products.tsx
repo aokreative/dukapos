@@ -5,20 +5,20 @@ import { useStore, selectCurrentLocation } from '../store/useStore'
 import { money } from '../lib/format'
 import { PageHeader, Modal, Badge, EmptyState } from '../components/ui'
 import { stockAt, totalStock } from '../lib/stock'
-import { bizLabels, getFeatures, UNITS } from '../lib/labels'
+import { bizLabels, getFeatures, productFields, UNITS } from '../lib/labels'
 import type { FeatureFlags, Product } from '../types'
 
 const DAY = 24 * 60 * 60 * 1000
 
-/** Downscale a photo to a crisp square thumbnail (≈160px JPEG data URL, ~8–15KB)
- *  so product images look sharp on modern screens while staying fast and
+/** Downscale a photo to a crisp square thumbnail (≈256px JPEG data URL) so
+ *  product images look sharp on the bigger till tiles while staying fast and
  *  sync-friendly. */
 export function shrinkImage(file: File): Promise<string> {
   return new Promise((resolve) => {
     const img = new Image()
     const url = URL.createObjectURL(file)
     img.onload = () => {
-      const size = 160
+      const size = 256
       const canvas = document.createElement('canvas')
       canvas.width = size
       canvas.height = size
@@ -130,9 +130,9 @@ export default function Products() {
             return (
               <div key={p.id} className="card flex items-center gap-3 p-3">
                 {p.thumb ? (
-                  <img src={p.thumb} alt="" className="h-14 w-14 shrink-0 rounded-xl object-cover ring-1 ring-black/5 dark:ring-white/10" />
+                  <img src={p.thumb} alt="" className="h-20 w-20 shrink-0 rounded-xl object-cover ring-1 ring-black/5 dark:ring-white/10" />
                 ) : (
-                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-base font-black text-brand-600 dark:bg-white/10 dark:text-gold-400">
+                  <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-lg font-black text-brand-600 dark:bg-white/10 dark:text-gold-400">
                     {p.name.charAt(0).toUpperCase()}
                   </div>
                 )}
@@ -255,9 +255,19 @@ function ProductForm({
   }) => void
   onDelete?: () => void
 }) {
+  // Fields tailored to the shop's trade — a restaurant never sees brand or
+  // barcode; a boutique gets sizes & colours. Editing an item that already has
+  // a hidden field's value keeps that field visible so nothing is stranded.
+  const bizType = useStore((s) => s.settings.businessType)
+  const pf = productFields(bizType)
+  const showSku = pf.sku || !!product?.sku
+  const showBrand = pf.brand || !!product?.brand
+  const showVariants = pf.variants || !!(product?.variants && product.variants.length)
+  const showUnit = pf.unit || !!(product?.unit && product.unit !== 'pc')
+
   const [name, setName] = useState(product?.name ?? '')
   const [sku, setSku] = useState(product?.sku ?? '')
-  const [category, setCategory] = useState(product?.category ?? 'Groceries')
+  const [category, setCategory] = useState(product?.category ?? '')
   const [price, setPrice] = useState<number>(product?.price ?? 0)
   const [cost, setCost] = useState<number>(product?.cost ?? 0)
   const [stock, setStock] = useState<number>(product ? stockAt(product, locId) : 0)
@@ -284,26 +294,32 @@ function ProductForm({
       <div className="space-y-3">
         <div>
           <label className="label">Name</label>
-          <input autoFocus className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Sugar 1kg" />
+          <input autoFocus className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder={pf.namePlaceholder} />
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="label">SKU / Barcode</label>
-            <input className="input" value={sku} onChange={(e) => setSku(e.target.value)} placeholder="6001" />
+        {(showSku || showBrand) && (
+          <div className={showSku && showBrand ? 'grid grid-cols-2 gap-3' : ''}>
+            {showSku && (
+              <div>
+                <label className="label">{pf.skuLabel}</label>
+                <input className="input" value={sku} onChange={(e) => setSku(e.target.value)} placeholder="6001" />
+              </div>
+            )}
+            {showBrand && (
+              <div>
+                <label className="label">{pf.brandLabel}</label>
+                <input className="input" list="duka-brands" value={brand} onChange={(e) => setBrand(e.target.value)} placeholder={pf.brandPlaceholder} />
+                <datalist id="duka-brands">
+                  {existingBrands.map((b) => (
+                    <option key={b} value={b} />
+                  ))}
+                </datalist>
+              </div>
+            )}
           </div>
-          <div>
-            <label className="label">Brand (optional)</label>
-            <input className="input" list="duka-brands" value={brand} onChange={(e) => setBrand(e.target.value)} placeholder="e.g. HikVision" />
-            <datalist id="duka-brands">
-              {existingBrands.map((b) => (
-                <option key={b} value={b} />
-              ))}
-            </datalist>
-          </div>
-        </div>
+        )}
         <div>
           <label className="label">Category (pick one or type a new one)</label>
-          <input className="input" list="duka-categories" value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Groceries" />
+          <input className="input" list="duka-categories" value={category} onChange={(e) => setCategory(e.target.value)} placeholder={pf.categoryPlaceholder} />
           <datalist id="duka-categories">
             {existingCategories.map((c) => (
               <option key={c} value={c} />
@@ -316,31 +332,33 @@ function ProductForm({
             <input className="input" inputMode="decimal" value={price || ''} onChange={(e) => setPrice(parseFloat(e.target.value) || 0)} />
           </div>
           <div>
-            <label className="label">Buying price</label>
+            <label className="label">{pf.costLabel}</label>
             <input className="input" inputMode="decimal" value={cost || ''} onChange={(e) => setCost(parseFloat(e.target.value) || 0)} />
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="label">Sold by</label>
-            <select className="input" value={unit} onChange={(e) => setUnit(e.target.value)}>
-              {UNITS.map((u) => (
-                <option key={u} value={u}>{u === 'pc' ? 'piece (pc)' : u}</option>
-              ))}
-            </select>
+        {showUnit && (
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="label">Sold by</label>
+              <select className="input" value={unit} onChange={(e) => setUnit(e.target.value)}>
+                {UNITS.map((u) => (
+                  <option key={u} value={u}>{u === 'pc' ? 'piece (pc)' : u}</option>
+                ))}
+              </select>
+            </div>
+            <div className="self-end pb-2 text-xs text-brand-900/40 dark:text-white/40">
+              {unit !== 'pc' ? `Price is per ${unit}; the till accepts decimals (e.g. 0.5 ${unit}).` : 'Whole pieces at the till. Sell by kg/m/L by picking a unit.'}
+            </div>
           </div>
-          <div className="self-end pb-2 text-xs text-brand-900/40 dark:text-white/40">
-            {unit !== 'pc' ? `Price is per ${unit}; the till accepts decimals (e.g. 0.5 ${unit}).` : 'Whole pieces at the till. Sell by kg/m/L by picking a unit.'}
-          </div>
-        </div>
+        )}
         <div>
           <label className="label">Photo (optional)</label>
           <div className="flex items-center gap-3">
             {thumb ? (
-              <img src={thumb} alt="" className="h-16 w-16 rounded-xl object-cover ring-1 ring-black/10 dark:ring-white/15" />
+              <img src={thumb} alt="" className="h-20 w-20 rounded-xl object-cover ring-1 ring-black/10 dark:ring-white/15" />
             ) : (
-              <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-black/5 text-brand-900/30 dark:bg-white/10 dark:text-white/30">
-                <ImageIcon size={22} />
+              <div className="flex h-20 w-20 items-center justify-center rounded-xl bg-black/5 text-brand-900/30 dark:bg-white/10 dark:text-white/30">
+                <ImageIcon size={24} />
               </div>
             )}
             <label className="btn-ghost cursor-pointer py-2 text-sm">
@@ -360,11 +378,13 @@ function ProductForm({
             )}
           </div>
         </div>
-        <div>
-          <label className="label">Variations (optional) — colours / sizes</label>
-          <input className="input" value={variants} onChange={(e) => setVariants(e.target.value)} placeholder="e.g. Red, Blue, Black  ·  or  S, M, L, XL" />
-          <p className="mt-1 text-xs text-brand-900/50 dark:text-white/50">Separate with commas. At the till, the cashier picks one and it's printed on the receipt.</p>
-        </div>
+        {showVariants && (
+          <div>
+            <label className="label">{pf.variantsLabel}</label>
+            <input className="input" value={variants} onChange={(e) => setVariants(e.target.value)} placeholder={pf.variantsPlaceholder} />
+            <p className="mt-1 text-xs text-brand-900/50 dark:text-white/50">Separate with commas. At the till, the cashier picks one and it's printed on the receipt.</p>
+          </div>
+        )}
         {features.wholesale && (
           <div className="grid grid-cols-2 gap-3">
             <div>
