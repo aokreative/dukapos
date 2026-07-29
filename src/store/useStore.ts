@@ -286,6 +286,7 @@ function buildSeed() {
     expenses: [] as Expense[],
     shifts: [] as Shift[],
     subscription: defaultSubscription(),
+    reminderRule: defaultReminderRule,
     reminderLog: [] as ReminderLogEntry[],
     serverBilling: null as TenantView | null,
     syncQueue: [] as SyncQueueItem[],

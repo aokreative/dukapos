@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { supabase, cloudConfigured } from './cloud'
 import { useStore } from '../store/useStore'
-import { SyncQueueItem } from '../types'
 
 export type CloudStatus = 'off' | 'signedOut' | 'syncing' | 'live' | 'error'
 

@@ -5,7 +5,6 @@ import {
   Package,
   Settings as SettingsIcon,
   HandCoins,
-  CreditCard,
   Moon,
   Sun,
   Wifi,
@@ -13,7 +12,7 @@ import {
   Lock,
   History,
 } from 'lucide-react'
-import { useStore, selectTotalOwed, selectCurrentStaff, selectRole, selectCurrentLocation } from '../store/useStore'
+import { useStore, selectTotalOwed, selectCurrentStaff, selectRole } from '../store/useStore'
 import { money } from '../lib/format'
 import { useOnline } from '../lib/useOnline'
 import { canStaff, ROLE_LABEL, type Capability } from '../lib/permissions'
@@ -43,10 +42,8 @@ export default function Layout({ children }: { children: ReactNode }) {
   const logout = useStore((s) => s.logout)
   const settings = useStore((s) => s.settings)
   const labels = bizLabels(settings.businessType)
-  const features = getFeatures(settings)
-  const location = useStore(selectCurrentLocation)
-  const multiLoc = useStore((s) => s.locations.length > 1)
   const currentStaffFull = useStore(selectCurrentStaff)
+
   const nav = NAV.filter((n) => !n.cap || canStaff(currentStaffFull, n.cap))
     .map((n) => (n.to === '/products' ? { ...n, label: labels.stock } : n))
 
