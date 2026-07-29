@@ -34,6 +34,8 @@ import type {
   SupplierTxn,
   Tender,
   TransferLine,
+  SyncQueueItem,
+  SyncOperation,
 } from '../types'
 import type { TenantView } from '../lib/api'
 import { uid } from '../lib/id'
@@ -156,9 +158,13 @@ interface State {
   subscription: Subscription
   reminderRule: ReminderRule
   reminderLog: ReminderLogEntry[]
-  /** When connected to the backend, the server's authoritative billing status. */
   tenantId?: string
   serverBilling: TenantView | null
+
+  // Offline sync queue
+  syncQueue: SyncQueueItem[]
+  dequeueSyncItems: (ids: string[]) => void
+  enqueueSync: (op: SyncOperation) => void
 
   // lifecycle
   setHydrated: (v: boolean) => void
@@ -280,9 +286,9 @@ function buildSeed() {
     expenses: [] as Expense[],
     shifts: [] as Shift[],
     subscription: defaultSubscription(),
-    reminderRule: defaultReminderRule,
     reminderLog: [] as ReminderLogEntry[],
     serverBilling: null as TenantView | null,
+    syncQueue: [] as SyncQueueItem[],
   }
 }
 
@@ -295,6 +301,9 @@ export const useStore = create<State>()(
 
       setHydrated: (v) => set({ _hasHydrated: v }),
       toggleDark: () => set((s) => ({ dark: !s.dark })),
+
+      dequeueSyncItems: (ids) => set((s) => ({ syncQueue: s.syncQueue.filter((q) => !ids.includes(q.id)) })),
+      enqueueSync: (op) => set((s) => ({ syncQueue: [...s.syncQueue, { id: uid('sq_'), op, createdAt: Date.now() }] })),
 
       staffLogin: (staffId, pin) => {
         const st = get()
@@ -322,11 +331,41 @@ export const useStore = create<State>()(
 
       addProduct: (p) => {
         const product: Product = { ...p, id: uid('p_') }
-        set((s) => ({ products: [product, ...s.products] }))
+        const s = get()
+        set({ products: [product, ...s.products] })
+        s.enqueueSync({
+          table: 'products',
+          action: 'insert',
+          record: {
+            id: product.id,
+            name: product.name,
+            sku: product.sku,
+            price: product.price,
+            stock: Object.values(product.stockByLocation).reduce((a, b) => a + b, 0),
+            category: product.category,
+          },
+        })
         return product
       },
-      updateProduct: (id, patch) =>
-        set((s) => ({ products: s.products.map((p) => (p.id === id ? { ...p, ...patch } : p)) })),
+      updateProduct: (id, patch) => {
+        const s = get()
+        set({ products: s.products.map((p) => (p.id === id ? { ...p, ...patch } : p)) })
+        const updated = get().products.find(p => p.id === id)
+        if (updated) {
+          s.enqueueSync({
+            table: 'products',
+            action: 'update',
+            record: {
+              id: updated.id,
+              name: updated.name,
+              sku: updated.sku,
+              price: updated.price,
+              stock: Object.values(updated.stockByLocation).reduce((a, b) => a + b, 0),
+              category: updated.category,
+            }
+          })
+        }
+      },
       removeProduct: (id) => set((s) => ({ products: s.products.filter((p) => p.id !== id) })),
       adjustStock: (id, delta) =>
         set((s) => ({
@@ -714,6 +753,55 @@ export const useStore = create<State>()(
           receiptCounter: counter + 1,
           exchangeCredit: credit > 0 ? state.exchangeCredit - credit : state.exchangeCredit,
         })
+        
+        // Enqueue to cloud
+        const customer = input.customerId ? state.customers.find(c => c.id === input.customerId) : null
+        state.enqueueSync({
+          table: 'sales',
+          action: 'insert',
+          record: {
+            id: sale.id,
+            total: sale.total,
+            status: 'completed'
+          }
+        })
+        input.lines.forEach((l) => {
+          state.enqueueSync({
+            table: 'sale_items',
+            action: 'insert',
+            record: {
+               sale_id: sale.id,
+               product_id: l.productId,
+               qty: l.qty,
+               price: l.price
+            }
+          })
+          const p = products.find((x) => x.id === l.productId)
+          if (p && p.trackStock !== false) {
+             state.enqueueSync({
+               table: 'products',
+               action: 'update',
+               record: {
+                 id: p.id,
+                 stock: Object.values(p.stockByLocation).reduce((a, b) => a + b, 0)
+               }
+             })
+          }
+        })
+        if (creditAmount > 0 && customer) {
+          state.enqueueSync({
+            table: 'debts',
+            action: 'insert',
+            record: {
+              id: debts[0].id, // The one we just unshifted
+              customer_name: customer.name,
+              customer_phone: customer.phone,
+              amount: creditAmount,
+              status: 'unpaid'
+            }
+          })
+        }
+
         return sale
       },
 

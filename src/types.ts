@@ -493,3 +493,21 @@ export interface ReminderLogEntry {
   status: 'sent' | 'simulated' | 'queued' | 'failed'
   detail?: string
 }
+
+// ---------------------------------------------------------------------------
+// Sync Queue
+// ---------------------------------------------------------------------------
+export type SyncOperation =
+  | { table: 'products'; action: 'insert' | 'update' | 'delete'; record: any }
+  | { table: 'sales'; action: 'insert'; record: any }
+  | { table: 'sale_items'; action: 'insert'; record: any }
+  | { table: 'debts'; action: 'insert' | 'update'; record: any }
+  | { table: 'debt_payments'; action: 'insert'; record: any }
+  | { table: 'profiles'; action: 'insert' | 'update'; record: any }
+  | { table: 'shops'; action: 'update'; record: any }
+
+export interface SyncQueueItem {
+  id: string
+  op: SyncOperation
+  createdAt: number
+}
