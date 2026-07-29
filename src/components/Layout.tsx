@@ -16,7 +16,7 @@ import { useStore, selectTotalOwed, selectCurrentStaff, selectRole } from '../st
 import { money } from '../lib/format'
 import { useOnline } from '../lib/useOnline'
 import { canStaff, ROLE_LABEL, type Capability } from '../lib/permissions'
-import { bizLabels, getFeatures } from '../lib/labels'
+import { bizLabels } from '../lib/labels'
 import { BillingBanner, Paywall, useBilling } from './Billing'
 import ShiftBar from './ShiftBar'
 
