@@ -118,8 +118,6 @@ export default function Reports() {
     }
   }, [sales, products, expenses, debts, supplierTxns, shifts])
 
-  const maxDay = Math.max(1, ...stats.days.map((d) => d.value))
-
   return (
     <div>
       <PageHeader title="Reports" subtitle="Your shop at a glance" />
@@ -143,7 +141,7 @@ export default function Reports() {
               <Tooltip
                 cursor={{ fill: 'currentColor', opacity: 0.05 }}
                 contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                formatter={(value: number) => [money(value, currency), 'Revenue']}
+                formatter={(value: any) => [money(Number(value), currency), 'Revenue']}
               />
               <Bar dataKey="value" radius={[4, 4, 0, 0]} className="fill-brand-600 dark:fill-brand-500" />
             </BarChart>
@@ -191,7 +189,7 @@ export default function Reports() {
                       }
                     </Pie>
                     <Tooltip 
-                      formatter={(value: number) => money(value, currency)}
+                      formatter={(value: any) => money(Number(value), currency)}
                       contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                     />
                   </PieChart>
@@ -207,7 +205,6 @@ export default function Reports() {
                 ] as const).map(([key, label, icon, color]) => {
                   const val = stats.methodSplit[key]
                   if (val === 0) return null
-                  const totalTenders = Object.values(stats.methodSplit).reduce((a, b) => a + b, 0) || 1
                   return (
                     <div key={key} className="flex items-center justify-between text-sm">
                       <span className="flex items-center gap-2 text-brand-900/70 dark:text-white/70">
