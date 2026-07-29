@@ -5,16 +5,9 @@ import Layout from './components/Layout'
 import LockScreen from './components/LockScreen'
 import POS from './pages/POS'
 import Debts from './pages/Debts'
-import Customers from './pages/Customers'
-import Products from './pages/Products'
-import Reports from './pages/Reports'
 import Settings from './pages/Settings'
-import Subscription from './pages/Subscription'
-import Assistant from './pages/Assistant'
 import Sales from './pages/Sales'
-import Branches from './pages/Branches'
-import Suppliers from './pages/Suppliers'
-import Expenses from './pages/Expenses'
+import Products from './pages/Products'
 import { useAutomation } from './lib/useAutomation'
 import { useBillingSync } from './lib/useBillingSync'
 import { useCloudSync } from './lib/useCloudSync'
@@ -66,14 +59,7 @@ export default function App() {
         <Route path="/" element={<POS />} />
         <Route path="/sales" element={<Sales />} />
         <Route path="/debts" element={<Guard cap="viewDebts" role={role}><Debts /></Guard>} />
-        <Route path="/customers" element={<Guard cap="manageCustomers" role={role}><Customers /></Guard>} />
         <Route path="/products" element={<Guard cap="manageStock" role={role}><Products /></Guard>} />
-        <Route path="/branches" element={<Guard cap="transferStock" role={role}><Branches /></Guard>} />
-        <Route path="/suppliers" element={<Guard cap="receiveDeliveries" role={role}><Suppliers /></Guard>} />
-        <Route path="/expenses" element={<Guard cap="recordExpenses" role={role}><Expenses /></Guard>} />
-        <Route path="/reports" element={<Guard cap="viewReports" role={role}><Reports /></Guard>} />
-        <Route path="/assistant" element={<Guard cap="useAssistant" role={role}><Assistant /></Guard>} />
-        <Route path="/subscription" element={<Guard cap="viewBilling" role={role}><Subscription /></Guard>} />
         <Route path="/settings" element={<Guard cap="editSettings" role={role}><Settings /></Guard>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

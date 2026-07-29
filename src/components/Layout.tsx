@@ -2,9 +2,7 @@ import { type ReactNode } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import {
   ShoppingCart,
-  Users,
   Package,
-  BarChart3,
   Settings as SettingsIcon,
   HandCoins,
   CreditCard,
@@ -13,7 +11,6 @@ import {
   Wifi,
   WifiOff,
   Lock,
-  Sparkles,
   History,
 } from 'lucide-react'
 import { useStore, selectTotalOwed, selectCurrentStaff, selectRole, selectCurrentLocation } from '../store/useStore'
@@ -21,7 +18,6 @@ import { money } from '../lib/format'
 import { useOnline } from '../lib/useOnline'
 import { canStaff, ROLE_LABEL, type Capability } from '../lib/permissions'
 import { bizLabels, getFeatures } from '../lib/labels'
-import { Building2, Truck, ReceiptText } from 'lucide-react'
 import { BillingBanner, Paywall, useBilling } from './Billing'
 import ShiftBar from './ShiftBar'
 
@@ -29,14 +25,7 @@ const NAV: { to: string; label: string; icon: typeof ShoppingCart; cap?: Capabil
   { to: '/', label: 'Sell', icon: ShoppingCart },
   { to: '/sales', label: 'Sales', icon: History },
   { to: '/debts', label: 'Debts', icon: HandCoins, cap: 'viewDebts' },
-  { to: '/customers', label: 'Customers', icon: Users, cap: 'manageCustomers' },
   { to: '/products', label: 'Stock', icon: Package, cap: 'manageStock' },
-  { to: '/branches', label: 'Branches', icon: Building2, cap: 'transferStock' },
-  { to: '/suppliers', label: 'Suppliers', icon: Truck, cap: 'receiveDeliveries' },
-  { to: '/expenses', label: 'Expenses', icon: ReceiptText, cap: 'recordExpenses' },
-  { to: '/reports', label: 'Reports', icon: BarChart3, cap: 'viewReports' },
-  { to: '/assistant', label: 'Duka AI', icon: Sparkles, cap: 'useAssistant' },
-  { to: '/subscription', label: 'Billing', icon: CreditCard, cap: 'viewBilling' },
   { to: '/settings', label: 'Settings', icon: SettingsIcon, cap: 'editSettings' },
 ]
 
@@ -59,7 +48,6 @@ export default function Layout({ children }: { children: ReactNode }) {
   const multiLoc = useStore((s) => s.locations.length > 1)
   const currentStaffFull = useStore(selectCurrentStaff)
   const nav = NAV.filter((n) => !n.cap || canStaff(currentStaffFull, n.cap))
-    .filter((n) => n.to !== '/branches' || features.branches)
     .map((n) => (n.to === '/products' ? { ...n, label: labels.stock } : n))
 
   return (
@@ -67,11 +55,6 @@ export default function Layout({ children }: { children: ReactNode }) {
       {/* Desktop side rail */}
       <aside className="glass sticky top-0 hidden h-screen w-56 shrink-0 flex-col border-r border-white/40 px-3 py-5 dark:border-white/10 md:flex">
         <Brand shopName={shopName} logo={settings.logo} />
-        {features.branches && multiLoc && location && (
-          <NavLink to="/branches" className="mt-2 flex items-center gap-1.5 rounded-lg bg-black/5 px-2.5 py-1.5 text-[11px] font-semibold text-brand-900/60 hover:bg-black/10 dark:bg-white/10 dark:text-white/60 dark:hover:bg-white/15">
-            <Building2 size={12} /> At: {location.name}
-          </NavLink>
-        )}
         <nav className="mt-6 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto">
           {nav.map((n) => (
             <NavLink key={n.to} to={n.to} className={({ isActive }) => railClass(isActive)} end={n.to === '/'}>
