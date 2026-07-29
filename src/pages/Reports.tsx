@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { TrendingUp, Receipt as ReceiptIcon, Wallet, Boxes, Banknote, Smartphone, CreditCard, HandCoins, Printer, MessageCircle, DoorClosed } from 'lucide-react'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
 import { useStore, selectTotalOwed } from '../store/useStore'
 import { money } from '../lib/format'
 import { totalStock } from '../lib/stock'
@@ -132,26 +133,21 @@ export default function Reports() {
 
       {/* 7-day revenue chart */}
       <div className="card mb-5 p-5">
-        <h2 className="mb-4 text-sm font-bold uppercase tracking-wide text-brand-900/60 dark:text-white/60">Last 7 days</h2>
-        <div className="flex h-40 items-end gap-3">
-          {stats.days.map((d, i) => {
-            const h = d.value > 0 ? Math.max(4, (d.value / maxDay) * 88) : 0
-            return (
-              <div key={i} className="flex h-full flex-1 flex-col items-center justify-end gap-1">
-                {d.value > 0 && (
-                  <span className="text-[10px] font-semibold text-brand-900/60 dark:text-white/60">{money(d.value, currency).replace('KES ', '')}</span>
-                )}
-                <div className="w-full rounded-t bg-brand-600 transition-all dark:bg-brand-500" style={{ height: `${h}%` }} title={money(d.value, currency)} />
-              </div>
-            )
-          })}
-        </div>
-        <div className="mt-1.5 flex gap-3">
-          {stats.days.map((d, i) => (
-            <span key={i} className="flex-1 text-center text-[11px] font-medium text-brand-900/50 dark:text-white/50">
-              {d.label}
-            </span>
-          ))}
+        <h2 className="mb-4 text-sm font-bold uppercase tracking-wide text-brand-900/60 dark:text-white/60">Last 7 days Revenue</h2>
+        <div className="h-64 w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={stats.days} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="currentColor" className="text-brand-900/10 dark:text-white/10" />
+              <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: 'currentColor' }} className="text-brand-900/50 dark:text-white/50" />
+              <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: 'currentColor' }} className="text-brand-900/50 dark:text-white/50" tickFormatter={(v) => Number(v).toLocaleString()} />
+              <Tooltip
+                cursor={{ fill: 'currentColor', opacity: 0.05 }}
+                contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                formatter={(value: number) => [money(value, currency), 'Revenue']}
+              />
+              <Bar dataKey="value" radius={[4, 4, 0, 0]} className="fill-brand-600 dark:fill-brand-500" />
+            </BarChart>
+          </ResponsiveContainer>
         </div>
       </div>
 
@@ -159,29 +155,72 @@ export default function Reports() {
         {/* Payment method split */}
         <div className="card p-5">
           <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-brand-900/60 dark:text-white/60">Today by payment method</h2>
-          <div className="space-y-2">
-            {([
-              ['mpesa', 'M-PESA', <Smartphone size={16} key="m" />],
-              ['airtel', 'Airtel Money', <Smartphone size={16} key="a" />],
-              ['cash', 'Cash', <Banknote size={16} key="c" />],
-              ['card', 'Card', <CreditCard size={16} key="cc" />],
-              ['credit', 'Credit (Mkopo)', <HandCoins size={16} key="cr" />],
-            ] as const).map(([key, label, icon]) => {
-              const val = stats.methodSplit[key]
-              const totalTenders = Object.values(stats.methodSplit).reduce((a, b) => a + b, 0) || 1
-              return (
-                <div key={key}>
-                  <div className="mb-1 flex items-center justify-between text-sm">
-                    <span className="flex items-center gap-2 text-brand-900/70 dark:text-white/70">{icon} {label}</span>
-                    <span className="font-semibold text-brand-900 dark:text-white">{money(val, currency)}</span>
-                  </div>
-                  <div className="h-2 overflow-hidden rounded-full bg-black/5 dark:bg-white/10">
-                    <div className="h-full rounded-full bg-gold-500" style={{ width: `${(val / totalTenders) * 100}%` }} />
-                  </div>
-                </div>
-              )
-            })}
-          </div>
+          
+          {Object.values(stats.methodSplit).reduce((a, b) => a + b, 0) === 0 ? (
+            <p className="py-6 text-center text-sm text-brand-900/40 dark:text-white/40">No sales yet today.</p>
+          ) : (
+            <div className="flex flex-col items-center">
+              <div className="h-48 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={[
+                        { name: 'M-PESA', value: stats.methodSplit.mpesa, color: '#10b981' },
+                        { name: 'Airtel Money', value: stats.methodSplit.airtel, color: '#ef4444' },
+                        { name: 'Cash', value: stats.methodSplit.cash, color: '#f59e0b' },
+                        { name: 'Card', value: stats.methodSplit.card, color: '#3b82f6' },
+                        { name: 'Credit', value: stats.methodSplit.credit, color: '#6366f1' },
+                      ].filter(d => d.value > 0)}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={50}
+                      outerRadius={75}
+                      paddingAngle={4}
+                      dataKey="value"
+                    >
+                      {
+                        [
+                          { name: 'M-PESA', value: stats.methodSplit.mpesa, color: '#10b981' },
+                          { name: 'Airtel Money', value: stats.methodSplit.airtel, color: '#ef4444' },
+                          { name: 'Cash', value: stats.methodSplit.cash, color: '#f59e0b' },
+                          { name: 'Card', value: stats.methodSplit.card, color: '#3b82f6' },
+                          { name: 'Credit', value: stats.methodSplit.credit, color: '#6366f1' },
+                        ].filter(d => d.value > 0).map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))
+                      }
+                    </Pie>
+                    <Tooltip 
+                      formatter={(value: number) => money(value, currency)}
+                      contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="mt-4 w-full space-y-2">
+                {([
+                  ['mpesa', 'M-PESA', <Smartphone size={16} key="m" />, '#10b981'],
+                  ['airtel', 'Airtel Money', <Smartphone size={16} key="a" />, '#ef4444'],
+                  ['cash', 'Cash', <Banknote size={16} key="c" />, '#f59e0b'],
+                  ['card', 'Card', <CreditCard size={16} key="cc" />, '#3b82f6'],
+                  ['credit', 'Credit (Mkopo)', <HandCoins size={16} key="cr" />, '#6366f1'],
+                ] as const).map(([key, label, icon, color]) => {
+                  const val = stats.methodSplit[key]
+                  if (val === 0) return null
+                  const totalTenders = Object.values(stats.methodSplit).reduce((a, b) => a + b, 0) || 1
+                  return (
+                    <div key={key} className="flex items-center justify-between text-sm">
+                      <span className="flex items-center gap-2 text-brand-900/70 dark:text-white/70">
+                        <div className="h-3 w-3 rounded-full" style={{ backgroundColor: color }} />
+                        {icon} {label}
+                      </span>
+                      <span className="font-semibold text-brand-900 dark:text-white">{money(val, currency)}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Sales by cashier (today) */}

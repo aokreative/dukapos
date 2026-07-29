@@ -11,6 +11,8 @@ import {
   WifiOff,
   Lock,
   History,
+  PieChart,
+  Sparkles,
 } from 'lucide-react'
 import { useStore, selectTotalOwed, selectCurrentStaff, selectRole } from '../store/useStore'
 import { money } from '../lib/format'
@@ -25,6 +27,8 @@ const NAV: { to: string; label: string; icon: typeof ShoppingCart; cap?: Capabil
   { to: '/sales', label: 'Sales', icon: History },
   { to: '/debts', label: 'Debts', icon: HandCoins, cap: 'viewDebts' },
   { to: '/products', label: 'Stock', icon: Package, cap: 'manageStock' },
+  { to: '/reports', label: 'Reports', icon: PieChart, cap: 'viewReports' },
+  { to: '/assistant', label: 'AI Assistant', icon: Sparkles },
   { to: '/settings', label: 'Settings', icon: SettingsIcon, cap: 'editSettings' },
 ]
 
