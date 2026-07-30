@@ -80,3 +80,23 @@ export function PageHeader({ title, subtitle, action }: { title: string; subtitl
     </div>
   )
 }
+
+export function Tabs({ tabs, active, onChange }: { tabs: { id: string; label: string }[]; active: string; onChange: (id: string) => void }) {
+  return (
+    <div className="mb-6 flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+      {tabs.map((t) => (
+        <button
+          key={t.id}
+          onClick={() => onChange(t.id)}
+          className={`shrink-0 rounded-xl px-4 py-2 text-sm font-semibold transition ${
+            active === t.id
+              ? 'bg-brand-900 text-white dark:bg-white dark:text-brand-900 shadow-sm'
+              : 'text-brand-900/60 hover:bg-black/5 dark:text-white/60 dark:hover:bg-white/10'
+          }`}
+        >
+          {t.label}
+        </button>
+      ))}
+    </div>
+  )
+}

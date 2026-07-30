@@ -14,6 +14,7 @@ import { useCloudSync } from './lib/useCloudSync'
 import { canStaff, type Capability } from './lib/permissions'
 import Reports from './pages/Reports'
 import Assistant from './pages/Assistant'
+import SuperAdmin from './pages/SuperAdmin'
 import type { ReactNode } from 'react'
 
 export default function App() {
@@ -64,6 +65,7 @@ export default function App() {
         <Route path="/products" element={<Guard cap="manageStock" role={role}><Products /></Guard>} />
         <Route path="/reports" element={<Guard cap="viewReports" role={role}><Reports /></Guard>} />
         <Route path="/assistant" element={<Assistant />} />
+        <Route path="/superadmin" element={<Guard cap="editSettings" role={role}><SuperAdmin /></Guard>} />
         <Route path="/settings" element={<Guard cap="editSettings" role={role}><Settings /></Guard>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

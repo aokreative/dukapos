@@ -13,6 +13,7 @@ import {
   History,
   PieChart,
   Sparkles,
+  ShieldAlert,
 } from 'lucide-react'
 import { useStore, selectTotalOwed, selectCurrentStaff, selectRole } from '../store/useStore'
 import { money } from '../lib/format'
@@ -29,6 +30,7 @@ const NAV: { to: string; label: string; icon: typeof ShoppingCart; cap?: Capabil
   { to: '/products', label: 'Stock', icon: Package, cap: 'manageStock' },
   { to: '/reports', label: 'Reports', icon: PieChart, cap: 'viewReports' },
   { to: '/assistant', label: 'AI Assistant', icon: Sparkles },
+  { to: '/superadmin', label: 'Super Admin', icon: ShieldAlert, cap: 'editSettings' }, // Using editSettings temporarily, better if we check owner or token
   { to: '/settings', label: 'Settings', icon: SettingsIcon, cap: 'editSettings' },
 ]
 
@@ -54,8 +56,8 @@ export default function Layout({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-full flex-col md:flex-row">
       {/* Desktop side rail */}
-      <aside className="glass sticky top-0 hidden h-screen w-56 shrink-0 flex-col border-r border-white/40 px-3 py-5 dark:border-white/10 md:flex">
-        <Brand shopName={shopName} logo={settings.logo} />
+      <aside className="sticky top-0 hidden h-screen w-56 shrink-0 flex-col bg-brand-900 px-3 py-5 text-white shadow-xl md:flex">
+        <Brand shopName={shopName} logo={settings.logo} light />
         <nav className="mt-6 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto">
           {nav.map((n) => (
             <NavLink key={n.to} to={n.to} className={({ isActive }) => railClass(isActive)} end={n.to === '/'}>
@@ -71,22 +73,22 @@ export default function Layout({ children }: { children: ReactNode }) {
           ))}
         </nav>
         {currentStaff && (
-          <button onClick={logout} className="mb-2 flex items-center gap-2 rounded-xl bg-black/5 px-3 py-2 text-left transition hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/15" title="Lock / switch user">
-            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-600 text-sm font-bold text-gold-400">{currentStaff.name.charAt(0).toUpperCase()}</span>
+          <button onClick={logout} className="mb-2 flex items-center gap-2 rounded-xl bg-white/5 px-3 py-2 text-left transition hover:bg-white/10" title="Lock / switch user">
+            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-800 text-sm font-bold text-gold-400">{currentStaff.name.charAt(0).toUpperCase()}</span>
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-semibold text-brand-900 dark:text-white">{currentStaff.name}</span>
-              <span className="block text-[11px] text-brand-900/50 dark:text-white/50">{role && ROLE_LABEL[role]}</span>
+              <span className="block truncate text-sm font-semibold text-white">{currentStaff.name}</span>
+              <span className="block text-[11px] text-white/50">{role && ROLE_LABEL[role]}</span>
             </span>
-            <Lock size={15} className="text-brand-900/40 dark:text-white/40" />
+            <Lock size={15} className="text-white/40" />
           </button>
         )}
-        <FooterControls dark={dark} toggleDark={toggleDark} online={online} />
+        <FooterControls dark={dark} toggleDark={toggleDark} online={online} light />
       </aside>
 
       {/* Content column */}
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Mobile top bar */}
-        <header className="glass sticky top-0 z-30 flex items-center justify-between border-b border-white/40 px-4 py-3 dark:border-white/10 md:hidden">
+        <header className="sticky top-0 z-30 flex items-center justify-between bg-white px-4 py-3 shadow-sm dark:bg-brand-900 md:hidden">
           <Brand shopName={shopName} logo={settings.logo} />
           <div className="flex items-center gap-1">
             <span
@@ -118,7 +120,7 @@ export default function Layout({ children }: { children: ReactNode }) {
       </div>
 
       {/* Mobile bottom nav */}
-      <nav className="glass fixed inset-x-0 bottom-0 z-30 flex overflow-x-auto border-t border-white/40 pb-[env(safe-area-inset-bottom)] dark:border-white/10 md:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-30 flex overflow-x-auto bg-white pb-[env(safe-area-inset-bottom)] shadow-[0_-1px_3px_rgba(0,0,0,0.05)] dark:bg-brand-900 md:hidden">
         {nav.map((n) => (
           <NavLink key={n.to} to={n.to} className={({ isActive }) => tabClass(isActive)} end={n.to === '/'}>
             <div className="relative">
@@ -139,32 +141,32 @@ export default function Layout({ children }: { children: ReactNode }) {
   )
 }
 
-function Brand({ shopName, logo }: { shopName: string; logo?: string }) {
+function Brand({ shopName, logo, light }: { shopName: string; logo?: string; light?: boolean }) {
   return (
     <div className="flex items-center gap-2">
       {logo ? (
         <img src={logo} alt="" className="h-9 w-9 rounded-xl bg-white object-contain p-0.5 shadow-sm shadow-brand-900/20" />
       ) : (
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 font-black text-gold-400 shadow-sm shadow-brand-900/30">D</div>
+        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-brand-400 to-brand-600 font-black text-gold-400 shadow-sm shadow-brand-900/30">D</div>
       )}
       <div className="leading-tight">
-        <div className="text-base font-black tracking-tight text-brand-900 dark:text-white">{shopName || 'Duka'}</div>
-        <div className="text-[10px] font-medium uppercase tracking-wide text-brand-900/40 dark:text-white/40">POS</div>
+        <div className={`text-base font-black tracking-tight ${light ? 'text-white' : 'text-brand-900 dark:text-white'}`}>{shopName || 'Duka'}</div>
+        <div className={`text-[10px] font-medium uppercase tracking-wide ${light ? 'text-white/50' : 'text-brand-900/40 dark:text-white/40'}`}>POS</div>
       </div>
     </div>
   )
 }
 
-function FooterControls({ dark, toggleDark, online }: { dark: boolean; toggleDark: () => void; online: boolean }) {
+function FooterControls({ dark, toggleDark, online, light }: { dark: boolean; toggleDark: () => void; online: boolean; light?: boolean }) {
   return (
     <div className="mt-auto flex items-center justify-between">
       <span
-        className={`chip ${online ? 'bg-green-100 text-green-800 dark:bg-green-500/20 dark:text-green-300' : 'bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300'}`}
+        className={`chip ${online ? 'bg-green-500/20 text-green-300' : 'bg-amber-500/20 text-amber-300'}`}
       >
         {online ? <Wifi size={13} /> : <WifiOff size={13} />}
         {online ? 'Online' : 'Offline'}
       </span>
-      <button className="rounded-full p-2 text-brand-900/70 hover:bg-black/5 dark:text-white/70 dark:hover:bg-white/10" onClick={toggleDark} aria-label="Toggle theme">
+      <button className={`rounded-full p-2 ${light ? 'text-white/70 hover:bg-white/10' : 'text-brand-900/70 hover:bg-black/5 dark:text-white/70 dark:hover:bg-white/10'}`} onClick={toggleDark} aria-label="Toggle theme">
         {dark ? <Sun size={18} /> : <Moon size={18} />}
       </button>
     </div>
@@ -174,8 +176,8 @@ function FooterControls({ dark, toggleDark, online }: { dark: boolean; toggleDar
 function railClass(active: boolean) {
   return `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition ${
     active
-      ? 'bg-gradient-to-r from-brand-600 to-brand-500 text-white shadow-sm shadow-brand-900/25'
-      : 'text-brand-900/70 hover:bg-black/5 dark:text-white/70 dark:hover:bg-white/10'
+      ? 'bg-white/10 text-gold-400'
+      : 'text-white/70 hover:bg-white/5 hover:text-white'
   }`
 }
 

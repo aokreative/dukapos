@@ -17,6 +17,7 @@ export default function Assistant() {
   const [msgs, setMsgs] = useState<ChatMsg[]>([])
   const [input, setInput] = useState('')
   const [busy, setBusy] = useState(false)
+  const [simulated, setSimulated] = useState<boolean | null>(null)
   const endRef = useRef<HTMLDivElement>(null)
   const role = useStore(selectRole)
   // Cashiers get a limited assistant: stock/availability & debts, never profit,
@@ -57,9 +58,15 @@ export default function Assistant() {
         tenantId: s.tenantId,
         persona: restricted ? 'cashier' : 'manager',
       })
+      
+      setSimulated(remote.simulated ?? true)
+
       const answer =
-        remote.answer ??
-        (remote.locked ? `${remote.detail}\n\n(Here's what I can tell you from your device:)\n\n${localAnswer(q, snapshot)}` : localAnswer(q, snapshot))
+        remote.answer && !remote.simulated
+          ? remote.answer
+          : remote.locked 
+            ? `${remote.detail}\n\n(Here's what I can tell you from your device:)\n\n${localAnswer(q, snapshot)}` 
+            : localAnswer(q, snapshot)
       setMsgs((m) => [...m, { role: 'ai', text: answer }])
     } finally {
       setBusy(false)
@@ -69,6 +76,12 @@ export default function Assistant() {
   return (
     <div className="mx-auto flex h-[calc(100dvh-8.5rem)] max-w-2xl flex-col md:h-[calc(100vh-5rem)]">
       <PageHeader title="Duka AI" subtitle="Ask anything about your shop — sales, debts, stock" />
+      
+      {simulated === true && (
+        <div className="mb-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-800 dark:bg-amber-500/10 dark:text-amber-300 flex items-center justify-between">
+          <span><strong>Local Mode:</strong> You are using the basic offline assistant. Add a Gemini API key to your backend environment variables to unlock the smart AI.</span>
+        </div>
+      )}
 
       <div className="flex-1 space-y-3 overflow-y-auto pb-4 pr-1">
         {msgs.length === 0 && (

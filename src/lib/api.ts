@@ -109,6 +109,7 @@ export interface AssistantReply {
   /** Set when the backend declined: 'addon' (AI not on this plan) or 'quota'. */
   locked?: 'addon' | 'quota'
   detail?: string
+  simulated?: boolean
 }
 
 export async function askAssistant(
@@ -126,9 +127,9 @@ export async function askAssistant(
     })
     if (!res.ok) return { answer: null }
     const data = await res.json()
-    if (data.locked) return { answer: null, locked: data.reason, detail: data.detail }
-    if (data.simulated || !data.answer) return { answer: null }
-    return { answer: data.answer as string }
+    if (data.locked) return { answer: null, locked: data.reason, detail: data.detail, simulated: data.simulated }
+    if (!data.answer) return { answer: null, simulated: data.simulated }
+    return { answer: data.answer as string, simulated: data.simulated }
   } catch {
     return { answer: null }
   }

@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import { Store, Smartphone, MessageSquareText, Database, RotateCcw, Trash2, Check, Users, UserPlus, Pencil, Cloud, CloudOff, LogOut, UtensilsCrossed, FileSpreadsheet, Sparkles } from 'lucide-react'
 import { importProductsCSV, importCustomersCSV, downloadCSV, productsToCSV, customersToCSV, salesToCSV } from '../lib/csv'
 import { totalStock } from '../lib/stock'
 import { demoProductsFor, demoProductsWithIds } from '../lib/demo'
 import { supabase, cloudConfigured } from '../lib/cloud'
 import { useStore } from '../store/useStore'
-import { PageHeader, Modal, Badge } from '../components/ui'
+import { PageHeader, Modal, Badge, Tabs } from '../components/ui'
 import { DEFAULT_TEMPLATE, buildReminderMessage } from '../lib/reminders'
 import { displayPhone, normalizePhone, money } from '../lib/format'
 import { ROLE_LABEL, ROLE_BLURB, GRANTABLE, CAP_LABEL } from '../lib/permissions'
@@ -47,7 +47,7 @@ export default function Settings() {
   const [confirmClear, setConfirmClear] = useState(false)
   const [saved, setSaved] = useState(false)
   const [demoOffer, setDemoOffer] = useState<BusinessType | null>(null)
-  // The full business-type grid stays tucked away once a type is chosen —
+  // The full business-type grid stays tucked away once a type is chosen â€”
   // clients see only THEIR profile; tap "Change" to see all (demo/testing).
   const [showTypes, setShowTypes] = useState(false)
 
@@ -62,10 +62,22 @@ export default function Settings() {
   const sampleDebt: Debt = { id: 'x', customerId: 'x', saleId: 'x', receiptNo: 'R-00001', originalAmount: 1500, balance: 1500, createdAt: Date.now(), status: 'open', payments: [] }
   const preview = buildReminderMessage(settings, sampleCustomer, sampleDebt)
 
+  const [activeTab, setActiveTab] = useState('general')
+  const tabs = [
+    { id: 'general', label: 'General' },
+    { id: 'staff', label: 'Staff' },
+    { id: 'tax', label: 'Tax & KRA' },
+    { id: 'data', label: 'Data & Sync' },
+  ]
+
   return (
     <div className="max-w-2xl">
       <PageHeader title="Settings" subtitle="Set up your shop and reminders" action={saved ? <span className="chip bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-300"><Check size={13} /> Saved</span> : undefined} />
 
+      <Tabs tabs={tabs} active={activeTab} onChange={setActiveTab} />
+
+      {activeTab === 'general' && (
+        <>
       {/* Business profile */}
       <Section icon={<Store size={18} />} title="Business profile">
         <Field label="What kind of business is this?">
@@ -76,7 +88,7 @@ export default function Settings() {
                 {BUSINESS_TYPE_LABEL[settings.businessType ?? 'shop']}
               </span>
               <button className="text-xs font-semibold text-brand-600 underline dark:text-gold-400" onClick={() => setShowTypes(true)}>
-                Change type…
+                Change typeâ€¦
               </button>
             </div>
           ) : (
@@ -97,7 +109,7 @@ export default function Settings() {
                 ))}
               </div>
               <p className="mt-1 text-xs text-brand-900/40 dark:text-white/40">
-                Picking a type switches on the right extras below — you can still toggle any of them yourself.
+                Picking a type switches on the right extras below â€” you can still toggle any of them yourself.
               </p>
             </>
           )}
@@ -185,7 +197,7 @@ export default function Settings() {
         </Field>
       </Section>
 
-      {/* Payment method — drives reminders */}
+      {/* Payment method â€” drives reminders */}
       <Section icon={<Smartphone size={18} />} title="How customers pay you">
         <p className="-mt-1 mb-2 text-sm text-brand-900/50 dark:text-white/50">These details are printed on receipts and included in every debt reminder.</p>
         <Field label="M-PESA type">
@@ -221,12 +233,12 @@ export default function Settings() {
         </label>
       </Section>
 
-      {/* Per-shop M-PESA STK — the "Prompt" button pushes the bill to the
+      {/* Per-shop M-PESA STK â€” the "Prompt" button pushes the bill to the
           customer's phone, into THIS shop's own till. Optional. */}
       <Section icon={<Smartphone size={18} />} title="Auto-prompt at the till (M-PESA STK)">
         <p className="-mt-1 mb-2 text-sm text-brand-900/50 dark:text-white/50">
-          Optional. Turn this on and paste your <strong>own</strong> Safaricom Daraja keys so the <strong>📲 Prompt</strong> button at
-          payment pushes the bill to the customer's phone — and the money lands in <strong>your own till/Paybill above</strong>.
+          Optional. Turn this on and paste your <strong>own</strong> Safaricom Daraja keys so the <strong>ðŸ“² Prompt</strong> button at
+          payment pushes the bill to the customer's phone â€” and the money lands in <strong>your own till/Paybill above</strong>.
           Leave it off and the till still works perfectly; customers just pay your till the normal way.
         </p>
         <label className="flex items-center justify-between rounded-xl bg-black/5 px-3 py-3 dark:bg-white/10">
@@ -256,15 +268,15 @@ export default function Settings() {
               </Field>
             </div>
             <p className="rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-500/10 dark:text-amber-300">
-              These are <strong>your</strong> keys and stay in your own shop account. Get them free at developer.safaricom.co.ke →
-              create an app → Consumer Key &amp; Secret; the Passkey comes with Go-Live. Leave the shortcode blank to use your till/Paybill above.
+              These are <strong>your</strong> keys and stay in your own shop account. Get them free at developer.safaricom.co.ke â†’
+              create an app â†’ Consumer Key &amp; Secret; the Passkey comes with Go-Live. Leave the shortcode blank to use your till/Paybill above.
             </p>
             <details className="rounded-xl border border-black/10 px-3 py-2 text-sm dark:border-white/10">
               <summary className="cursor-pointer font-semibold text-brand-700 dark:text-gold-400">How do I get these keys? (3 steps)</summary>
               <ol className="mt-2 list-decimal space-y-1.5 pl-5 text-brand-900/70 dark:text-white/70">
-                <li>Go to <strong>developer.safaricom.co.ke</strong> and sign in with the number that owns your Till/Paybill. Open <strong>My Apps → Create App</strong> and copy the <strong>Consumer Key</strong> and <strong>Consumer Secret</strong>.</li>
+                <li>Go to <strong>developer.safaricom.co.ke</strong> and sign in with the number that owns your Till/Paybill. Open <strong>My Apps â†’ Create App</strong> and copy the <strong>Consumer Key</strong> and <strong>Consumer Secret</strong>.</li>
                 <li>Paste them above with your <strong>Passkey</strong> and <strong>Shortcode</strong>. To try it right away, set Mode = <strong>Test (sandbox)</strong> and use the sandbox passkey.</li>
-                <li>To take real money, click <strong>Go Live</strong> on Daraja (Safaricom verifies your shortcode by OTP — a few days), get your <strong>production Passkey</strong>, then set Mode = <strong>Live</strong>. Ring up a KES 1 sale → M-PESA → 📲 Prompt to test.</li>
+                <li>To take real money, click <strong>Go Live</strong> on Daraja (Safaricom verifies your shortcode by OTP â€” a few days), get your <strong>production Passkey</strong>, then set Mode = <strong>Live</strong>. Ring up a KES 1 sale â†’ M-PESA â†’ ðŸ“² Prompt to test.</li>
               </ol>
             </details>
           </div>
@@ -292,11 +304,13 @@ export default function Settings() {
         </div>
       </Section>
 
+      </>
+      )}
+
+      {activeTab === 'data' && (
+        <>
       {/* Cloud sync */}
       <CloudSection />
-
-      {/* Staff & roles */}
-      <StaffSection />
 
       {/* VAT + eTIMS */}
       <Section icon={<Store size={18} />} title="Tax & KRA eTIMS">
@@ -338,7 +352,7 @@ export default function Settings() {
           </Field>
         )}
         <p className="mt-1 text-xs text-brand-900/50 dark:text-white/50">
-          Receipts show your KRA PIN. With the Duka backend connected and eTIMS onboarding done, each sale is also submitted to KRA automatically — see INTEGRATIONS.md.
+          Receipts show your KRA PIN. With the Duka backend connected and eTIMS onboarding done, each sale is also submitted to KRA automatically â€” see INTEGRATIONS.md.
         </p>
       </Section>
 
@@ -361,13 +375,22 @@ export default function Settings() {
                 onChange={(e) => set('loyaltyRate', Math.max(0, parseFloat(e.target.value) || 0))}
               />
               <span className="text-sm text-brand-900/60 dark:text-white/60">
-                % back — e.g. {settings.loyaltyRate ?? 1}% means a {money(1000, settings.currency)} sale earns {Math.floor((1000 * (settings.loyaltyRate ?? 1)) / 100)} points ({money(Math.floor((1000 * (settings.loyaltyRate ?? 1)) / 100), settings.currency)}).
+                % back â€” e.g. {settings.loyaltyRate ?? 1}% means a {money(1000, settings.currency)} sale earns {Math.floor((1000 * (settings.loyaltyRate ?? 1)) / 100)} points ({money(Math.floor((1000 * (settings.loyaltyRate ?? 1)) / 100), settings.currency)}).
               </span>
             </div>
           </Field>
         )}
       </Section>
 
+      </>
+      )}
+
+      {activeTab === 'staff' && (
+        <StaffSection />
+      )}
+
+      {activeTab === 'data' && (
+        <>
       {/* QuickBooks / CSV import-export */}
       <ImportExportSection />
 
@@ -383,11 +406,13 @@ export default function Settings() {
           </button>
         </div>
       </Section>
+      </>
+      )}
 
       <p className="py-6 text-center text-xs text-brand-900/40 dark:text-white/40">
-        Duka POS · works offline · built for Kenyan shops
+        Duka POS Â· works offline Â· built for Kenyan shops
         <br />
-        <span className="text-brand-900/35 dark:text-white/30">Version — updated {__APP_BUILD__}</span>
+        <span className="text-brand-900/35 dark:text-white/30">Version â€” updated {__APP_BUILD__}</span>
       </p>
 
       {demoOffer && (
@@ -431,7 +456,7 @@ export default function Settings() {
   )
 }
 
-/** QuickBooks-friendly CSV import & export — switch from QuickBooks in a minute. */
+/** QuickBooks-friendly CSV import & export â€” switch from QuickBooks in a minute. */
 function ImportExportSection() {
   const products = useStore((s) => s.products)
   const customers = useStore((s) => s.customers)
@@ -459,7 +484,7 @@ function ImportExportSection() {
   return (
     <Section icon={<FileSpreadsheet size={18} />} title="QuickBooks / CSV import & export">
       <p className="-mt-1 mb-2 text-sm text-brand-900/50 dark:text-white/50">
-        Moving from QuickBooks? Export your products & customers there as CSV and import them here —
+        Moving from QuickBooks? Export your products & customers there as CSV and import them here â€”
         cleaned and de-duplicated automatically. Exports below open in Excel and import into QuickBooks.
       </p>
       <div className="grid grid-cols-2 gap-2">
@@ -533,18 +558,18 @@ function CloudSection() {
     setBusy(true)
     setMsg('')
     const { error } = create
-      ? // Send the confirm-email link back to THIS deployment (not localhost) —
+      ? // Send the confirm-email link back to THIS deployment (not localhost) â€”
         // fixes "this link can't be reached" after tapping the email.
         await sb.auth.signUp({ email, password, options: { emailRedirectTo: window.location.origin } })
       : await sb.auth.signInWithPassword({ email, password })
     setBusy(false)
     if (error) setMsg(error.message)
-    else setMsg(create ? 'Account created — this shop now syncs across devices.' : 'Signed in — syncing.')
+    else setMsg(create ? 'Account created â€” this shop now syncs across devices.' : 'Signed in â€” syncing.')
   }
 
   async function resetPassword() {
     const sb = supabase()
-    if (!sb || !email) return setMsg('Enter your account email first, then tap “Forgot password”.')
+    if (!sb || !email) return setMsg('Enter your account email first, then tap â€œForgot passwordâ€.')
     setBusy(true)
     setMsg('')
     const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin })
@@ -561,7 +586,7 @@ function CloudSection() {
     setBusy(false)
     if (error) setMsg(error.message)
     else {
-      setMsg('Password updated — you can now sign in with it.')
+      setMsg('Password updated â€” you can now sign in with it.')
       setRecovery(false)
       setNewPassword('')
     }
@@ -582,7 +607,7 @@ function CloudSection() {
       ) : sessionEmail ? (
         <div className="flex items-center justify-between gap-3">
           <div>
-            <div className="text-sm font-semibold text-green-700 dark:text-green-400">● Live — synced across devices</div>
+            <div className="text-sm font-semibold text-green-700 dark:text-green-400">â— Live â€” synced across devices</div>
             <div className="text-xs text-brand-900/50 dark:text-white/50">Signed in as {sessionEmail}. Sign in with the same account on any phone to share this shop.</div>
           </div>
           <button className="btn-ghost py-2 text-sm" onClick={() => supabase()?.auth.signOut()}>
@@ -592,7 +617,7 @@ function CloudSection() {
       ) : (
         <div className="space-y-3">
           <p className="-mt-1 text-sm text-brand-900/50 dark:text-white/50">
-            Sign in once and this shop's sales, stock, customers and debts stay in the cloud — shared live by every device that signs in.
+            Sign in once and this shop's sales, stock, customers and debts stay in the cloud â€” shared live by every device that signs in.
           </p>
           <div className="grid grid-cols-2 gap-3">
             <input className="input" type="email" placeholder="shop@email.com" value={email} onChange={(e) => setEmail(e.target.value)} />
@@ -613,7 +638,7 @@ function CloudSection() {
         </div>
       )}
 
-      {/* Set a new password — shown after returning via the reset-email link. */}
+      {/* Set a new password â€” shown after returning via the reset-email link. */}
       {cloudConfigured && recovery && (
         <div className="mt-3 space-y-2 rounded-xl bg-gold-400/10 p-3">
           <div className="text-sm font-semibold text-brand-900 dark:text-white">Set a new password</div>
@@ -663,12 +688,12 @@ function StaffSection() {
                 <span className="truncate font-semibold text-brand-900 dark:text-white">{m.name}</span>
                 <Badge color={roleColor[m.role]}>{ROLE_LABEL[m.role]}</Badge>
                 {!m.active && <Badge color="red">paused</Badge>}
-                {m.id === currentStaffId && <span className="text-[11px] font-semibold text-green-600 dark:text-green-400">• you</span>}
+                {m.id === currentStaffId && <span className="text-[11px] font-semibold text-green-600 dark:text-green-400">â€¢ you</span>}
               </div>
               <div className="text-xs text-brand-900/50 dark:text-white/50">{ROLE_BLURB[m.role]}</div>
             </div>
             {/* The owner account can never be edited/paused/removed by anyone
-                but an owner — a manager, however empowered, cannot touch it. */}
+                but an owner â€” a manager, however empowered, cannot touch it. */}
             {(viewerIsOwner || m.role !== 'owner') && (
               <button className="rounded-lg p-2 text-brand-900/50 hover:bg-black/5 dark:text-white/50 dark:hover:bg-white/10" onClick={() => setEditing(m)}>
                 <Pencil size={16} />
@@ -762,8 +787,8 @@ function StaffForm({
           <p className="mt-1 text-xs text-brand-900/50 dark:text-white/50">{ROLE_BLURB[role]}</p>
         </div>
         <div>
-          <label className="label">PIN (4–6 digits)</label>
-          <input className="input tracking-[0.4em]" inputMode="numeric" value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="••••" />
+          <label className="label">PIN (4â€“6 digits)</label>
+          <input className="input tracking-[0.4em]" inputMode="numeric" value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="â€¢â€¢â€¢â€¢" />
           {pin && !validPin && <p className="mt-1 text-xs text-red-600">Use 4 to 6 numbers</p>}
         </div>
         {showBranch && (
@@ -778,13 +803,13 @@ function StaffForm({
             <p className="mt-1 text-xs text-brand-900/50 dark:text-white/50">
               {role === 'owner'
                 ? 'Owners always see and move between every branch.'
-                : 'When set, this person logs into that branch and sells only its stock. Leave on “All branches” for staff who move around.'}
+                : 'When set, this person logs into that branch and sells only its stock. Leave on â€œAll branchesâ€ for staff who move around.'}
             </p>
           </div>
         )}
         {member && (
           <label className="flex items-center justify-between rounded-xl bg-black/5 px-3 py-3 dark:bg-white/10">
-            <span className="text-sm font-medium text-brand-900 dark:text-white">Active (can log in) <span className="text-brand-900/50 dark:text-white/50">— uncheck to pause when on leave</span></span>
+            <span className="text-sm font-medium text-brand-900 dark:text-white">Active (can log in) <span className="text-brand-900/50 dark:text-white/50">â€” uncheck to pause when on leave</span></span>
             <input type="checkbox" className="h-5 w-5 accent-brand-600" checked={active} disabled={isSelf} onChange={(e) => setActive(e.target.checked)} />
           </label>
         )}
@@ -792,7 +817,7 @@ function StaffForm({
           <div>
             <label className="label">Extra permissions (grant owner-style powers)</label>
             <p className="-mt-1 mb-2 text-xs text-brand-900/50 dark:text-white/50">
-              Give this {ROLE_LABEL[role].toLowerCase()} access beyond their role. A manager with all of these runs the shop like you —
+              Give this {ROLE_LABEL[role].toLowerCase()} access beyond their role. A manager with all of these runs the shop like you â€”
               but can never edit, pause or remove the owner.
             </p>
             <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
@@ -823,3 +848,4 @@ function StaffForm({
     </Modal>
   )
 }
+
