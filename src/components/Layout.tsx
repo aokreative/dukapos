@@ -52,7 +52,7 @@ export default function Layout({ children }: { children: ReactNode }) {
     .map((n) => (n.to === '/products' ? { ...n, label: labels.stock } : n))
 
   return (
-    <div className="mx-auto flex min-h-full max-w-6xl flex-col md:flex-row">
+    <div className="flex min-h-full flex-col md:flex-row">
       {/* Desktop side rail */}
       <aside className="glass sticky top-0 hidden h-screen w-56 shrink-0 flex-col border-r border-white/40 px-3 py-5 dark:border-white/10 md:flex">
         <Brand shopName={shopName} logo={settings.logo} />
