@@ -3,7 +3,7 @@ import { PageHeader, Badge } from '../components/ui'
 import { useStore, selectCurrentStaff, selectCurrentLocation } from '../store/useStore'
 import { stockAt } from '../lib/stock'
 import { money } from '../lib/format'
-import { Package, Receipt } from 'lucide-react'
+import { Package } from 'lucide-react'
 
 export default function Dashboard() {
   const staff = useStore(selectCurrentStaff)
