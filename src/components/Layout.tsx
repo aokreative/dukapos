@@ -14,7 +14,6 @@ import {
   Users,
   Truck,
   Building2,
-  ShieldAlert,
   Crown
 } from 'lucide-react'
 import { useStore, selectTotalOwed, selectCurrentStaff, selectRole } from '../store/useStore'
@@ -34,7 +33,6 @@ const NAV: { to: string; label: string; icon: any; cap?: Capability }[] = [
   { to: '/staff', label: 'Staff', icon: Users, cap: 'editSettings' },
   { to: '/warehouse', label: 'Warehouse', icon: Building2, cap: 'transferStock' },
   { to: '/owner-panel', label: 'Owner Panel', icon: Crown, cap: 'editSettings' },
-  { to: '/superadmin', label: 'Super Admin', icon: ShieldAlert, cap: 'editSettings' },
   { to: '/settings', label: 'Settings', icon: SettingsIcon, cap: 'editSettings' },
 ]
 
@@ -55,12 +53,6 @@ export default function Layout({ children }: { children: ReactNode }) {
   const currentStaffFull = useStore(selectCurrentStaff)
 
   const nav = NAV.filter((n) => !n.cap || canStaff(currentStaffFull, n.cap))
-    .map((n) => {
-      // Hide super admin if not allowed
-      if (n.to === '/superadmin' && role !== 'owner') return null
-      return n
-    })
-    .filter(Boolean) as typeof NAV
 
   return (
     <div className="flex min-h-full flex-col md:flex-row">

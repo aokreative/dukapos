@@ -62,11 +62,11 @@ export default function SuperAdmin() {
           <ShieldAlert size={32} />
         </div>
         <h1 className="text-2xl font-bold text-brand-900 mb-2">Super Admin</h1>
-        <p className="text-sm text-brand-900/60 mb-6">Enter your admin token to manage all shops. (This is the ADMIN_TOKEN you set on the server.)</p>
+        <p className="text-sm text-brand-900/60 mb-6">Enter your platform admin token/password to manage all shops.</p>
         <input 
           type="password" 
           className="input mb-4 text-center" 
-          placeholder="Admin token" 
+          placeholder="Admin Token / Password" 
           value={inputToken}
           onChange={(e) => setInputToken(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && saveToken()}

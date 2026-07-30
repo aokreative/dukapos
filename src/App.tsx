@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { useStore, selectRole, selectCurrentStaff } from './store/useStore'
 import Layout from './components/Layout'
 import LockScreen from './components/LockScreen'
@@ -70,8 +70,24 @@ export default function App() {
     )
   }
 
+  const loc = useLocation()
+
+  // Super admin should be accessible without a shop PIN (it has its own token lock)
+  const isSuperAdmin = loc.pathname === '/superadmin'
+
   // No one is signed in on this device → show the PIN lock screen.
-  if (!role) return <LockScreen />
+  if (!role && !isSuperAdmin) return <LockScreen />
+
+  if (isSuperAdmin) {
+    return (
+      <Layout>
+        <Routes>
+          <Route path="/superadmin" element={<SuperAdmin />} />
+          <Route path="*" element={<Navigate to="/superadmin" replace />} />
+        </Routes>
+      </Layout>
+    )
+  }
 
   return (
     <Layout>
@@ -89,7 +105,6 @@ export default function App() {
         <Route path="/warehouse" element={<Guard cap="transferStock" role={role}><Branches /></Guard>} />
         <Route path="/owner-panel" element={<Guard cap="editSettings" role={role}><Subscription /></Guard>} />
         <Route path="/assistant" element={<Assistant />} />
-        <Route path="/superadmin" element={<Guard cap="editSettings" role={role}><SuperAdmin /></Guard>} />
         <Route path="/settings" element={<Guard cap="editSettings" role={role}><Settings /></Guard>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
