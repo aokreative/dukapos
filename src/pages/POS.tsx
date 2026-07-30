@@ -19,6 +19,30 @@ import { uid } from '../lib/id'
  *  separate lines). */
 const lineKey = (l: { productId: string; variant?: string }) => l.productId + '␟' + (l.variant ?? '')
 
+function guessEmoji(name: string, category: string) {
+  const t = (name + ' ' + category).toLowerCase()
+  if (t.includes('unga') || t.includes('flour') || t.includes('maize')) return '🌾'
+  if (t.includes('oil') || t.includes('cooking') || t.includes('salad')) return '🍶'
+  if (t.includes('sugar') || t.includes('sweet')) return '🍬'
+  if (t.includes('milk') || t.includes('dairy')) return '🥛'
+  if (t.includes('bread') || t.includes('loaf')) return '🍞'
+  if (t.includes('soap') || t.includes('omo') || t.includes('detergent') || t.includes('washing')) return '🧼'
+  if (t.includes('tea') || t.includes('coffee') || t.includes('nescafe')) return '☕'
+  if (t.includes('panadol') || t.includes('drug') || t.includes('med')) return '💊'
+  if (t.includes('blue band') || t.includes('margarine') || t.includes('butter')) return '🧈'
+  if (t.includes('weetabix') || t.includes('cereal')) return '🥣'
+  if (t.includes('salt')) return '🧂'
+  if (t.includes('water')) return '💧'
+  if (t.includes('airtime') || t.includes('safaricom')) return '📱'
+  if (t.includes('egg')) return '🥚'
+  if (t.includes('drink') || t.includes('soda') || t.includes('coke') || t.includes('juice')) return '🥤'
+  if (t.includes('rice')) return '🍚'
+  if (t.includes('meat') || t.includes('beef') || t.includes('chicken')) return '🥩'
+  if (t.includes('fruit') || t.includes('apple') || t.includes('banana')) return '🍎'
+  if (t.includes('veg') || t.includes('tomato') || t.includes('onion')) return '🥬'
+  return '📦'
+}
+
 export default function POS() {
   const products = useStore((s) => s.products)
   const completeSale = useStore((s) => s.completeSale)
@@ -259,30 +283,45 @@ export default function POS() {
                 key={p.id}
                 onClick={() => add(p)}
                 disabled={out}
-                className={`card flex flex-col overflow-hidden p-0 text-left transition ${out ? 'cursor-not-allowed opacity-50 grayscale' : 'active:scale-[0.97]'}`}
+                className={`card flex flex-col overflow-hidden p-0 text-left transition hover:shadow-md hover:-translate-y-0.5 ${out ? 'cursor-not-allowed opacity-50 grayscale hover:translate-y-0 hover:shadow-sm' : 'active:scale-[0.97]'}`}
               >
-                {p.thumb && (
+                {p.thumb ? (
                   <div className="relative">
-                    <img src={p.thumb} alt="" className="h-36 w-full object-cover lg:h-40" />
+                    <img src={p.thumb} alt="" className="h-32 w-full object-cover lg:h-36" />
                     {p.variants && p.variants.length > 0 && (
                       <span className="absolute bottom-1 left-1 rounded-md bg-black/55 px-1.5 py-0.5 text-[10px] font-semibold text-white">{p.variants.length} options</span>
                     )}
                   </div>
+                ) : (
+                  <div className="pt-3 px-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-black/5 text-xl dark:bg-white/10">
+                      {guessEmoji(p.name, p.category)}
+                    </div>
+                  </div>
                 )}
-                <div className="flex flex-1 flex-col p-3">
-                  <div className="line-clamp-2 font-semibold text-brand-900 dark:text-white">{p.name}</div>
-                  <div className="mt-0.5 text-xs text-brand-900/40 dark:text-white/40">{p.category}</div>
-                  <div className="mt-auto flex items-end justify-between pt-2">
-                    <span className="font-black text-brand-700 dark:text-gold-400">
+                <div className="flex flex-1 flex-col px-3 pb-3 pt-2">
+                  <div className="line-clamp-2 text-sm font-bold text-brand-900 dark:text-white leading-tight">{p.name}</div>
+                  <div className="mt-1 flex flex-wrap items-center gap-1 text-[11px] font-medium text-brand-900/50 dark:text-white/50">
+                    <span>{p.category}</span>
+                    {unitTag && (
+                      <>
+                        <span className="text-brand-900/30 dark:text-white/30">·</span>
+                        <span>{p.unit}</span>
+                      </>
+                    )}
+                    {tracked && !out && (
+                      <>
+                        <span className="text-brand-900/30 dark:text-white/30">·</span>
+                        <span className={low ? 'text-red-500' : ''}>{here} left</span>
+                      </>
+                    )}
+                  </div>
+                  <div className="mt-auto flex items-end justify-between pt-3">
+                    <span className="text-[15px] font-black text-brand-700 dark:text-brand-300">
                       {money(p.price, currency)}
-                      {unitTag && <span className="text-[10px] font-semibold text-brand-900/40 dark:text-white/40">{unitTag}</span>}
                     </span>
-                    {tracked && (
-                      out ? (
-                        <span className="rounded-md bg-red-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-red-600 dark:bg-red-500/20 dark:text-red-300">Out of stock</span>
-                      ) : (
-                        <span className={`text-[10px] font-semibold ${low ? 'text-red-500' : 'text-brand-900/40 dark:text-white/40'}`}>{here} left</span>
-                      )
+                    {out && (
+                       <span className="rounded-md bg-red-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-red-600 dark:bg-red-500/20 dark:text-red-300">Out</span>
                     )}
                   </div>
                 </div>
