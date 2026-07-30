@@ -70,13 +70,25 @@ export function EmptyState({ icon, title, hint }: { icon?: ReactNode; title: str
 }
 
 export function PageHeader({ title, subtitle, action }: { title: string; subtitle?: string; action?: ReactNode }) {
+  // Add time formatting for the top right corner
+  const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  
   return (
-    <div className="mb-4 flex items-end justify-between gap-3">
-      <div>
-        <h1 className="text-2xl font-black tracking-tight text-brand-900 dark:text-white">{title}</h1>
-        {subtitle && <p className="text-sm text-brand-900/50 dark:text-white/50">{subtitle}</p>}
+    <div className="-mx-4 md:-mx-8 -mt-4 mb-6 flex items-center justify-between bg-white px-4 md:px-8 py-4 shadow-sm dark:bg-brand-900">
+      <div className="flex items-baseline gap-2">
+        <h1 className="text-lg font-bold text-brand-900 dark:text-white">{title}</h1>
+        {subtitle && <p className="text-sm text-brand-900/50 dark:text-white/50 hidden sm:block">{subtitle}</p>}
       </div>
-      {action}
+      <div className="flex items-center gap-4">
+        {action}
+        <div className="hidden sm:flex items-center gap-3 text-sm font-medium text-brand-900/50 dark:text-white/50">
+          <span>{time}</span>
+          <span className="flex items-center gap-1 text-green-600 dark:text-green-400">
+            <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
+            Online
+          </span>
+        </div>
+      </div>
     </div>
   )
 }

@@ -1,38 +1,45 @@
-import { type ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import {
+  Home,
   ShoppingCart,
   Package,
   Settings as SettingsIcon,
-  HandCoins,
   Moon,
   Sun,
   Wifi,
   WifiOff,
   Lock,
-  History,
   PieChart,
-  Sparkles,
+  Users,
+  Truck,
+  Building2,
+  ShieldAlert,
+  Crown
 } from 'lucide-react'
 import { useStore, selectTotalOwed, selectCurrentStaff, selectRole } from '../store/useStore'
 import { money } from '../lib/format'
 import { useOnline } from '../lib/useOnline'
 import { canStaff, ROLE_LABEL, type Capability } from '../lib/permissions'
-import { bizLabels } from '../lib/labels'
 import { BillingBanner, Paywall, useBilling } from './Billing'
 import ShiftBar from './ShiftBar'
 
-const NAV: { to: string; label: string; icon: typeof ShoppingCart; cap?: Capability }[] = [
-  { to: '/', label: 'Sell', icon: ShoppingCart },
-  { to: '/sales', label: 'Sales', icon: History },
-  { to: '/debts', label: 'Debts', icon: HandCoins, cap: 'viewDebts' },
-  { to: '/products', label: 'Stock', icon: Package, cap: 'manageStock' },
+const NAV: { to: string; label: string; icon: any; cap?: Capability }[] = [
+  { to: '/dashboard', label: 'Dashboard', icon: Home, cap: 'viewReports' },
+  { to: '/pos', label: 'Point of Sale', icon: ShoppingCart },
+  { to: '/products', label: 'Inventory', icon: Package, cap: 'manageStock' },
+  { to: '/customers', label: 'Customers', icon: Users },
+  { to: '/suppliers', label: 'Suppliers', icon: Truck, cap: 'manageStock' },
   { to: '/reports', label: 'Reports', icon: PieChart, cap: 'viewReports' },
-  { to: '/assistant', label: 'AI Assistant', icon: Sparkles },
+  { to: '/staff', label: 'Staff', icon: Users, cap: 'editSettings' },
+  { to: '/warehouse', label: 'Warehouse', icon: Building2, cap: 'transferStock' },
+  { to: '/owner-panel', label: 'Owner Panel', icon: Crown, cap: 'editSettings' },
+  { to: '/superadmin', label: 'Super Admin', icon: ShieldAlert, cap: 'editSettings' },
   { to: '/settings', label: 'Settings', icon: SettingsIcon, cap: 'editSettings' },
 ]
 
 export default function Layout({ children }: { children: ReactNode }) {
+  const [menuOpen, setMenuOpen] = useState(false)
   const dark = useStore((s) => s.dark)
   const toggleDark = useStore((s) => s.toggleDark)
   const shopName = useStore((s) => s.settings.name)
@@ -45,20 +52,39 @@ export default function Layout({ children }: { children: ReactNode }) {
   const currentStaff = useStore(selectCurrentStaff)
   const logout = useStore((s) => s.logout)
   const settings = useStore((s) => s.settings)
-  const labels = bizLabels(settings.businessType)
   const currentStaffFull = useStore(selectCurrentStaff)
 
   const nav = NAV.filter((n) => !n.cap || canStaff(currentStaffFull, n.cap))
-    .map((n) => (n.to === '/products' ? { ...n, label: labels.stock } : n))
+    .map((n) => {
+      // Hide super admin if not allowed
+      if (n.to === '/superadmin' && role !== 'owner') return null
+      return n
+    })
+    .filter(Boolean) as typeof NAV
 
   return (
     <div className="flex min-h-full flex-col md:flex-row">
-      {/* Desktop side rail */}
-      <aside className="sticky top-0 hidden h-screen w-56 shrink-0 flex-col bg-brand-800 py-5 text-white shadow-xl md:flex">
-        <div className="px-4">
+      {/* Mobile top bar */}
+      <div className="flex items-center justify-between bg-[#0A4C24] p-4 md:hidden">
+        <div className="text-xl font-black tracking-tight text-white">Duka</div>
+        <button className="text-white" onClick={() => setMenuOpen(!menuOpen)}>
+          <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
+      </div>
+
+      {/* Sidebar navigation */}
+      <div
+        className={`fixed inset-0 z-40 flex w-64 flex-col bg-[#0A4C24] transition-transform md:relative md:translate-x-0 ${
+          menuOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
+        <div className="flex items-center justify-between px-4 py-5">
           <Brand shopName={shopName} logo={settings.logo} light />
+          <button className="text-white md:hidden" onClick={() => setMenuOpen(false)}>✕</button>
         </div>
-        <nav className="mt-6 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto">
+        <nav className="mt-6 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto" onClick={() => setMenuOpen(false)}>
           {nav.map((n) => (
             <NavLink key={n.to} to={n.to} className={({ isActive }) => railClass(isActive)} end={n.to === '/'}>
               <n.icon size={20} />
@@ -85,7 +111,7 @@ export default function Layout({ children }: { children: ReactNode }) {
           )}
           <FooterControls dark={dark} toggleDark={toggleDark} online={online} light />
         </div>
-      </aside>
+      </div>
 
       {/* Content column */}
       <div className="flex min-w-0 flex-1 flex-col">
@@ -178,7 +204,7 @@ function FooterControls({ dark, toggleDark, online, light }: { dark: boolean; to
 function railClass(active: boolean) {
   return `flex items-center gap-3 px-4 py-3 text-sm font-semibold transition ${
     active
-      ? 'border-l-4 border-gold-400 bg-brand-900/30 text-gold-400'
+      ? 'border-l-4 border-[#FFD700] bg-white/10 text-[#FFD700]'
       : 'border-l-4 border-transparent text-white/70 hover:bg-white/5 hover:text-white'
   }`
 }

@@ -8,6 +8,12 @@ import Debts from './pages/Debts'
 import Settings from './pages/Settings'
 import Sales from './pages/Sales'
 import Products from './pages/Products'
+import Customers from './pages/Customers'
+import Suppliers from './pages/Suppliers'
+import Branches from './pages/Branches'
+import Subscription from './pages/Subscription'
+import Staff from './pages/Staff'
+import Dashboard from './pages/Dashboard'
 import { useAutomation } from './lib/useAutomation'
 import { useBillingSync } from './lib/useBillingSync'
 import { useCloudSync } from './lib/useCloudSync'
@@ -16,6 +22,17 @@ import Reports from './pages/Reports'
 import Assistant from './pages/Assistant'
 import SuperAdmin from './pages/SuperAdmin'
 import type { ReactNode } from 'react'
+
+function HomeRedirect() {
+  const role = useStore(selectRole)
+  const staff = useStore(selectCurrentStaff)
+  if (!role) return <Navigate to="/" replace />
+  // Cashiers without report viewing go to POS. Owners/managers go to Dashboard.
+  if (role === 'cashier' && !canStaff(staff, 'viewReports')) {
+    return <Navigate to="/pos" replace />
+  }
+  return <Navigate to="/dashboard" replace />
+}
 
 export default function App() {
   const hydrated = useStore((s) => s._hasHydrated)
@@ -59,11 +76,18 @@ export default function App() {
   return (
     <Layout>
       <Routes>
-        <Route path="/" element={<POS />} />
+        <Route path="/" element={<HomeRedirect />} />
+        <Route path="/dashboard" element={<Guard cap="viewReports" role={role}><Dashboard /></Guard>} />
+        <Route path="/pos" element={<POS />} />
         <Route path="/sales" element={<Sales />} />
         <Route path="/debts" element={<Guard cap="viewDebts" role={role}><Debts /></Guard>} />
         <Route path="/products" element={<Guard cap="manageStock" role={role}><Products /></Guard>} />
+        <Route path="/customers" element={<Customers />} />
+        <Route path="/suppliers" element={<Guard cap="manageStock" role={role}><Suppliers /></Guard>} />
         <Route path="/reports" element={<Guard cap="viewReports" role={role}><Reports /></Guard>} />
+        <Route path="/staff" element={<Guard cap="editSettings" role={role}><Staff /></Guard>} />
+        <Route path="/warehouse" element={<Guard cap="transferStock" role={role}><Branches /></Guard>} />
+        <Route path="/owner-panel" element={<Guard cap="editSettings" role={role}><Subscription /></Guard>} />
         <Route path="/assistant" element={<Assistant />} />
         <Route path="/superadmin" element={<Guard cap="editSettings" role={role}><SuperAdmin /></Guard>} />
         <Route path="/settings" element={<Guard cap="editSettings" role={role}><Settings /></Guard>} />

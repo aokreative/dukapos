@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Store, Smartphone, MessageSquareText, Database, RotateCcw, Trash2, Check, Users, UserPlus, Pencil, Cloud, CloudOff, LogOut, UtensilsCrossed, FileSpreadsheet, Sparkles } from 'lucide-react'
 import { importProductsCSV, importCustomersCSV, downloadCSV, productsToCSV, customersToCSV, salesToCSV } from '../lib/csv'
 import { totalStock } from '../lib/stock'
@@ -87,7 +87,7 @@ export default function Settings() {
                 {(settings.businessType ?? 'shop') === 'restaurant' ? <UtensilsCrossed size={15} /> : <Store size={15} />}
                 {BUSINESS_TYPE_LABEL[settings.businessType ?? 'shop']}
               </span>
-              <button className="text-xs font-semibold text-brand-600 underline dark:text-gold-400" onClick={() => setShowTypes(true)}>
+              <button className="text-xs font-semibold text-brand-600 underline dark:text-gold-400 hidden" onClick={() => setShowTypes(true)}>
                 Change typeâ€¦
               </button>
             </div>
@@ -652,7 +652,7 @@ function CloudSection() {
   )
 }
 
-function StaffSection() {
+export function StaffSection() {
   const staff = useStore((s) => s.staff)
   const currentStaffId = useStore((s) => s.currentStaffId)
   const addStaff = useStore((s) => s.addStaff)
