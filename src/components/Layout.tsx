@@ -13,7 +13,6 @@ import {
   History,
   PieChart,
   Sparkles,
-  ShieldAlert,
 } from 'lucide-react'
 import { useStore, selectTotalOwed, selectCurrentStaff, selectRole } from '../store/useStore'
 import { money } from '../lib/format'
@@ -30,7 +29,6 @@ const NAV: { to: string; label: string; icon: typeof ShoppingCart; cap?: Capabil
   { to: '/products', label: 'Stock', icon: Package, cap: 'manageStock' },
   { to: '/reports', label: 'Reports', icon: PieChart, cap: 'viewReports' },
   { to: '/assistant', label: 'AI Assistant', icon: Sparkles },
-  { to: '/superadmin', label: 'Super Admin', icon: ShieldAlert, cap: 'editSettings' }, // Using editSettings temporarily, better if we check owner or token
   { to: '/settings', label: 'Settings', icon: SettingsIcon, cap: 'editSettings' },
 ]
 
@@ -56,8 +54,10 @@ export default function Layout({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-full flex-col md:flex-row">
       {/* Desktop side rail */}
-      <aside className="sticky top-0 hidden h-screen w-56 shrink-0 flex-col bg-brand-900 px-3 py-5 text-white shadow-xl md:flex">
-        <Brand shopName={shopName} logo={settings.logo} light />
+      <aside className="sticky top-0 hidden h-screen w-56 shrink-0 flex-col bg-brand-800 py-5 text-white shadow-xl md:flex">
+        <div className="px-4">
+          <Brand shopName={shopName} logo={settings.logo} light />
+        </div>
         <nav className="mt-6 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto">
           {nav.map((n) => (
             <NavLink key={n.to} to={n.to} className={({ isActive }) => railClass(isActive)} end={n.to === '/'}>
@@ -72,17 +72,19 @@ export default function Layout({ children }: { children: ReactNode }) {
             </NavLink>
           ))}
         </nav>
-        {currentStaff && (
-          <button onClick={logout} className="mb-2 flex items-center gap-2 rounded-xl bg-white/5 px-3 py-2 text-left transition hover:bg-white/10" title="Lock / switch user">
-            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-800 text-sm font-bold text-gold-400">{currentStaff.name.charAt(0).toUpperCase()}</span>
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-semibold text-white">{currentStaff.name}</span>
-              <span className="block text-[11px] text-white/50">{role && ROLE_LABEL[role]}</span>
-            </span>
-            <Lock size={15} className="text-white/40" />
-          </button>
-        )}
-        <FooterControls dark={dark} toggleDark={toggleDark} online={online} light />
+        <div className="px-4">
+          {currentStaff && (
+            <button onClick={logout} className="mb-2 flex items-center gap-2 rounded-xl bg-white/5 px-3 py-2 text-left transition w-full hover:bg-white/10" title="Lock / switch user">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-900 text-sm font-bold text-gold-400">{currentStaff.name.charAt(0).toUpperCase()}</span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-semibold text-white">{currentStaff.name}</span>
+                <span className="block text-[11px] text-white/50">{role && ROLE_LABEL[role]}</span>
+              </span>
+              <Lock size={15} className="text-white/40 shrink-0" />
+            </button>
+          )}
+          <FooterControls dark={dark} toggleDark={toggleDark} online={online} light />
+        </div>
       </aside>
 
       {/* Content column */}
@@ -147,7 +149,7 @@ function Brand({ shopName, logo, light }: { shopName: string; logo?: string; lig
       {logo ? (
         <img src={logo} alt="" className="h-9 w-9 rounded-xl bg-white object-contain p-0.5 shadow-sm shadow-brand-900/20" />
       ) : (
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-brand-400 to-brand-600 font-black text-gold-400 shadow-sm shadow-brand-900/30">D</div>
+        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gold-400 font-black text-brand-900 shadow-sm shadow-brand-900/30">D</div>
       )}
       <div className="leading-tight">
         <div className={`text-base font-black tracking-tight ${light ? 'text-white' : 'text-brand-900 dark:text-white'}`}>{shopName || 'Duka'}</div>
@@ -174,10 +176,10 @@ function FooterControls({ dark, toggleDark, online, light }: { dark: boolean; to
 }
 
 function railClass(active: boolean) {
-  return `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition ${
+  return `flex items-center gap-3 px-4 py-3 text-sm font-semibold transition ${
     active
-      ? 'bg-white/10 text-gold-400'
-      : 'text-white/70 hover:bg-white/5 hover:text-white'
+      ? 'border-l-4 border-gold-400 bg-brand-900/30 text-gold-400'
+      : 'border-l-4 border-transparent text-white/70 hover:bg-white/5 hover:text-white'
   }`
 }
 
