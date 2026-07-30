@@ -106,7 +106,7 @@ export default function Layout({ children }: { children: ReactNode }) {
       </div>
 
       {/* Content column */}
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-w-0 flex-1 flex-col bg-gray-50 dark:bg-brand-900">
         {/* Mobile top bar */}
         <header className="sticky top-0 z-30 flex items-center justify-between bg-white px-4 py-3 shadow-sm dark:bg-brand-900 md:hidden">
           <Brand shopName={shopName} logo={settings.logo} />
@@ -163,15 +163,15 @@ export default function Layout({ children }: { children: ReactNode }) {
 
 function Brand({ shopName, logo, light }: { shopName: string; logo?: string; light?: boolean }) {
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-3">
       {logo ? (
-        <img src={logo} alt="" className="h-9 w-9 rounded-xl bg-white object-contain p-0.5 shadow-sm shadow-brand-900/20" />
+        <img src={logo} alt="" className="h-10 w-10 rounded bg-white object-contain p-0.5 shadow-sm shadow-brand-900/20" />
       ) : (
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gold-400 font-black text-brand-900 shadow-sm shadow-brand-900/30">D</div>
+        <div className="flex h-10 w-10 items-center justify-center rounded bg-gold-400 text-lg font-black text-brand-900 shadow-sm shadow-brand-900/30">D</div>
       )}
       <div className="leading-tight">
-        <div className={`text-base font-black tracking-tight ${light ? 'text-white' : 'text-brand-900 dark:text-white'}`}>{shopName || 'Duka'}</div>
-        <div className={`text-[10px] font-medium uppercase tracking-wide ${light ? 'text-white/50' : 'text-brand-900/40 dark:text-white/40'}`}>POS</div>
+        <div className={`text-sm font-black tracking-widest uppercase ${light ? 'text-white' : 'text-brand-900 dark:text-white'}`}>DUKA POS</div>
+        <div className={`text-xs font-medium ${light ? 'text-white/70' : 'text-brand-900/50 dark:text-white/50'}`}>{shopName || 'Kamau Hardware'}</div>
       </div>
     </div>
   )

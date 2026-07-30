@@ -1,13 +1,17 @@
 import { useMemo } from 'react'
 import { PageHeader, Badge } from '../components/ui'
-import { useStore, selectCurrentStaff } from '../store/useStore'
+import { useStore, selectCurrentStaff, selectCurrentLocation } from '../store/useStore'
+import { stockAt } from '../lib/stock'
 import { money } from '../lib/format'
 import { Package, Receipt } from 'lucide-react'
 
 export default function Dashboard() {
   const staff = useStore(selectCurrentStaff)
+  const location = useStore(selectCurrentLocation)
+  const locId = location?.id ?? 'loc_main'
   const sales = useStore(s => s.sales)
   const products = useStore(s => s.products)
+  const customers = useStore(s => s.customers)
 
   // 1. Revenue - Last 31 Days
   const { chartData, total31Days } = useMemo(() => {
@@ -74,13 +78,13 @@ export default function Dashboard() {
     return products
       .filter(p => p.trackStock !== false)
       .map(p => {
-        const totalStock = Object.values(p.stockByLocation || {}).reduce((sum, val) => sum + val, 0)
+        const totalStock = stockAt(p, locId)
         return { ...p, totalStock }
       })
-      .filter(p => p.totalStock <= p.reorderLevel)
+      .filter(p => p.totalStock <= (p.reorderLevel || 0))
       .sort((a,b) => a.totalStock - b.totalStock)
       .slice(0, 5)
-  }, [products])
+  }, [products, locId])
 
   return (
     <div className="pb-10">
@@ -103,11 +107,11 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div className="h-48 flex items-end gap-1">
+          <div className="h-48 flex items-end gap-[2px]">
             {chartData.map((d, i) => (
               <div 
                 key={i} 
-                className="bg-brand-500 hover:bg-brand-400 transition-colors rounded-t-sm w-full group relative" 
+                className="bg-[#00D67D] hover:bg-brand-400 transition-colors w-full group relative" 
                 style={{ height: `${Math.max(2, d.pct)}%` }} 
               >
                 {/* Tooltip on hover */}
@@ -178,15 +182,23 @@ export default function Dashboard() {
              <div className="text-sm text-brand-900/40 font-medium py-4 text-center">No transactions yet.</div>
            ) : (
              <div className="divide-y divide-black/5 dark:divide-white/5">
-               {recentTx.map(tx => (
+               {recentTx.map(tx => {
+                 const customer = tx.customerId ? customers.find(c => c.id === tx.customerId) : null
+                 const name = customer ? customer.name : 'Walk-in'
+                 const initials = name.charAt(0).toUpperCase()
+                 const itemsCount = tx.lines.reduce((sum, line) => sum + line.qty, 0)
+                 
+                 return (
                  <div key={tx.id} className="py-3 flex items-center justify-between">
                    <div className="flex items-center gap-3">
-                     <div className="h-8 w-8 rounded-full bg-brand-50 dark:bg-brand-900/40 text-brand-600 dark:text-brand-400 flex items-center justify-center shrink-0">
-                       <Receipt size={14} />
+                     <div className="h-8 w-8 rounded-full bg-brand-50 dark:bg-brand-900/40 text-brand-600 dark:text-brand-400 flex items-center justify-center shrink-0 font-bold text-xs">
+                       {initials}
                      </div>
                      <div>
-                       <div className="text-sm font-bold text-brand-900 dark:text-white">{tx.receiptNo}</div>
-                       <div className="text-[11px] font-semibold text-brand-900/50 dark:text-white/50">{new Date(tx.createdAt).toLocaleTimeString()}</div>
+                       <div className="text-sm font-bold text-brand-900 dark:text-white">{name}</div>
+                       <div className="text-[11px] font-semibold text-brand-900/50 dark:text-white/50">
+                         {new Date(tx.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · {itemsCount} items
+                       </div>
                      </div>
                    </div>
                    <div className="text-right">
@@ -196,7 +208,7 @@ export default function Dashboard() {
                      </div>
                    </div>
                  </div>
-               ))}
+               )})}
              </div>
            )}
         </div>
@@ -224,8 +236,10 @@ export default function Dashboard() {
                      </div>
                    </div>
                    <div className="text-right">
-                     <div className="text-sm font-black text-red-600 dark:text-red-400">{p.totalStock} {p.unit || 'pc'}</div>
-                     <div className="text-[11px] font-bold text-brand-900/40 dark:text-white/40">Min: {p.reorderLevel}</div>
+                     <div className="text-sm font-black text-red-600 dark:text-red-400">
+                       {p.totalStock} <span className="text-xs font-semibold">{p.unit || 'left'}</span>
+                     </div>
+                     <div className="text-[11px] font-bold text-brand-900/40 dark:text-white/40">Min: {p.reorderLevel || 0}</div>
                    </div>
                  </div>
                ))}
