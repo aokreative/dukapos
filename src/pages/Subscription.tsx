@@ -22,7 +22,7 @@ export default function Subscription() {
 
   return (
     <div className="max-w-3xl">
-      <PageHeader title="Subscription & Billing" subtitle="Duka POS is a subscription — pick the size that fits your shop." />
+      <PageHeader title="Billing" subtitle="Pick the plan that fits your business — upgrade or downgrade any time." />
 
       {/* Billing cycle toggle */}
       <div className="mb-4 inline-flex rounded-xl bg-black/5 p-1 dark:bg-white/10">
@@ -90,19 +90,23 @@ export default function Subscription() {
         {PLANS.map((p) => {
           const current = p.id === subscription.planId
           return (
-            <div key={p.id} className={`card p-5 ${current ? 'ring-2 ring-brand-500' : ''}`}>
+            <div key={p.id} className={`card p-5 ${current ? 'ring-2 ring-brand-500' : ''} ${p.isCustom ? 'border-2 border-dashed border-gold-400/40' : ''}`}>
               <div className="flex items-baseline justify-between">
                 <div>
                   <div className="font-black text-brand-900 dark:text-white">{p.name}</div>
                   <div className="text-xs text-brand-900/50 dark:text-white/50">{p.swahili}</div>
                 </div>
                 {current && <Badge color="green">Current</Badge>}
+                {p.isCustom && <Badge color="gold">Custom</Badge>}
               </div>
               <div className="mt-2 text-2xl font-black text-brand-700 dark:text-gold-400">
-                {money(priceFor(p, cycle))}
-                <span className="text-sm font-medium text-brand-900/40 dark:text-white/40">{per}</span>
+                {p.isCustom ? (
+                  <span className="text-xl">Custom pricing</span>
+                ) : (
+                  <>{money(priceFor(p, cycle))}<span className="text-sm font-medium text-brand-900/40 dark:text-white/40">{per}</span></>
+                )}
               </div>
-              {cycle === 'annual' && <div className="text-xs font-semibold text-green-600 dark:text-green-400">2 months free</div>}
+              {!p.isCustom && cycle === 'annual' && <div className="text-xs font-semibold text-green-600 dark:text-green-400">2 months free</div>}
               <p className="mt-1 text-sm text-brand-900/60 dark:text-white/60">{p.blurb}</p>
               <ul className="mt-3 space-y-1">
                 {p.features.map((f) => (
@@ -111,9 +115,22 @@ export default function Subscription() {
                   </li>
                 ))}
               </ul>
-              <button className={`mt-4 w-full ${current ? 'btn-ghost' : 'btn-primary'}`} onClick={() => setPayFor(p.id)}>
-                {current ? 'Renew this plan' : `Switch to ${p.name}`}
-              </button>
+              {p.isCustom ? (
+                <a
+                  href="mailto:sales@dukapos.co.ke?subject=Enterprise%20Plan%20Enquiry"
+                  className="mt-4 btn-primary w-full text-center block"
+                >
+                  Contact Sales
+                </a>
+              ) : current ? (
+                <button className="mt-4 w-full btn-ghost" onClick={() => setPayFor(p.id)}>
+                  Renew this plan
+                </button>
+              ) : (
+                <button className="mt-4 w-full btn-primary" onClick={() => setPayFor(p.id)}>
+                  Switch to {p.name}
+                </button>
+              )}
             </div>
           )
         })}

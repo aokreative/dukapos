@@ -2,7 +2,7 @@
 // Import: accepts standard QuickBooks product/service and customer CSV
 // exports (and any similar spreadsheet), cleans + dedupes, and inserts.
 // Export: produces clean CSVs that QuickBooks (and Excel) can import.
-import type { Customer, Product, Sale } from '../types'
+import type { Customer, Product, Sale, Supplier } from '../types'
 import { MAIN_LOCATION_ID } from './stock'
 import { normalizePhone } from './format'
 import { uid } from './id'
@@ -209,6 +209,53 @@ export function salesToCSV(sales: Sale[], customerName: (id?: string) => string)
       s.cashierName,
       s.note ?? '',
     ]),
+  ]
+}
+
+/** Import suppliers from a CSV. Columns: Name, Phone, Supplies. Dedupe: phone, then name. */
+export function importSuppliersCSV(
+  text: string,
+  existing: Supplier[],
+): { result: ImportResult; toAdd: Omit<Supplier, 'id' | 'createdAt' | 'active'>[] } {
+  const rows = parseCSV(text)
+  if (rows.length < 2) return { result: { added: 0, updated: 0, skipped: 0 }, toAdd: [] }
+  const H = rows[0]
+  const cName = col(H, 'Supplier', 'Supplier Name', 'Name', 'Company', 'Vendor')
+  const cPhone = col(H, 'Phone', 'Mobile', 'Contact', 'Phone Number')
+  const cSupplies = col(H, 'Supplies', 'Items', 'Products', 'Description')
+  const cNote = col(H, 'Note', 'Notes', 'Memo')
+  if (cName === -1) return { result: { added: 0, updated: 0, skipped: rows.length - 1 }, toAdd: [] }
+
+  const byPhone = new Set(existing.map((s) => s.phone))
+  const byName = new Set(existing.map((s) => s.name.toLowerCase()))
+  const seen = new Set<string>()
+  const toAdd: Omit<Supplier, 'id' | 'createdAt' | 'active'>[] = []
+  let skipped = 0
+
+  for (const r of rows.slice(1)) {
+    const name = (r[cName] ?? '').trim()
+    if (!name) { skipped++; continue }
+    const phone = cPhone !== -1 ? normalizePhone((r[cPhone] ?? '').trim()) : '254700000000'
+    const key = (phone || name).toLowerCase()
+    if (seen.has(key) || byName.has(name.toLowerCase()) || (phone !== '254700000000' && byPhone.has(phone))) {
+      skipped++
+      continue
+    }
+    seen.add(key)
+    toAdd.push({
+      name,
+      phone,
+      supplies: cSupplies !== -1 ? (r[cSupplies] ?? '').trim() || undefined : undefined,
+      note: cNote !== -1 ? (r[cNote] ?? '').trim() || undefined : undefined,
+    })
+  }
+  return { result: { added: toAdd.length, updated: 0, skipped }, toAdd }
+}
+
+export function suppliersToCSV(suppliers: Supplier[]): (string | number)[][] {
+  return [
+    ['Supplier Name', 'Phone', 'Supplies', 'Note'],
+    ...suppliers.map((s) => [s.name, s.phone, s.supplies ?? '', s.note ?? '']),
   ]
 }
 

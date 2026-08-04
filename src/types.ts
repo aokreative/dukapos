@@ -434,7 +434,9 @@ export interface Plan {
   id: PlanId
   name: string
   swahili: string
-  price: number // KES per month
+  price: number // KES per month (0 = custom pricing)
+  /** When true, the billing UI shows "Contact Sales" instead of a price. */
+  isCustom?: boolean
   limits: PlanLimits // Infinity means unlimited
   blurb: string
   features: string[]

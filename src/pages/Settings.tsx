@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Store, Smartphone, MessageSquareText, Database, RotateCcw, Trash2, Check, Users, UserPlus, Pencil, Cloud, CloudOff, LogOut, UtensilsCrossed, FileSpreadsheet, Sparkles } from 'lucide-react'
-import { importProductsCSV, importCustomersCSV, downloadCSV, productsToCSV, customersToCSV, salesToCSV } from '../lib/csv'
+import { Store, Smartphone, MessageSquareText, Database, RotateCcw, Trash2, Check, Users, UserPlus, Pencil, Cloud, CloudOff, LogOut, UtensilsCrossed, FileSpreadsheet, Sparkles, Truck } from 'lucide-react'
+import { importProductsCSV, importCustomersCSV, importSuppliersCSV, downloadCSV, productsToCSV, customersToCSV, salesToCSV, suppliersToCSV } from '../lib/csv'
 import { totalStock } from '../lib/stock'
 import { demoProductsFor, demoProductsWithIds } from '../lib/demo'
 import { supabase, cloudConfigured } from '../lib/cloud'
@@ -303,15 +303,11 @@ export default function Settings() {
           </div>
         </div>
       </Section>
-
       </>
       )}
 
-      {activeTab === 'data' && (
+      {activeTab === 'tax' && (
         <>
-      {/* Cloud sync */}
-      <CloudSection />
-
       {/* VAT + eTIMS */}
       <Section icon={<Store size={18} />} title="Tax & KRA eTIMS">
         <label className="flex items-center justify-between rounded-xl bg-black/5 px-3 py-3 dark:bg-white/10">
@@ -352,7 +348,7 @@ export default function Settings() {
           </Field>
         )}
         <p className="mt-1 text-xs text-brand-900/50 dark:text-white/50">
-          Receipts show your KRA PIN. With the Duka backend connected and eTIMS onboarding done, each sale is also submitted to KRA automatically â€” see INTEGRATIONS.md.
+          Receipts show your KRA PIN. With the Duka backend connected and eTIMS onboarding done, each sale is also submitted to KRA automatically — see INTEGRATIONS.md.
         </p>
       </Section>
 
@@ -375,13 +371,12 @@ export default function Settings() {
                 onChange={(e) => set('loyaltyRate', Math.max(0, parseFloat(e.target.value) || 0))}
               />
               <span className="text-sm text-brand-900/60 dark:text-white/60">
-                % back â€” e.g. {settings.loyaltyRate ?? 1}% means a {money(1000, settings.currency)} sale earns {Math.floor((1000 * (settings.loyaltyRate ?? 1)) / 100)} points ({money(Math.floor((1000 * (settings.loyaltyRate ?? 1)) / 100), settings.currency)}).
+                % back — e.g. {settings.loyaltyRate ?? 1}% means a {money(1000, settings.currency)} sale earns {Math.floor((1000 * (settings.loyaltyRate ?? 1)) / 100)} points ({money(Math.floor((1000 * (settings.loyaltyRate ?? 1)) / 100), settings.currency)}).
               </span>
             </div>
           </Field>
         )}
       </Section>
-
       </>
       )}
 
@@ -391,6 +386,9 @@ export default function Settings() {
 
       {activeTab === 'data' && (
         <>
+      {/* Cloud sync */}
+      <CloudSection />
+
       {/* QuickBooks / CSV import-export */}
       <ImportExportSection />
 
@@ -410,7 +408,7 @@ export default function Settings() {
       )}
 
       <p className="py-6 text-center text-xs text-brand-900/40 dark:text-white/40">
-        Duka POS Â· works offline Â· built for Kenyan shops
+        Duka POS · works offline · built for Kenyan shops
         <br />
         <span className="text-brand-900/35 dark:text-white/30">Version â€” updated {__APP_BUILD__}</span>
       </p>
@@ -456,14 +454,16 @@ export default function Settings() {
   )
 }
 
-/** QuickBooks-friendly CSV import & export â€” switch from QuickBooks in a minute. */
+/** QuickBooks-friendly CSV import & export — switch from QuickBooks in a minute. */
 function ImportExportSection() {
   const products = useStore((s) => s.products)
   const customers = useStore((s) => s.customers)
+  const suppliers = useStore((s) => s.suppliers)
   const sales = useStore((s) => s.sales)
   const addProduct = useStore((s) => s.addProduct)
   const updateProduct = useStore((s) => s.updateProduct)
   const addCustomer = useStore((s) => s.addCustomer)
+  const addSupplier = useStore((s) => s.addSupplier)
   const currentLocationId = useStore((s) => s.currentLocationId)
   const [msg, setMsg] = useState('')
 
@@ -480,11 +480,17 @@ function ImportExportSection() {
     toAdd.forEach((c) => addCustomer(c))
     setMsg(`Customers: ${result.added} added, ${result.skipped} skipped (duplicates/empty).`)
   }
+  async function onSuppliersFile(f: File) {
+    const text = await f.text()
+    const { result, toAdd } = importSuppliersCSV(text, suppliers)
+    toAdd.forEach((s) => addSupplier(s))
+    setMsg(`Suppliers: ${result.added} added, ${result.skipped} skipped (duplicates/empty).`)
+  }
 
   return (
     <Section icon={<FileSpreadsheet size={18} />} title="QuickBooks / CSV import & export">
       <p className="-mt-1 mb-2 text-sm text-brand-900/50 dark:text-white/50">
-        Moving from QuickBooks? Export your products & customers there as CSV and import them here â€”
+        Moving from QuickBooks or another system? Export your data as CSV and import it here —
         cleaned and de-duplicated automatically. Exports below open in Excel and import into QuickBooks.
       </p>
       <div className="grid grid-cols-2 gap-2">
@@ -496,14 +502,21 @@ function ImportExportSection() {
           Import customers CSV
           <input type="file" accept=".csv,text/csv" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void onCustomersFile(f); e.target.value = '' }} />
         </label>
+        <label className="btn-ghost cursor-pointer col-span-2 justify-center py-2 text-sm flex items-center gap-2">
+          <Truck size={15} /> Import suppliers CSV
+          <input type="file" accept=".csv,text/csv" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void onSuppliersFile(f); e.target.value = '' }} />
+        </label>
         <button className="btn-ghost justify-center py-2 text-sm" onClick={() => downloadCSV('duka-products.csv', productsToCSV(products, (p) => totalStock(p)))}>
           Export products
         </button>
         <button className="btn-ghost justify-center py-2 text-sm" onClick={() => downloadCSV('duka-customers.csv', customersToCSV(customers))}>
           Export customers
         </button>
-        <button className="btn-ghost col-span-2 justify-center py-2 text-sm" onClick={() => downloadCSV('duka-sales.csv', salesToCSV(sales, (id) => customers.find((c) => c.id === id)?.name ?? ''))}>
-          Export all sales (for QuickBooks / accountant)
+        <button className="btn-ghost justify-center py-2 text-sm" onClick={() => downloadCSV('duka-suppliers.csv', suppliersToCSV(suppliers))}>
+          Export suppliers
+        </button>
+        <button className="btn-ghost justify-center py-2 text-sm" onClick={() => downloadCSV('duka-sales.csv', salesToCSV(sales, (id) => customers.find((c) => c.id === id)?.name ?? ''))}>
+          Export sales
         </button>
       </div>
       {msg && <p className="mt-2 rounded-xl bg-green-50 px-3 py-2 text-sm font-medium text-green-800 dark:bg-green-500/10 dark:text-green-300">{msg}</p>}

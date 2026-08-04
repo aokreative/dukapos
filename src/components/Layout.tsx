@@ -30,9 +30,8 @@ const NAV: { to: string; label: string; icon: any; cap?: Capability }[] = [
   { to: '/customers', label: 'Customers', icon: Users },
   { to: '/suppliers', label: 'Suppliers', icon: Truck, cap: 'manageStock' },
   { to: '/reports', label: 'Reports', icon: PieChart, cap: 'viewReports' },
-  { to: '/staff', label: 'Staff', icon: Users, cap: 'editSettings' },
   { to: '/warehouse', label: 'Warehouse', icon: Building2, cap: 'transferStock' },
-  { to: '/owner-panel', label: 'Owner Panel', icon: Crown, cap: 'editSettings' },
+  { to: '/billing', label: 'Billing', icon: Crown, cap: 'editSettings' },
   { to: '/settings', label: 'Settings', icon: SettingsIcon, cap: 'editSettings' },
 ]
 
@@ -55,9 +54,9 @@ export default function Layout({ children }: { children: ReactNode }) {
   const nav = NAV.filter((n) => !n.cap || canStaff(currentStaffFull, n.cap))
 
   return (
-    <div className="flex min-h-full flex-col md:flex-row">
+    <div className="flex h-screen flex-col md:flex-row overflow-hidden">
       {/* Mobile top bar */}
-      <div className="flex items-center justify-between bg-[#0A4C24] p-4 md:hidden">
+      <div className="flex items-center justify-between bg-[#0A4C24] p-4 md:hidden shrink-0">
         <div className="text-xl font-black tracking-tight text-white">Duka</div>
         <button className="text-white" onClick={() => setMenuOpen(!menuOpen)}>
           <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -66,9 +65,9 @@ export default function Layout({ children }: { children: ReactNode }) {
         </button>
       </div>
 
-      {/* Sidebar navigation */}
+      {/* Sidebar navigation — fixed height, never scrolls away */}
       <div
-        className={`fixed inset-0 z-40 flex w-64 flex-col bg-[#0A4C24] transition-transform md:relative md:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-40 flex w-64 flex-col bg-[#0A4C24] transition-transform md:sticky md:top-0 md:h-screen md:translate-x-0 md:shrink-0 ${
           menuOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -76,7 +75,7 @@ export default function Layout({ children }: { children: ReactNode }) {
           <Brand shopName={shopName} logo={settings.logo} light />
           <button className="text-white md:hidden" onClick={() => setMenuOpen(false)}>✕</button>
         </div>
-        <nav className="mt-6 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto" onClick={() => setMenuOpen(false)}>
+        <nav className="mt-6 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto scrollbar-thin" onClick={() => setMenuOpen(false)}>
           {nav.map((n) => (
             <NavLink key={n.to} to={n.to} className={({ isActive }) => railClass(isActive)} end={n.to === '/'}>
               <n.icon size={20} />
@@ -105,8 +104,8 @@ export default function Layout({ children }: { children: ReactNode }) {
         </div>
       </div>
 
-      {/* Content column */}
-      <div className="flex min-w-0 flex-1 flex-col bg-gray-50 dark:bg-brand-900">
+      {/* Content column — this is the only scrollable area */}
+      <div className="flex min-w-0 flex-1 flex-col bg-gray-50 dark:bg-brand-900 overflow-y-auto">
         {/* Mobile top bar */}
         <header className="sticky top-0 z-30 flex items-center justify-between bg-white px-4 py-3 shadow-sm dark:bg-brand-900 md:hidden">
           <Brand shopName={shopName} logo={settings.logo} />
@@ -134,7 +133,7 @@ export default function Layout({ children }: { children: ReactNode }) {
         <ShiftBar />
 
         {/* Content */}
-        <main className="flex-1 px-4 pb-24 pt-4 md:px-8 md:pb-10" key={loc.pathname}>
+        <main className="flex-1 px-4 pb-24 pt-4 md:px-8 md:pb-10 md:overflow-visible" key={loc.pathname}>
           {children}
         </main>
       </div>

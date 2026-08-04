@@ -14,6 +14,8 @@ import Branches from './pages/Branches'
 import Subscription from './pages/Subscription'
 import Staff from './pages/Staff'
 import Dashboard from './pages/Dashboard'
+import AuthPage from './pages/AuthPage'
+import OnboardingPage from './pages/OnboardingPage'
 import { useAutomation } from './lib/useAutomation'
 import { useBillingSync } from './lib/useBillingSync'
 import { useCloudSync } from './lib/useCloudSync'
@@ -44,7 +46,7 @@ export default function App() {
   // Keeps subscription status in step with the platform backend (when connected).
   useBillingSync()
   // Live multi-device cloud sync (when Supabase is configured + shop signed in).
-  useCloudSync()
+  const { status: cloudStatus } = useCloudSync()
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', dark)
@@ -75,6 +77,20 @@ export default function App() {
   // Super admin should be accessible without a shop PIN (it has its own token lock)
   const isSuperAdmin = loc.pathname === '/superadmin'
 
+  // SaaS Auth & Onboarding flow
+  if (cloudStatus === 'initializing') {
+    return (
+      <div className="flex h-full items-center justify-center bg-brand-900 text-white">
+        <div className="animate-pulse text-center">
+          <div className="text-3xl font-black tracking-tight">Duka</div>
+          <div className="text-sm text-white/60">connecting…</div>
+        </div>
+      </div>
+    )
+  }
+  if (cloudStatus === 'signedOut') return <AuthPage />
+  if (cloudStatus === 'onboarding') return <OnboardingPage />
+
   // No one is signed in on this device → show the PIN lock screen.
   if (!role && !isSuperAdmin) return <LockScreen />
 
@@ -103,7 +119,9 @@ export default function App() {
         <Route path="/reports" element={<Guard cap="viewReports" role={role}><Reports /></Guard>} />
         <Route path="/staff" element={<Guard cap="editSettings" role={role}><Staff /></Guard>} />
         <Route path="/warehouse" element={<Guard cap="transferStock" role={role}><Branches /></Guard>} />
-        <Route path="/owner-panel" element={<Guard cap="editSettings" role={role}><Subscription /></Guard>} />
+        <Route path="/billing" element={<Guard cap="editSettings" role={role}><Subscription /></Guard>} />
+        {/* Legacy redirect — old links / bookmarks still work */}
+        <Route path="/owner-panel" element={<Navigate to="/billing" replace />} />
         <Route path="/assistant" element={<Assistant />} />
         <Route path="/settings" element={<Guard cap="editSettings" role={role}><Settings /></Guard>} />
         <Route path="*" element={<Navigate to="/" replace />} />
