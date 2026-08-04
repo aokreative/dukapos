@@ -87,8 +87,8 @@ export default function Settings() {
                 {(settings.businessType ?? 'shop') === 'restaurant' ? <UtensilsCrossed size={15} /> : <Store size={15} />}
                 {BUSINESS_TYPE_LABEL[settings.businessType ?? 'shop']}
               </span>
-              <button className="text-xs font-semibold text-brand-600 underline dark:text-gold-400 hidden" onClick={() => setShowTypes(true)}>
-                Change typeâ€¦
+              <button className="text-xs font-semibold text-brand-600 underline dark:text-gold-400" onClick={() => setShowTypes(true)}>
+                Change type…
               </button>
             </div>
           ) : (
@@ -97,10 +97,22 @@ export default function Settings() {
                 {(Object.keys(BUSINESS_TYPE_LABEL) as BusinessType[]).map((t) => (
                   <button
                     key={t}
-                    onClick={() => {
+                    onClick={async () => {
                       updateSettings({ businessType: t, features: PRESET_FEATURES[t] })
                       setShowTypes(false)
                       if (demoProductsFor(t)) setDemoOffer(t)
+                      
+                      // Sync to SaaS cloud
+                      if (cloudConfigured) {
+                        const sb = supabase()
+                        if (sb) {
+                          const { data } = await sb.auth.getSession()
+                          const uid = data.session?.user?.id
+                          if (uid) {
+                            await sb.from('shops').update({ business_type: t }).eq('owner_id', uid)
+                          }
+                        }
+                      }
                     }}
                     className={`chip justify-center py-2.5 text-center text-xs sm:text-sm ${(settings.businessType ?? 'shop') === t ? 'bg-brand-600 text-white' : 'bg-black/5 text-brand-900/70 dark:bg-white/10 dark:text-white/70'}`}
                   >
