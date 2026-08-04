@@ -9,6 +9,7 @@ export default function AuthPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [message, setMessage] = useState<string | null>(null)
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
@@ -18,19 +19,21 @@ export default function AuthPage() {
 
     setLoading(true)
     setError(null)
+    setMessage(null)
     
     try {
       if (isSignUp) {
-        const { error: err } = await sb.auth.signUp({
+        const { data, error: err } = await sb.auth.signUp({
           email,
           password,
-          options: {
-            // we could pass data here, but we will handle it in onboarding
-          }
         })
         if (err) throw err
-        // Note: Supabase auto-signs in if email confirmations are disabled.
-        // Otherwise, they need to verify email. Assuming auto-sign in for this demo.
+        
+        // If Supabase requires email confirmation, it won't return a session immediately.
+        if (data.user && !data.session) {
+          setMessage('Account created! Please check your email to verify your account.')
+          return
+        }
       } else {
         const { error: err } = await sb.auth.signInWithPassword({
           email,
@@ -95,6 +98,11 @@ export default function AuthPage() {
             {error && (
               <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-sm font-medium text-red-400">
                 {error}
+              </div>
+            )}
+            {message && (
+              <div className="rounded-xl border border-green-500/20 bg-green-500/10 p-4 text-sm font-medium text-green-400">
+                {message}
               </div>
             )}
             
