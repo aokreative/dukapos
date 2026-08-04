@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react'
-import { ShieldAlert, RefreshCw, Activity } from 'lucide-react'
+import { RefreshCw, Activity } from 'lucide-react'
 import { PageHeader, Tabs, Badge } from '../components/ui'
 import { money } from '../lib/format'
 
+import { supabase } from '../lib/cloud'
+
 export default function SuperAdmin() {
-  const [token, setToken] = useState(localStorage.getItem('duka_admin_token') || '')
-  const [inputToken, setInputToken] = useState('')
   const [activeTab, setActiveTab] = useState('metrics')
   const [tenants, setTenants] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
@@ -17,68 +17,41 @@ export default function SuperAdmin() {
     { id: 'health', label: 'System Health' },
   ]
 
-  const loadData = async (currentToken: string) => {
-    if (!currentToken) return
+  const loadData = async () => {
     setLoading(true)
     setError('')
     try {
-      const url = import.meta.env.VITE_API_URL || 'http://localhost:8787'
-      const res = await fetch(`${url}/api/admin/tenants`, {
-        headers: { Authorization: `Bearer ${currentToken}` }
-      })
-      if (!res.ok) throw new Error(await res.text())
-      const data = await res.json()
-      setTenants(data)
+      const sb = supabase()
+      if (!sb) throw new Error('Cloud disconnected')
+
+      const { data, error: rpcError } = await sb.rpc('get_all_tenants')
+      if (rpcError) throw rpcError
+
+      setTenants(data || [])
     } catch (e: any) {
       setError(e.message || 'Failed to load tenants')
-      if (e.message.includes('Unauthorized') || e.message.includes('disabled')) {
-        setToken('')
-        localStorage.removeItem('duka_admin_token')
-      }
     } finally {
       setLoading(false)
     }
   }
 
   useEffect(() => {
-    if (token) loadData(token)
-  }, [token])
+    loadData()
+  }, [])
 
-  const saveToken = () => {
-    if (!inputToken.trim()) return
-    localStorage.setItem('duka_admin_token', inputToken.trim())
-    setToken(inputToken.trim())
-  }
-
-  const logout = () => {
-    localStorage.removeItem('duka_admin_token')
-    setToken('')
-  }
-
-  if (!token) {
-    return (
-      <div className="max-w-md mx-auto mt-20 p-8 card text-center">
-        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-brand-100 text-brand-600 mb-6">
-          <ShieldAlert size={32} />
-        </div>
-        <h1 className="text-2xl font-bold text-brand-900 mb-2">Super Admin</h1>
-        <p className="text-sm text-brand-900/60 mb-6">Enter your platform admin token/password to manage all shops.</p>
-        <input 
-          type="password" 
-          className="input mb-4 text-center" 
-          placeholder="Admin Token / Password" 
-          value={inputToken}
-          onChange={(e) => setInputToken(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && saveToken()}
-        />
-        <button className="btn-primary w-full" onClick={saveToken}>Unlock portal</button>
-      </div>
-    )
+  const logout = async () => {
+    const sb = supabase()
+    if (sb) await sb.auth.signOut()
+    window.location.reload()
   }
 
   const paying = tenants.filter(t => t.status === 'active' || t.status === 'grace')
   const atRisk = tenants.filter(t => t.status === 'restricted' || t.status === 'suspended')
-  const mrr = tenants.filter(t => t.status !== 'suspended').reduce((s, t) => s + (t.cycle === 'annual' ? t.amountDue / 10 : t.amountDue), 0)
+  const mrr = tenants.filter(t => t.status !== 'suspended').reduce((s, t) => {
+    const amount = t.amountDue || 0
+    const cycle = t.cycle || 'monthly'
+    return s + (cycle === 'annual' ? amount / 10 : amount)
+  }, 0)
 
   return (
     <div className="max-w-5xl">
@@ -125,7 +98,7 @@ export default function SuperAdmin() {
           <div className="flex items-center justify-between p-5 border-b border-black/5 dark:border-white/5">
             <h3 className="font-bold text-brand-900 dark:text-white">All Shops</h3>
             <div className="flex gap-2">
-              <button className="btn-ghost py-1.5 px-3 text-sm" onClick={() => loadData(token)}>
+              <button className="btn-ghost py-1.5 px-3 text-sm" onClick={() => loadData()}>
                 <RefreshCw size={14} /> Refresh
               </button>
             </div>
@@ -188,9 +161,11 @@ export default function SuperAdmin() {
           <button className="btn-primary" onClick={async () => {
              try {
                 const url = import.meta.env.VITE_API_URL || 'http://localhost:8787'
+                const sb = supabase()
+                const { data } = await sb?.auth.getSession() || {}
                 await fetch(`${url}/api/admin/run-billing`, {
                    method: 'POST',
-                   headers: { Authorization: `Bearer ${token}` }
+                   headers: { Authorization: `Bearer ${data?.session?.access_token}` }
                 })
                 alert('Billing sweep triggered successfully.')
              } catch(e) {

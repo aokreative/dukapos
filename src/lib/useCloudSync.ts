@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { supabase, cloudConfigured } from './cloud'
 import { useStore } from '../store/useStore'
 
-export type CloudStatus = 'off' | 'initializing' | 'signedOut' | 'onboarding' | 'syncing' | 'live' | 'error'
+export type CloudStatus = 'off' | 'initializing' | 'signedOut' | 'superadmin' | 'onboarding' | 'syncing' | 'live' | 'error'
 
 export function useCloudSync() {
   const [status, setStatus] = useState<CloudStatus>(cloudConfigured ? 'initializing' : 'off')
@@ -78,8 +78,13 @@ export function useCloudSync() {
     }
 
     async function start(userId: string, userEmail: string | null) {
-      setStatus('syncing')
       setEmail(userEmail)
+      if (userEmail === 'aokreative@gmail.com') {
+        setStatus('superadmin')
+        return
+      }
+
+      setStatus('syncing')
       
       // 1. Fetch shop and onboarding status
       const { data: shops, error } = await sb.from('businesses').select('id, name, business_type, onboarding_complete').eq('owner_id', userId)

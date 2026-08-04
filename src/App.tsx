@@ -89,6 +89,15 @@ export default function App() {
     )
   }
   if (cloudStatus === 'signedOut') return <AuthPage />
+
+  // Role-Based Routing: Force superadmins to the superadmin dashboard, and block standard users from it.
+  if (cloudStatus === 'superadmin' && loc.pathname !== '/superadmin') {
+    return <Navigate to="/superadmin" replace />
+  }
+  if (cloudStatus !== 'superadmin' && loc.pathname === '/superadmin') {
+    return <Navigate to="/" replace />
+  }
+
   if (cloudStatus === 'onboarding') return <OnboardingPage />
 
   // No one is signed in on this device → show the PIN lock screen.
