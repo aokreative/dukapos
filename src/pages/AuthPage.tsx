@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import { Store, Loader2, Sparkles } from 'lucide-react'
+import { Store, Loader2, Sparkles, Eye, EyeOff } from 'lucide-react'
 import { supabase } from '../lib/cloud'
 
 export default function AuthPage() {
   const [isSignUp, setIsSignUp] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -111,15 +112,24 @@ export default function AuthPage() {
               </div>
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-white/70">Password</label>
-                <input
-                  type="password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full rounded-xl border-none bg-white/5 px-4 py-3.5 text-white placeholder-white/30 outline-none transition focus:bg-white/10 focus:ring-2 focus:ring-gold-500/50"
-                  placeholder="••••••••"
-                  minLength={6}
-                />
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full rounded-xl border-none bg-white/5 px-4 py-3.5 pr-12 text-white placeholder-white/30 outline-none transition focus:bg-white/10 focus:ring-2 focus:ring-gold-500/50"
+                    placeholder="••••••••"
+                    minLength={6}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute inset-y-0 right-0 flex items-center pr-4 text-white/50 hover:text-white/80 transition"
+                  >
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
               </div>
             </div>
 
