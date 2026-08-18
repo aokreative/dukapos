@@ -1,7 +1,6 @@
 import { CheckCircle, Clock } from 'lucide-react'
 import { useStore } from '../store/useStore'
-import { PageHeader, EmptyState, Badge } from '../components/ui'
-import { money } from '../lib/format'
+import { PageHeader, EmptyState } from '../components/ui'
 
 export default function Kitchen() {
   const kitchenOrders = useStore((s) => s.kitchenOrders)

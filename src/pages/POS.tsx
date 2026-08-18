@@ -507,6 +507,9 @@ function CartPanel({
   embedded,
   parkLabel,
   parkHint,
+  tableNumber,
+  setTableNumber,
+  isRestaurant,
 }: {
   cart: CartLine[]
   subtotal: number

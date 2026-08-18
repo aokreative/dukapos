@@ -241,6 +241,8 @@ export interface Product {
   warrantyMonths?: number
   /** Tiny product photo (compressed data URL, ~64px) shown at the till. */
   thumb?: string
+  /** Variants (like regular, large) */
+  variants?: string[]
   /** Boutique: Sizes (e.g. S, M, L) */
   sizes?: string[]
   /** Boutique: Colors (e.g. Red, Blue) */
@@ -273,6 +275,8 @@ export interface CartLine {
   name: string
   price: number
   qty: number
+  /** Selected Variant */
+  variant?: string
   /** Boutique: Chosen size */
   size?: string
   /** Boutique: Chosen color */
