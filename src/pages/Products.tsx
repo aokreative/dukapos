@@ -252,6 +252,11 @@ function ProductForm({
     wholesaleMinQty?: number
     expiryDate?: string
     warrantyMonths?: number
+    sizes?: string[]
+    colors?: string[]
+    compatibility?: string
+    batchNumber?: string
+    prescription?: boolean
   }) => void
   onDelete?: () => void
 }) {
@@ -287,6 +292,13 @@ function ProductForm({
   const [wholesaleMinQty, setWholesaleMinQty] = useState<number>(product?.wholesaleMinQty ?? 12)
   const [expiryDate, setExpiryDate] = useState<string>(product?.expiryDate ?? '')
   const [warrantyMonths, setWarrantyMonths] = useState<number>(product?.warrantyMonths ?? 0)
+  
+  const [sizes, setSizes] = useState<string>((product?.sizes ?? []).join(', '))
+  const [colors, setColors] = useState<string>((product?.colors ?? []).join(', '))
+  const [compatibility, setCompatibility] = useState<string>(product?.compatibility ?? '')
+  const [batchNumber, setBatchNumber] = useState<string>(product?.batchNumber ?? '')
+  const [prescription, setPrescription] = useState<boolean>(product?.prescription ?? false)
+
   const valid = name.trim() && price >= 0
 
   return (
@@ -385,6 +397,49 @@ function ProductForm({
             <p className="mt-1 text-xs text-brand-900/50 dark:text-white/50">Separate with commas. At the till, the cashier picks one and it's printed on the receipt.</p>
           </div>
         )}
+        {(pf.sizes || pf.colors) && (
+          <div className="grid grid-cols-2 gap-3">
+            {pf.sizes && (
+              <div>
+                <label className="label">{pf.sizesLabel}</label>
+                <input className="input" value={sizes} onChange={(e) => setSizes(e.target.value)} placeholder={pf.sizesPlaceholder} />
+                <p className="mt-1 text-xs text-brand-900/50 dark:text-white/50">Separate with commas.</p>
+              </div>
+            )}
+            {pf.colors && (
+              <div>
+                <label className="label">{pf.colorsLabel}</label>
+                <input className="input" value={colors} onChange={(e) => setColors(e.target.value)} placeholder={pf.colorsPlaceholder} />
+                <p className="mt-1 text-xs text-brand-900/50 dark:text-white/50">Separate with commas.</p>
+              </div>
+            )}
+          </div>
+        )}
+        {pf.compatibility && (
+          <div>
+            <label className="label">{pf.compatibilityLabel}</label>
+            <input className="input" value={compatibility} onChange={(e) => setCompatibility(e.target.value)} placeholder={pf.compatibilityPlaceholder} />
+            <p className="mt-1 text-xs text-brand-900/50 dark:text-white/50">Describe what this part fits. Staff can search for "Corolla 2018" at the till.</p>
+          </div>
+        )}
+        {(pf.batchNumber || pf.prescription) && (
+          <div className="grid grid-cols-2 gap-3">
+            {pf.batchNumber && (
+              <div>
+                <label className="label">Batch number</label>
+                <input className="input" value={batchNumber} onChange={(e) => setBatchNumber(e.target.value)} placeholder="e.g. BATCH-A001" />
+              </div>
+            )}
+            {pf.prescription && (
+              <div className="flex items-center pt-6">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" className="h-5 w-5 accent-brand-600" checked={prescription} onChange={(e) => setPrescription(e.target.checked)} />
+                  <span className="font-medium">Prescription only</span>
+                </label>
+              </div>
+            )}
+          </div>
+        )}
         {features.wholesale && (
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -465,6 +520,11 @@ function ProductForm({
               wholesaleMinQty: features.wholesale && wholesalePrice > 0 ? wholesaleMinQty || 12 : undefined,
               expiryDate: features.expiry && expiryDate ? expiryDate : undefined,
               warrantyMonths: features.warranty && warrantyMonths > 0 ? warrantyMonths : undefined,
+              sizes: pf.sizes && sizes ? sizes.split(',').map((v) => v.trim()).filter(Boolean) : undefined,
+              colors: pf.colors && colors ? colors.split(',').map((v) => v.trim()).filter(Boolean) : undefined,
+              compatibility: pf.compatibility && compatibility.trim() ? compatibility.trim() : undefined,
+              batchNumber: pf.batchNumber && batchNumber.trim() ? batchNumber.trim() : undefined,
+              prescription: pf.prescription && prescription ? true : undefined,
             })
           }
         >

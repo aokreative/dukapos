@@ -108,6 +108,17 @@ export interface ProductFieldConfig {
   namePlaceholder: string
   categoryPlaceholder: string
   costLabel: string
+  sizes: boolean
+  sizesLabel: string
+  sizesPlaceholder: string
+  colors: boolean
+  colorsLabel: string
+  colorsPlaceholder: string
+  compatibility: boolean
+  compatibilityLabel: string
+  compatibilityPlaceholder: string
+  batchNumber: boolean
+  prescription: boolean
 }
 
 const DEFAULT_FIELDS: ProductFieldConfig = {
@@ -123,6 +134,17 @@ const DEFAULT_FIELDS: ProductFieldConfig = {
   namePlaceholder: 'e.g. Sugar 1kg',
   categoryPlaceholder: 'e.g. Groceries, Drinks, Household',
   costLabel: 'Buying price',
+  sizes: false,
+  sizesLabel: 'Sizes (optional)',
+  sizesPlaceholder: 'e.g. S, M, L, XL',
+  colors: false,
+  colorsLabel: 'Colours (optional)',
+  colorsPlaceholder: 'e.g. Red, Blue, Black',
+  compatibility: false,
+  compatibilityLabel: 'Fitments / models (optional)',
+  compatibilityPlaceholder: 'e.g. Corolla NZE, Probox',
+  batchNumber: false,
+  prescription: false,
 }
 
 const FIELDS_BY_TYPE: Partial<Record<BusinessType, Partial<ProductFieldConfig>>> = {
@@ -143,6 +165,8 @@ const FIELDS_BY_TYPE: Partial<Record<BusinessType, Partial<ProductFieldConfig>>>
     variantsPlaceholder: 'e.g. 250mg, 500mg · or 10s, 30s',
     namePlaceholder: 'e.g. Paracetamol 500mg',
     categoryPlaceholder: 'e.g. Painkillers, Antibiotics, First aid',
+    batchNumber: true,
+    prescription: true,
   },
   hardware: {
     brandPlaceholder: 'e.g. Simba Cement, Stanley',
@@ -162,8 +186,9 @@ const FIELDS_BY_TYPE: Partial<Record<BusinessType, Partial<ProductFieldConfig>>>
   boutique: {
     unit: false,
     brandPlaceholder: 'e.g. Nike, Zara',
-    variantsLabel: 'Sizes & colours',
-    variantsPlaceholder: 'e.g. S, M, L, XL · or 38, 39, 40 · Red, Blue',
+    variants: false,
+    sizes: true,
+    colors: true,
     namePlaceholder: 'e.g. Ladies Denim Jacket',
     categoryPlaceholder: 'e.g. Dresses, Shoes, Kids, Accessories',
   },
@@ -200,8 +225,10 @@ const FIELDS_BY_TYPE: Partial<Record<BusinessType, Partial<ProductFieldConfig>>>
     skuLabel: 'Part number / barcode',
     brandLabel: 'Make / brand (optional)',
     brandPlaceholder: 'e.g. Toyota, Bosch, NGK',
-    variantsLabel: 'Fitments / models (optional)',
-    variantsPlaceholder: 'e.g. Corolla NZE, Probox, Vitz',
+    variants: false,
+    compatibility: true,
+    compatibilityLabel: 'Fitments / models (optional)',
+    compatibilityPlaceholder: 'e.g. Corolla NZE, Probox, Vitz',
     namePlaceholder: 'e.g. Oil Filter C-110',
     categoryPlaceholder: 'e.g. Filters, Brakes, Oils, Bulbs',
   },

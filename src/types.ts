@@ -241,9 +241,16 @@ export interface Product {
   warrantyMonths?: number
   /** Tiny product photo (compressed data URL, ~64px) shown at the till. */
   thumb?: string
-  /** Optional variations (e.g. colours or sizes). When set, the cashier picks
-   *  one at the till and it's recorded on the line & receipt. */
-  variants?: string[]
+  /** Boutique: Sizes (e.g. S, M, L) */
+  sizes?: string[]
+  /** Boutique: Colors (e.g. Red, Blue) */
+  colors?: string[]
+  /** Auto Spares: Make/Model/Year compatibility (e.g. "Corolla 2018") */
+  compatibility?: string
+  /** Pharmacy: Batch tracking */
+  batchNumber?: string
+  /** Pharmacy: Flag for prescription-only items */
+  prescription?: boolean
 }
 
 export interface Customer {
@@ -266,8 +273,12 @@ export interface CartLine {
   name: string
   price: number
   qty: number
-  /** Chosen variation (e.g. a colour or size) for this line. */
-  variant?: string
+  /** Boutique: Chosen size */
+  size?: string
+  /** Boutique: Chosen color */
+  color?: string
+  /** Restaurant: Custom notes / modifiers (e.g. "add chili") */
+  modifiers?: string
   /** Unit snapshot ('kg', 'm'…) — enables decimal quantities for this line. */
   unit?: string
   /** True when the wholesale price tier is applied to this line. */
@@ -321,6 +332,21 @@ export interface Sale {
   /** Who authorised the void (the manager/owner, even if a cashier rang it). */
   voidedBy?: string
   voidReason?: string
+  /** Restaurant: Which table this sale was for */
+  tableNumber?: string
+}
+
+export type OrderStatus = 'placed' | 'ready' | 'served'
+
+/** A restaurant order sent to the kitchen */
+export interface KitchenOrder {
+  id: string
+  tableNumber: string
+  lines: CartLine[]
+  status: OrderStatus
+  placedAt: number
+  cashierName: string
+  locationId?: string
 }
 
 export type DebtStatus = 'open' | 'settled'

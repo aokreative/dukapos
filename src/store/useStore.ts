@@ -36,6 +36,8 @@ import type {
   TransferLine,
   SyncQueueItem,
   SyncOperation,
+  KitchenOrder,
+  OrderStatus,
 } from '../types'
 import type { TenantView } from '../lib/api'
 import { uid } from '../lib/id'
@@ -144,7 +146,10 @@ interface State {
   supplierTxns: SupplierTxn[]
 
   /** Waiting sales on THIS device — park one customer, serve the next. */
-  parkedCarts: { id: string; lines: CartLine[]; discount: number; at: number }[]
+  parkedCarts: { id: string; lines: CartLine[]; discount: number; at: number; name?: string }[]
+
+  /** Restaurant: orders sent to the kitchen */
+  kitchenOrders: KitchenOrder[]
 
   // running costs & cashier shifts
   expenses: Expense[]
@@ -219,8 +224,13 @@ interface State {
   addDebtComment: (debtId: string, text: string) => void
 
   // parked carts (per device)
-  parkCart: (lines: CartLine[], discount: number) => void
+  parkCart: (lines: CartLine[], discount: number, name?: string) => void
   removeParkedCart: (id: string) => void
+
+  // kitchen orders
+  placeKitchenOrder: (tableNumber: string, lines: CartLine[]) => void
+  updateKitchenOrderStatus: (id: string, status: OrderStatus) => void
+  removeKitchenOrder: (id: string) => void
 
   // expenses
   addExpense: (e: Omit<Expense, 'id' | 'at' | 'byStaffName' | 'locationId'>) => void
@@ -623,11 +633,30 @@ export const useStore = create<State>()(
         return closed
       },
 
-      parkCart: (lines, discount) =>
-        set((s) => ({
-          parkedCarts: [...s.parkedCarts, { id: uid('park_'), lines, discount, at: Date.now() }].slice(-10),
-        })),
-      removeParkedCart: (id) => set((s) => ({ parkedCarts: s.parkedCarts.filter((p) => p.id !== id) })),
+      parkCart: (lines, discount, name) => set((s) => ({ parkedCarts: [...s.parkedCarts, { id: uid(), lines, discount, at: Date.now(), name }] })),
+      removeParkedCart: (id) => set((s) => ({ parkedCarts: s.parkedCarts.filter((c) => c.id !== id) })),
+
+      placeKitchenOrder: (tableNumber, lines) => set((s) => {
+        const locId = get().currentLocationId
+        const staffId = get().currentStaffId
+        const staffName = staffId ? (get().staff.find((st) => st.id === staffId)?.name || 'Staff') : 'Owner'
+        const newOrder: KitchenOrder = {
+          id: uid(),
+          tableNumber,
+          lines,
+          status: 'placed',
+          placedAt: Date.now(),
+          cashierName: staffName,
+          locationId: locId,
+        }
+        return { kitchenOrders: [...s.kitchenOrders, newOrder] }
+      }),
+      updateKitchenOrderStatus: (id, status) => set((s) => ({
+        kitchenOrders: s.kitchenOrders.map((o) => (o.id === id ? { ...o, status } : o))
+      })),
+      removeKitchenOrder: (id) => set((s) => ({
+        kitchenOrders: s.kitchenOrders.filter((o) => o.id !== id)
+      })),
 
       addDebtComment: (debtId, text) =>
         set((s) => ({
@@ -943,6 +972,8 @@ export const useStore = create<State>()(
           supplierTxns: [],
           expenses: [],
           shifts: [],
+          parkedCarts: [],
+          kitchenOrders: [],
         }),
     }),
     {

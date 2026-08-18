@@ -23,10 +23,15 @@ import { canStaff, ROLE_LABEL, type Capability } from '../lib/permissions'
 import { BillingBanner, Paywall, useBilling } from './Billing'
 import ShiftBar from './ShiftBar'
 
+// Note: PiggyBank and ChefHat are added.
+import { PiggyBank, ChefHat } from 'lucide-react'
+
 const NAV: { to: string; label: string; icon: any; cap?: Capability }[] = [
   { to: '/dashboard', label: 'Dashboard', icon: Home, cap: 'viewReports' },
   { to: '/pos', label: 'Point of Sale', icon: ShoppingCart },
+  { to: '/kitchen', label: 'Kitchen', icon: ChefHat },
   { to: '/products', label: 'Inventory', icon: Package, cap: 'manageStock' },
+  { to: '/debts', label: 'Debts & Mkopo', icon: PiggyBank, cap: 'viewDebts' },
   { to: '/customers', label: 'Customers', icon: Users },
   { to: '/suppliers', label: 'Suppliers', icon: Truck, cap: 'manageStock' },
   { to: '/reports', label: 'Reports', icon: PieChart, cap: 'viewReports' },
@@ -50,8 +55,16 @@ export default function Layout({ children }: { children: ReactNode }) {
   const logout = useStore((s) => s.logout)
   const settings = useStore((s) => s.settings)
   const currentStaffFull = useStore(selectCurrentStaff)
+  const isPharmacy = settings.businessType === 'pharmacy'
+  const isRestaurant = settings.businessType === 'restaurant'
 
-  const nav = NAV.filter((n) => !n.cap || canStaff(currentStaffFull, n.cap))
+  const nav = NAV.filter((n) => {
+    if (n.cap && !canStaff(currentStaffFull, n.cap)) return false
+    if (isPharmacy && (n.to === '/customers' || n.to === '/debts')) return false
+    if (isRestaurant && n.to === '/suppliers') return false
+    if (!isRestaurant && n.to === '/kitchen') return false
+    return true
+  })
 
   return (
     <div className="flex h-screen flex-col md:flex-row overflow-hidden">

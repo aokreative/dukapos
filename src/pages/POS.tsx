@@ -17,7 +17,8 @@ import { uid } from '../lib/id'
 
 /** Cart identity: a product plus its chosen variation (so Red and Blue are
  *  separate lines). */
-const lineKey = (l: { productId: string; variant?: string }) => l.productId + '␟' + (l.variant ?? '')
+const lineKey = (l: { productId: string; variant?: string; size?: string; color?: string; modifiers?: string }) => 
+  l.productId + '␟' + (l.variant ?? '') + '␟' + (l.size ?? '') + '␟' + (l.color ?? '') + '␟' + (l.modifiers ?? '')
 
 function guessEmoji(name: string, category: string) {
   const t = (name + ' ' + category).toLowerCase()
@@ -63,7 +64,7 @@ export default function POS() {
   const removeParkedCart = useStore((s) => s.removeParkedCart)
   const [returnOpen, setReturnOpen] = useState(false)
   const [quickOpen, setQuickOpen] = useState(false)
-  const [variantFor, setVariantFor] = useState<Product | null>(null)
+  const [selectionFor, setSelectionFor] = useState<Product | null>(null)
 
   const [q, setQ] = useState('')
   const [cat, setCat] = useState<string>('All')
@@ -73,6 +74,7 @@ export default function POS() {
   const [cartOpen, setCartOpen] = useState(false)
   const [lastSale, setLastSale] = useState<Sale | null>(null)
   const [receiptOpen, setReceiptOpen] = useState(false)
+  const [tableNumber, setTableNumber] = useState('')
 
   const categories = useMemo(() => ['All', ...Array.from(new Set(products.map((p) => p.category)))], [products])
 
@@ -82,7 +84,7 @@ export default function POS() {
       if (!p.active) return false
       if (cat !== 'All' && p.category !== cat) return false
       if (!t) return true
-      return p.name.toLowerCase().includes(t) || p.sku.includes(t)
+      return p.name.toLowerCase().includes(t) || p.sku.includes(t) || (p.compatibility && p.compatibility.toLowerCase().includes(t))
     })
   }, [products, q, cat])
 
@@ -106,17 +108,18 @@ export default function POS() {
     return cart.filter((l) => l.productId === productId && lineKey(l) !== excludeKey).reduce((a, l) => a + l.qty, 0)
   }
 
-  function add(p: Product, variant?: string) {
+  function add(p: Product, variant?: string, size?: string, color?: string, modifiers?: string) {
     const tracked = p.trackStock !== false
     // Never sell what isn't there: tracked items with nothing left at this
     // branch can't go in the cart (made-to-order items skip the check).
     if (tracked && stockAt(p, locId) - inCartQty(p.id) <= 0) return
-    // A product with variations asks the cashier to pick one first.
-    if (p.variants && p.variants.length > 0 && variant === undefined) {
-      setVariantFor(p)
+    
+    const needsSelection = (p.variants?.length || p.sizes?.length || p.colors?.length)
+    if (needsSelection && variant === undefined && size === undefined && color === undefined) {
+      setSelectionFor(p)
       return
     }
-    const k = lineKey({ productId: p.id, variant })
+    const k = lineKey({ productId: p.id, variant, size, color, modifiers })
     setCart((c) => {
       const found = c.find((l) => lineKey(l) === k)
       // What this line may hold at most: shelf stock minus its siblings
@@ -135,8 +138,11 @@ export default function POS() {
         ...c,
         {
           productId: p.id,
-          name: variant ? `${p.name} · ${variant}` : p.name,
+          name: [p.name, variant, size, color].filter(Boolean).join(' · '),
           variant,
+          size,
+          color,
+          modifiers,
           price,
           qty: first,
           wholesale,
@@ -184,17 +190,30 @@ export default function POS() {
 
   function park() {
     if (cart.length === 0) return
-    parkCart(cart, discount)
+    if (settings.businessType === 'restaurant') {
+      if (!tableNumber.trim()) {
+        alert("Please enter a table number before placing the order.")
+        return
+      }
+      useStore.getState().placeKitchenOrder(tableNumber.trim(), cart)
+    }
+    parkCart(cart, discount, tableNumber.trim() ? `Table ${tableNumber.trim()}` : undefined)
     clearCart()
     setCartOpen(false)
+    setTableNumber('')
   }
   function resume(id: string) {
     const entry = parkedCarts.find((p) => p.id === id)
     if (!entry) return
     // If something is already in the cart, park it first — nothing is lost.
-    if (cart.length > 0) parkCart(cart, discount)
+    if (cart.length > 0) parkCart(cart, discount, tableNumber.trim() ? `Table ${tableNumber.trim()}` : undefined)
     setCart(entry.lines)
     setDiscount(entry.discount)
+    if (entry.name && entry.name.startsWith('Table ')) {
+      setTableNumber(entry.name.replace('Table ', ''))
+    } else {
+      setTableNumber('')
+    }
     removeParkedCart(id)
   }
 
@@ -353,6 +372,9 @@ export default function POS() {
           canDiscount={canDiscount}
           parkLabel={labels.park}
           parkHint={labels.parkHint}
+          tableNumber={tableNumber}
+          setTableNumber={setTableNumber}
+          isRestaurant={settings.businessType === 'restaurant'}
         />
       </div>
 
@@ -393,6 +415,9 @@ export default function POS() {
               parkLabel={labels.park}
               parkHint={labels.parkHint}
               embedded
+              tableNumber={tableNumber}
+              setTableNumber={setTableNumber}
+              isRestaurant={settings.businessType === 'restaurant'}
             />
           </div>
         </div>
@@ -401,20 +426,15 @@ export default function POS() {
       <PaymentModal open={payOpen} onClose={() => setPayOpen(false)} total={total} onComplete={onComplete} />
       <Receipt sale={lastSale} open={receiptOpen} onClose={() => setReceiptOpen(false)} onNewSale={() => setReceiptOpen(false)} />
       {returnOpen && <ReturnModal onClose={() => setReturnOpen(false)} />}
-      {variantFor && (
-        <Modal open onClose={() => setVariantFor(null)} title={`Choose a variation — ${variantFor.name}`}>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            {variantFor.variants!.map((v) => (
-              <button
-                key={v}
-                className="chip justify-center bg-black/5 py-3 text-sm font-semibold text-brand-900 hover:bg-brand-600 hover:text-white dark:bg-white/10 dark:text-white"
-                onClick={() => { add(variantFor, v); setVariantFor(null) }}
-              >
-                {v}
-              </button>
-            ))}
-          </div>
-        </Modal>
+      {selectionFor && (
+        <SelectionModal
+          product={selectionFor}
+          onClose={() => setSelectionFor(null)}
+          onAdd={(variant, size, color, modifiers) => {
+            add(selectionFor, variant, size, color, modifiers)
+            setSelectionFor(null)
+          }}
+        />
       )}
       {quickOpen && (
         <QuickItemModal
@@ -503,6 +523,9 @@ function CartPanel({
   embedded?: boolean
   parkLabel?: string
   parkHint?: string
+  tableNumber?: string
+  setTableNumber?: (v: string) => void
+  isRestaurant?: boolean
 }) {
   return (
     <div className={embedded ? '' : 'card sticky top-4 p-4'}>
@@ -593,16 +616,115 @@ function CartPanel({
         </div>
       ) : (
         <>
-          <button className="btn-primary mt-3 w-full text-lg" disabled={cart.length === 0} onClick={onCharge}>
-            Charge {money(total, currency)}
-          </button>
-          {embedded && onPark && cart.length > 0 && (
-            <button className="btn-ghost mt-2 w-full" onClick={onPark}>
-              <PauseCircle size={16} /> {parkHint ?? 'Park this sale — serve the next customer'}
-            </button>
+          {isRestaurant && cart.length > 0 && (
+            <div className="mb-2">
+              <label className="text-xs font-semibold text-brand-900/60 dark:text-white/60 block mb-1">Table Number</label>
+              <input className="input" value={tableNumber || ''} onChange={(e) => setTableNumber?.(e.target.value)} placeholder="e.g. 5" />
+            </div>
+          )}
+          {isRestaurant ? (
+            <>
+              <button className="btn-primary mt-3 w-full text-lg" disabled={cart.length === 0} onClick={onPark}>
+                Place Order {money(total, currency)}
+              </button>
+              <button className="btn-ghost mt-2 w-full text-brand-600" disabled={cart.length === 0} onClick={onCharge}>
+                Charge & Close Bill
+              </button>
+            </>
+          ) : (
+            <>
+              <button className="btn-primary mt-3 w-full text-lg" disabled={cart.length === 0} onClick={onCharge}>
+                Charge {money(total, currency)}
+              </button>
+              {onPark && cart.length > 0 && (
+                <button className="btn-ghost mt-2 w-full" onClick={onPark}>
+                  <PauseCircle size={16} /> {parkHint ?? 'Park this sale — serve the next customer'}
+                </button>
+              )}
+            </>
           )}
         </>
       )}
     </div>
+  )
+}
+
+function SelectionModal({
+  product,
+  onClose,
+  onAdd
+}: {
+  product: Product
+  onClose: () => void
+  onAdd: (variant?: string, size?: string, color?: string, modifiers?: string) => void
+}) {
+  const [variant, setVariant] = useState(product.variants?.[0] || '')
+  const [size, setSize] = useState(product.sizes?.[0] || '')
+  const [color, setColor] = useState(product.colors?.[0] || '')
+  const [modifiers, setModifiers] = useState('')
+  const isRestaurant = useStore(s => s.settings.businessType) === 'restaurant'
+
+  return (
+    <Modal open onClose={onClose} title={`Customize ${product.name}`}>
+      <div className="space-y-4">
+        {product.variants && product.variants.length > 0 && (
+          <div>
+            <label className="label text-xs mb-1 block">Variant</label>
+            <div className="flex flex-wrap gap-2">
+              {product.variants.map((v) => (
+                <button
+                  key={v}
+                  className={`chip py-2 px-4 text-sm font-semibold ${variant === v ? 'bg-brand-600 text-white' : 'bg-black/5 text-brand-900 dark:bg-white/10 dark:text-white'}`}
+                  onClick={() => setVariant(v)}
+                >
+                  {v}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        {product.sizes && product.sizes.length > 0 && (
+          <div>
+            <label className="label text-xs mb-1 block">Size</label>
+            <div className="flex flex-wrap gap-2">
+              {product.sizes.map((s) => (
+                <button
+                  key={s}
+                  className={`chip py-2 px-4 text-sm font-semibold ${size === s ? 'bg-brand-600 text-white' : 'bg-black/5 text-brand-900 dark:bg-white/10 dark:text-white'}`}
+                  onClick={() => setSize(s)}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        {product.colors && product.colors.length > 0 && (
+          <div>
+            <label className="label text-xs mb-1 block">Color</label>
+            <div className="flex flex-wrap gap-2">
+              {product.colors.map((c) => (
+                <button
+                  key={c}
+                  className={`chip py-2 px-4 text-sm font-semibold ${color === c ? 'bg-brand-600 text-white' : 'bg-black/5 text-brand-900 dark:bg-white/10 dark:text-white'}`}
+                  onClick={() => setColor(c)}
+                >
+                  {c}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        {isRestaurant && (
+          <div>
+            <label className="label text-xs mb-1 block">Modifiers / Notes (optional)</label>
+            <input className="input" value={modifiers} onChange={(e) => setModifiers(e.target.value)} placeholder="e.g. No onions, extra spicy" />
+          </div>
+        )}
+      </div>
+      <button className="btn-primary mt-6 w-full" onClick={() => onAdd(variant || undefined, size || undefined, color || undefined, modifiers || undefined)}>
+        Add to Order
+      </button>
+    </Modal>
   )
 }

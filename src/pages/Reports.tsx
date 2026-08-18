@@ -105,6 +105,12 @@ export default function Reports() {
     }
     const cashiers = [...byCashier.values()].sort((a, b) => b.revenue - a.revenue)
 
+    // Discounts
+    const recentDiscounts = todaySales
+      .filter((s) => s.discount && s.discount > 0)
+      .sort((a, b) => b.createdAt - a.createdAt)
+    const totalDiscountToday = recentDiscounts.reduce((a, s) => a + (s.discount ?? 0), 0)
+
     return {
       todayRevenue,
       todayCount: todaySales.length,
@@ -114,6 +120,8 @@ export default function Reports() {
       stockValue,
       potentialProfit,
       cashiers,
+      recentDiscounts,
+      totalDiscountToday,
       dayClose: { cogs, grossProfit, marginPct, expensesToday, netProfit, suppliersPaidToday, debtsCollectedToday, vatToday, mostSold, topMargin, shiftsToday },
     }
   }, [sales, products, expenses, debts, supplierTxns, shifts])
@@ -265,6 +273,32 @@ export default function Reports() {
                   <span className="flex-1 truncate text-sm font-medium text-brand-900 dark:text-white">{p.name}</span>
                   <span className="text-xs text-brand-900/50 dark:text-white/50">{p.qty} sold</span>
                   <span className="w-20 text-right text-sm font-bold text-brand-900 dark:text-white">{money(p.revenue, currency)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Discount Log */}
+        <div className="card p-5">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-bold uppercase tracking-wide text-brand-900/60 dark:text-white/60">Discounts given (Today)</h2>
+            <span className="font-bold text-red-500">{money(stats.totalDiscountToday, currency)}</span>
+          </div>
+          {stats.recentDiscounts.length === 0 ? (
+            <p className="py-6 text-center text-sm text-brand-900/40 dark:text-white/40">No discounts given today.</p>
+          ) : (
+            <div className="space-y-2 max-h-[300px] overflow-y-auto">
+              {stats.recentDiscounts.map((s) => (
+                <div key={s.id} className="flex flex-col border-b border-black/5 pb-2 dark:border-white/5">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="font-semibold text-brand-900 dark:text-white">{s.receiptNo}</span>
+                    <span className="font-bold text-red-500">-{money(s.discount ?? 0, currency)}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs text-brand-900/50 dark:text-white/50">
+                    <span>{new Date(s.createdAt).toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit' })}</span>
+                    <span>By {s.cashierName}</span>
+                  </div>
                 </div>
               ))}
             </div>

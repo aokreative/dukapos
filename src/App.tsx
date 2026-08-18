@@ -23,6 +23,7 @@ import { canStaff, type Capability } from './lib/permissions'
 import Reports from './pages/Reports'
 import Assistant from './pages/Assistant'
 import SuperAdmin from './pages/SuperAdmin'
+import Kitchen from './pages/Kitchen'
 import type { ReactNode } from 'react'
 
 function HomeRedirect() {
@@ -119,6 +120,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<HomeRedirect />} />
         <Route path="/dashboard" element={<Guard cap="viewReports" role={role}><Dashboard /></Guard>} />
+        <Route path="/kitchen" element={<Kitchen />} />
         <Route path="/pos" element={<POS />} />
         <Route path="/sales" element={<Sales />} />
         <Route path="/debts" element={<Guard cap="viewDebts" role={role}><Debts /></Guard>} />
