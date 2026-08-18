@@ -13,6 +13,9 @@ const BIZ_TYPES: { id: BusinessType; name: string; icon: any; desc: string }[] =
   { id: 'electronics', name: 'Electronics', icon: Plug, desc: 'Phones, CCTV, accessories' },
   { id: 'pharmacy', name: 'Pharmacy', icon: Pill, desc: 'Chemist & meds' },
   { id: 'agrovet', name: 'Agrovet', icon: Sparkles, desc: 'Farming & vet supplies' },
+  { id: 'babyshop', name: 'Baby Shop', icon: Store, desc: 'Kids & baby items' },
+  { id: 'autospares', name: 'Auto Spares', icon: Wrench, desc: 'Vehicle parts & spares' },
+  { id: 'spices', name: 'Spices & Cereals', icon: Store, desc: 'Herbs, spices, grains' },
 ]
 
 export default function OnboardingPage() {
