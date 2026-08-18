@@ -221,7 +221,7 @@ export default function PaymentModal({
 
         {/* Method buttons */}
         <div className="mt-4 grid grid-cols-5 gap-2">
-          {METHODS.map((m) => (
+          {METHODS.filter(m => !(settings.businessType === 'restaurant' && m.key === 'credit')).map((m) => (
             <button key={m.key} className="flex flex-col items-center gap-1 rounded-xl bg-black/5 py-3 text-xs font-semibold text-brand-900 hover:bg-black/10 dark:bg-white/10 dark:text-white dark:hover:bg-white/20" onClick={() => addMethod(m.key)}>
               <m.icon size={20} />
               {m.label}

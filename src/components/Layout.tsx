@@ -14,7 +14,8 @@ import {
   Users,
   Truck,
   Building2,
-  Crown
+  Crown,
+  Sparkles
 } from 'lucide-react'
 import { useStore, selectTotalOwed, selectCurrentStaff, selectRole } from '../store/useStore'
 import { money } from '../lib/format'
@@ -35,6 +36,7 @@ const NAV: { to: string; label: string; icon: any; cap?: Capability }[] = [
   { to: '/customers', label: 'Customers', icon: Users },
   { to: '/suppliers', label: 'Suppliers', icon: Truck, cap: 'manageStock' },
   { to: '/reports', label: 'Reports', icon: PieChart, cap: 'viewReports' },
+  { to: '/assistant', label: 'Duka AI', icon: Sparkles, cap: 'useAssistant' },
   { to: '/warehouse', label: 'Warehouse', icon: Building2, cap: 'transferStock' },
   { to: '/billing', label: 'Billing', icon: Crown, cap: 'editSettings' },
   { to: '/settings', label: 'Settings', icon: SettingsIcon, cap: 'editSettings' },
@@ -61,7 +63,7 @@ export default function Layout({ children }: { children: ReactNode }) {
   const nav = NAV.filter((n) => {
     if (n.cap && !canStaff(currentStaffFull, n.cap)) return false
     if (isPharmacy && (n.to === '/customers' || n.to === '/debts')) return false
-    if (isRestaurant && n.to === '/suppliers') return false
+    if (isRestaurant && (n.to === '/suppliers' || n.to === '/debts')) return false
     if (!isRestaurant && n.to === '/kitchen') return false
     return true
   })

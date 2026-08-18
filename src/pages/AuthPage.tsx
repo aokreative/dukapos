@@ -45,6 +45,7 @@ export default function AuthPage() {
       setError(err.message)
     } finally {
       setLoading(false)
+      setPassword('')
     }
   }
 
