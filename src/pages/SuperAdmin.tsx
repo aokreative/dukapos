@@ -181,7 +181,6 @@ function TenantRow({
 
 // ── Main component ─────────────────────────────────────────────────────────
 export default function SuperAdmin() {
-  const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState('metrics')
   const [tenants, setTenants] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
