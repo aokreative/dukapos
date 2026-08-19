@@ -167,6 +167,7 @@ export default function AuthPage() {
               onClick={() => {
                 setIsSignUp(!isSignUp)
                 setError(null)
+                setPassword('')
               }}
               className="font-semibold text-gold-400 hover:underline"
             >
