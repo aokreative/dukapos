@@ -507,7 +507,7 @@ function NewProductInline({
 
 function SupplierDetails({ supplier, onClose, onEdit }: { supplier: Supplier; onClose: () => void; onEdit: () => void }) {
   const currency = useStore((s) => s.settings.currency)
-  const shopName = useStore((s) => s.settings.name)
+  const shopName = useStore((s) => s.settings?.name || '')
   const shopLocation = useStore((s) => s.settings.location)
   const shopLogo = useStore((s) => s.settings.logo)
   const shopSettings = useStore((s) => s.settings)

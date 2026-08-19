@@ -18,7 +18,7 @@ export default function Reports() {
   const sales = useStore((s) => s.sales)
   const products = useStore((s) => s.products)
   const currency = useStore((s) => s.settings.currency)
-  const shopName = useStore((s) => s.settings.name)
+  const shopName = useStore((s) => s.settings?.name || '')
   const shopPhone = useStore((s) => s.settings.phone)
   const shopLogo = useStore((s) => s.settings.logo)
   const totalOwed = useStore(selectTotalOwed)

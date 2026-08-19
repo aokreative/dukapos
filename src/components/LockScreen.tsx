@@ -6,7 +6,7 @@ import type { StaffMember } from '../types'
 import { supabase } from '../lib/cloud'
 
 export default function LockScreen() {
-  const shopName = useStore((s) => s.settings.name)
+  const shopName = useStore((s) => s.settings?.name || '')
   const staff = useStore((s) => s.staff.filter((m) => m.active))
   const login = useStore((s) => s.staffLogin)
 
@@ -59,7 +59,7 @@ export default function LockScreen() {
     <div className="flex h-full flex-col items-center justify-center bg-brand-900 px-6 py-10 text-white">
       <div className="mb-8 flex flex-col items-center">
         <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-600 text-2xl font-black text-gold-400">
-          {shopName.charAt(0).toUpperCase() || 'D'}
+          {shopName?.charAt(0)?.toUpperCase() || 'D'}
         </div>
         <div className="text-xl font-black tracking-tight">{shopName || 'Duka'}</div>
         <div className="text-sm text-white/50">

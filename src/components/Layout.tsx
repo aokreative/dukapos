@@ -33,7 +33,7 @@ export default function Layout({ children, isSuperAdmin }: { children: ReactNode
   const [menuOpen, setMenuOpen] = useState(false)
   const dark = useStore((s) => s.dark)
   const toggleDark = useStore((s) => s.toggleDark)
-  const shopName = useStore((s) => s.settings.name)
+  const shopName = useStore((s) => s.settings?.name || '')
   const totalOwed = useStore(selectTotalOwed)
   const online = useOnline()
   const loc = useLocation()
