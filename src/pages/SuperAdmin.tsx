@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useIdleTimer } from '../lib/useIdleTimer'
 import {
   RefreshCw,
   Activity,
@@ -180,6 +181,7 @@ function TenantRow({
 
 // ── Main component ─────────────────────────────────────────────────────────
 export default function SuperAdmin() {
+  const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState('metrics')
   const [tenants, setTenants] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
@@ -218,10 +220,34 @@ export default function SuperAdmin() {
 
   useEffect(() => { loadData() }, [])
 
-  const logout = async () => {
+  // ── Strict Security & Session Management ──────────────────────────────────
+  const forceLogout = useCallback(async () => {
     const sb = supabase()
     if (sb) await sb.auth.signOut()
-    window.location.reload()
+    wipeLocalStore()
+    window.location.href = '/' // Hard redirect ensures React state is fully flushed
+  }, [])
+
+  // 1. Inactivity Auto-Logout (15 minutes)
+  useIdleTimer(15, forceLogout)
+
+  // 2. Strict Route Protection on Mount
+  useEffect(() => {
+    const verifySession = async () => {
+      const sb = supabase()
+      if (!sb) return
+      
+      const { data: { session } } = await sb.auth.getSession()
+      if (!session || session.user.email !== 'aokreative@gmail.com') {
+        forceLogout()
+      }
+    }
+    verifySession()
+  }, [forceLogout])
+
+
+  const logout = async () => {
+    await forceLogout()
   }
 
   // ── Actions ──────────────────────────────────────────────────────────────
