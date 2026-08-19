@@ -48,11 +48,6 @@ import {
   defaultReminderRule,
   defaultSettings,
   defaultSubscription,
-  seedCustomers,
-  seedDebtsAndSales,
-  seedProducts,
-  seedStaff,
-  seedSuppliers,
 } from '../lib/seed'
 import { MAIN_LOCATION_ID, defaultLocations, normalizeProduct, stockAt, withStockDelta } from '../lib/stock'
 
@@ -273,24 +268,22 @@ interface State {
   clearAll: () => void
 }
 
-function buildSeed() {
-  const customers = seedCustomers()
-  const { debts, sales } = seedDebtsAndSales(customers)
+function buildCleanState() {
   return {
     settings: defaultSettings,
-    products: seedProducts(),
-    customers,
-    sales,
-    debts,
-    receiptCounter: 4, // seeds used R-00001..R-00003
-    staff: seedStaff(),
-    currentStaffId: 'staff_owner' as string | null,
+    products: [] as Product[],
+    customers: [] as Customer[],
+    sales: [] as Sale[],
+    debts: [] as Debt[],
+    receiptCounter: 0,
+    staff: [] as StaffMember[],
+    currentStaffId: null as string | null,
     locations: defaultLocations(),
     currentLocationId: MAIN_LOCATION_ID,
     transfers: [] as StockTransfer[],
     returns: [] as ReturnRecord[],
     exchangeCredit: 0,
-    suppliers: seedSuppliers(customers),
+    suppliers: [] as Supplier[],
     supplierTxns: [] as SupplierTxn[],
     parkedCarts: [] as { id: string; name?: string; lines: CartLine[]; discount: number; at: number }[],
     kitchenOrders: [] as KitchenOrder[],
@@ -309,7 +302,7 @@ export const useStore = create<State>()(
     (set, get) => ({
       _hasHydrated: false,
       dark: false,
-      ...buildSeed(),
+      ...buildCleanState(),
 
       setHydrated: (v) => set({ _hasHydrated: v }),
       toggleDark: () => set((s) => ({ dark: !s.dark })),

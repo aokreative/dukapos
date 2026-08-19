@@ -136,7 +136,7 @@ export default function LockScreen() {
 
       <div className="mt-10 flex flex-col items-center gap-4 text-xs text-white/30">
         <div className="flex items-center gap-1.5">
-          <ShieldCheck size={13} /> Demo PINs — Owner 1234 · Cashier 0000
+          <ShieldCheck size={13} /> Secured by Duka POS
         </div>
         {supabase && (
           <button onClick={() => supabase()?.auth.signOut()} className="text-white/40 hover:text-white/80 transition uppercase tracking-widest font-bold">

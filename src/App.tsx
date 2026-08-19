@@ -41,6 +41,7 @@ export default function App() {
   const hydrated = useStore((s) => s._hasHydrated)
   const dark = useStore((s) => s.dark)
   const role = useStore(selectRole)
+  const staffList = useStore((s) => s.staff)
 
   // Runs automated debt reminders while the app is open and online.
   useAutomation()
@@ -100,6 +101,9 @@ export default function App() {
   }
 
   if (cloudStatus === 'onboarding') return <OnboardingPage />
+
+  // No staff yet → first-run setup (local-first, works offline too)
+  if (staffList.length === 0) return <OnboardingPage />
 
   // No one is signed in on this device → show the PIN lock screen.
   if (!role && !isSuperAdmin) return <LockScreen />
