@@ -173,6 +173,17 @@ export default function Layout({ children, isSuperAdmin }: { children: ReactNode
 
       {/* Suspended account paywall */}
       <Paywall />
+
+      {/* Super Admin Escape Hatch */}
+      {isSuperAdmin && (
+        <NavLink
+          to="/superadmin"
+          className="fixed bottom-20 right-4 z-50 flex items-center gap-2 rounded-full bg-amber-500 px-4 py-3 text-sm font-bold text-amber-950 shadow-xl transition hover:scale-105 hover:bg-amber-400 active:scale-95 md:bottom-8 md:right-8"
+        >
+          <Crown size={18} />
+          Back to Admin Panel
+        </NavLink>
+      )}
     </div>
   )
 }
