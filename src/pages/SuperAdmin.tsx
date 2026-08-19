@@ -529,7 +529,7 @@ function DemoControlCenter() {
     setSeeded(seeder.label)
     setTimeout(() => {
       setSeeded(null)
-      navigate('/')
+      navigate('/', { state: { fromDemo: true } })
     }, 500) // Small delay so they see the success toast briefly before jumping
   }
 
@@ -539,7 +539,7 @@ function DemoControlCenter() {
     setConfirmWipe(false)
     setTimeout(() => {
       setWiping(false)
-      navigate('/')
+      navigate('/', { state: { fromDemo: true } })
     }, 800)
   }
 

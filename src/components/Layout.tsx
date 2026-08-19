@@ -29,7 +29,7 @@ import { PiggyBank, ChefHat, UtensilsCrossed } from 'lucide-react'
 import { getFeatures } from '../lib/labels'
 
 
-export default function Layout({ children }: { children: ReactNode }) {
+export default function Layout({ children, isSuperAdmin }: { children: ReactNode; isSuperAdmin?: boolean }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const dark = useStore((s) => s.dark)
   const toggleDark = useStore((s) => s.toggleDark)
@@ -48,6 +48,7 @@ export default function Layout({ children }: { children: ReactNode }) {
   const features = getFeatures(settings)
 
   const nav = [
+    ...(isSuperAdmin ? [{ to: '/superadmin', label: 'Admin Panel', icon: Crown }] : []),
     { to: '/dashboard', label: 'Dashboard', icon: Home, cap: 'viewReports' as Capability },
     { to: '/pos', label: isRestaurant ? 'New Order' : 'Point of Sale', icon: isRestaurant ? UtensilsCrossed : ShoppingCart },
     { to: '/kitchen', label: 'Kitchen', icon: ChefHat },

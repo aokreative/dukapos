@@ -92,11 +92,11 @@ export default function App() {
   }
   if (cloudStatus === 'signedOut') return <AuthPage />
 
-  // Role-Based Routing: Force superadmins to the superadmin dashboard, and block standard users from it.
-  if (cloudStatus === 'superadmin' && loc.pathname !== '/superadmin') {
+  // Role-Based Routing: Default superadmins to the dashboard on login, but allow them to explore the POS.
+  if (cloudStatus === 'superadmin' && loc.pathname === '/' && !loc.state?.fromDemo) {
     return <Navigate to="/superadmin" replace />
   }
-  if (cloudStatus !== 'superadmin' && loc.pathname === '/superadmin') {
+  if (cloudStatus !== 'superadmin' && isSuperAdmin) {
     return <Navigate to="/" replace />
   }
 
@@ -120,7 +120,7 @@ export default function App() {
   }
 
   return (
-    <Layout>
+    <Layout isSuperAdmin={cloudStatus === 'superadmin'}>
       <Routes>
         <Route path="/" element={<HomeRedirect />} />
         <Route path="/dashboard" element={<Guard cap="viewReports" role={role}><Dashboard /></Guard>} />
