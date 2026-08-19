@@ -10,7 +10,8 @@ Duka POS is a completely offline-first Point of Sale application designed for sp
 - **Styling**: Tailwind CSS
 - **Icons**: Lucide React
 - **Charts**: Recharts
-
+- **Database / Backend**: Supabase (used for syncing the offline-first queue to the cloud)
+- **Hosting / CI/CD**: Vercel (connected to GitHub for automatic deployments)
 ## 3. Architecture & Data Flow
 The application logic runs entirely client-side. The entire database is modeled as a small, flat JSON structure stored in the browser using `localStorage`/`IndexedDB` (via Zustand persist).
 
@@ -21,7 +22,7 @@ The store (`useStore`) holds the entire state:
 - `staff`: Employees and their PINs.
 - `settings`: Business configuration.
 
-Because the app is offline-first, actions like completing a sale synchronously update the local Zustand store. A separate background sync queue (e.g. `sync_queue`) is implemented to eventually push these operations to a remote backend.
+Because the app is offline-first, actions like completing a sale synchronously update the local Zustand store. A separate background sync queue (e.g. `sync_queue`) is implemented to eventually push these operations to a remote Supabase backend.
 
 ## 4. Vertical-Specific Features (Business Types)
 The POS adapts dynamically based on the `settings.businessType` value. This triggers specific feature flags and UI changes via `src/lib/labels.ts`.
@@ -52,4 +53,4 @@ The POS adapts dynamically based on the `settings.businessType` value. This trig
 - `src/pages/Products.tsx`: The inventory manager, dynamically rendering fields based on the business type.
 
 ## 8. Deployment
-This is a standard Vite application. Run `npm run build` to generate static files in the `dist` folder. These files can be served by any static host (Vercel, Netlify, Nginx, etc.). Ensure the web server is configured to fallback to `index.html` for client-side routing.
+This is a standard Vite application. The repository is hosted on **GitHub** and connected to **Vercel** for CI/CD. Pushing changes to the `main` branch will automatically trigger a build and deploy on Vercel. Supabase acts as the remote backend for syncing the offline data.
