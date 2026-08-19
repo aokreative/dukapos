@@ -23,6 +23,10 @@ import { shortDateTime } from '../lib/format'
 import type { BizLocation, StockTransfer, TransferLine } from '../types'
 
 export default function Branches() {
+  const businessType = useStore((s) => s.settings.businessType)
+  const isRestaurant = businessType === 'restaurant'
+  const whLabel = isRestaurant ? 'Store' : 'Warehouse'
+  
   const locations = useStore((s) => s.locations)
   const transfers = useStore((s) => s.transfers)
   const staff = useStore((s) => s.staff)
@@ -44,7 +48,7 @@ export default function Branches() {
   return (
     <div>
       <PageHeader
-        title="Branches & Warehouse"
+        title={`Branches & ${whLabel}`}
         subtitle="Locations, stock per branch, and transfers between them"
         action={
           can(role, 'transferStock') ? (
@@ -109,7 +113,7 @@ export default function Branches() {
                 <div className="min-w-0 flex-1">
                   <div className="font-semibold text-brand-900 dark:text-white">{l.name}</div>
                   <div className="text-xs text-brand-900/50 dark:text-white/50">
-                    {LOCATION_TYPE_LABEL[l.type]}
+                    {l.type === 'warehouse' ? whLabel : LOCATION_TYPE_LABEL[l.type]}
                     {keeper ? ` · ${keeper.name} in charge` : ''}
                   </div>
                   {sellers.length > 0 && (
@@ -158,7 +162,7 @@ export default function Branches() {
       <div className="card p-4">
         <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-brand-900/60 dark:text-white/60">Recent transfers</h2>
         {history.length === 0 ? (
-          <EmptyState icon={<ArrowRightLeft size={28} />} title="No transfers yet" hint="Move stock from the warehouse to a branch, or between branches." />
+          <EmptyState icon={<ArrowRightLeft size={28} />} title="No transfers yet" hint={`Move stock from the ${whLabel.toLowerCase()} to a branch, or between branches.`} />
         ) : (
           <div className="space-y-2">
             {history.map((t) => (
@@ -316,6 +320,7 @@ function TransferModal({ onClose }: { onClose: () => void }) {
 }
 
 function LocationModal({ location, onClose }: { location: BizLocation | null; onClose: () => void }) {
+  const isRestaurant = useStore((s) => s.settings.businessType) === 'restaurant'
   const staff = useStore((s) => s.staff)
   const locations = useStore((s) => s.locations)
   const addLocation = useStore((s) => s.addLocation)
@@ -359,7 +364,7 @@ function LocationModal({ location, onClose }: { location: BizLocation | null; on
         }
 
   return (
-    <Modal open onClose={onClose} title={location ? 'Edit location' : 'Add branch or warehouse'}>
+    <Modal open onClose={onClose} title={location ? 'Edit location' : `Add branch or ${isRestaurant ? 'store' : 'warehouse'}`}>
       <div className="space-y-3">
         <div>
           <label className="label">Name</label>
@@ -370,7 +375,7 @@ function LocationModal({ location, onClose }: { location: BizLocation | null; on
           <div className="flex gap-2">
             {(['branch', 'warehouse'] as const).map((t) => (
               <button key={t} onClick={() => setType(t)} className={`chip flex-1 justify-center py-2 ${type === t ? 'bg-brand-600 text-white' : 'bg-black/5 text-brand-900/70 dark:bg-white/10 dark:text-white/70'}`}>
-                {t === 'branch' ? <Building2 size={14} /> : <WarehouseIcon size={14} />} {LOCATION_TYPE_LABEL[t]}
+                {t === 'branch' ? <Building2 size={14} /> : <WarehouseIcon size={14} />} {t === 'warehouse' ? (isRestaurant ? 'Store' : 'Warehouse') : LOCATION_TYPE_LABEL[t]}
               </button>
             ))}
           </div>

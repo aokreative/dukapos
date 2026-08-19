@@ -60,7 +60,7 @@ export const BUSINESS_TYPE_LABEL: Record<BusinessType, string> = {
  *  present; a simple single shop can switch it off in Settings → Features. */
 export const PRESET_FEATURES: Record<BusinessType, FeatureFlags> = {
   shop: { expiry: false, warranty: false, wholesale: false, branches: true },
-  restaurant: { expiry: false, warranty: false, wholesale: false, branches: true },
+  restaurant: { expiry: false, warranty: false, wholesale: false, branches: false },
   pharmacy: { expiry: true, warranty: false, wholesale: false, branches: true },
   hardware: { expiry: false, warranty: true, wholesale: true, branches: true },
   electronics: { expiry: false, warranty: true, wholesale: false, branches: true },
@@ -119,6 +119,8 @@ export interface ProductFieldConfig {
   compatibilityPlaceholder: string
   batchNumber: boolean
   prescription: boolean
+  isIngredient: boolean
+  isIngredientLabel: string
 }
 
 const DEFAULT_FIELDS: ProductFieldConfig = {
@@ -145,6 +147,8 @@ const DEFAULT_FIELDS: ProductFieldConfig = {
   compatibilityPlaceholder: 'e.g. Corolla NZE, Probox',
   batchNumber: false,
   prescription: false,
+  isIngredient: false,
+  isIngredientLabel: 'Raw ingredient (do not show on POS)',
 }
 
 const FIELDS_BY_TYPE: Partial<Record<BusinessType, Partial<ProductFieldConfig>>> = {
@@ -157,6 +161,8 @@ const FIELDS_BY_TYPE: Partial<Record<BusinessType, Partial<ProductFieldConfig>>>
     namePlaceholder: 'e.g. Chicken Biryani',
     categoryPlaceholder: 'e.g. Mains, Sides, Drinks',
     costLabel: 'Ingredient cost per serving (optional)',
+    isIngredient: true,
+    isIngredientLabel: 'Raw ingredient (hide from Menu)',
   },
   pharmacy: {
     brandLabel: 'Manufacturer / brand (optional)',
@@ -174,6 +180,7 @@ const FIELDS_BY_TYPE: Partial<Record<BusinessType, Partial<ProductFieldConfig>>>
     variantsPlaceholder: 'e.g. 4-inch, 6-inch · or 1L, 5L',
     namePlaceholder: 'e.g. Nails 3-inch',
     categoryPlaceholder: 'e.g. Cement, Tools, Paint, Plumbing',
+    sizes: true,
   },
   electronics: {
     skuLabel: 'SKU / Serial / Barcode',

@@ -253,6 +253,8 @@ export interface Product {
   batchNumber?: string
   /** Pharmacy: Flag for prescription-only items */
   prescription?: boolean
+  /** Hide this product from POS (useful for raw ingredients like cooking oil) */
+  isIngredient?: boolean
 }
 
 export interface Customer {

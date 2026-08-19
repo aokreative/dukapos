@@ -295,6 +295,9 @@ export default function Reports() {
                     <span className="font-semibold text-brand-900 dark:text-white">{s.receiptNo}</span>
                     <span className="font-bold text-red-500">-{money(s.discount ?? 0, currency)}</span>
                   </div>
+                  <div className="mt-0.5 text-xs text-brand-900/60 dark:text-white/60 truncate">
+                    {s.lines.map(l => l.name).join(', ')}
+                  </div>
                   <div className="flex items-center justify-between text-xs text-brand-900/50 dark:text-white/50">
                     <span>{new Date(s.createdAt).toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit' })}</span>
                     <span>By {s.cashierName}</span>

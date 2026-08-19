@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Delete, ArrowLeft, ShieldCheck } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Delete, ArrowLeft, ShieldCheck, UserMinus } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { ROLE_LABEL } from '../lib/permissions'
 import type { StaffMember } from '../types'
@@ -25,6 +25,7 @@ export default function LockScreen() {
       }
     }
   }
+
   function submit() {
     if (!selected) return
     if (!login(selected.id, pin)) {
@@ -32,6 +33,26 @@ export default function LockScreen() {
       setPin('')
     }
   }
+
+  useEffect(() => {
+    if (!selected) return
+    
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key >= '0' && e.key <= '9') {
+        press(e.key)
+      } else if (e.key === 'Backspace') {
+        setPin((p) => p.slice(0, -1))
+        setError(false)
+      } else if (e.key === 'Enter') {
+        if (pin.length >= 4) {
+          submit()
+        }
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [selected, pin])
 
   return (
     <div className="flex h-full flex-col items-center justify-center bg-brand-900 px-6 py-10 text-white">
@@ -92,8 +113,9 @@ export default function LockScreen() {
                 {d}
               </button>
             ))}
-            <button onClick={() => { setSelected(null); setPin(''); setError(false) }} className="flex h-16 w-16 items-center justify-center rounded-full text-white/60 hover:bg-white/10" aria-label="Back">
-              <ArrowLeft size={22} />
+            <button onClick={() => { setSelected(null); setPin(''); setError(false) }} className="flex flex-col h-16 w-16 items-center justify-center rounded-full text-white/60 hover:bg-white/10" aria-label="Switch User">
+              <UserMinus size={20} />
+              <span className="text-[9px] mt-0.5 uppercase tracking-wider font-bold">Switch</span>
             </button>
             <button onClick={() => press('0')} className="h-16 w-16 rounded-full bg-white/10 text-2xl font-semibold transition hover:bg-white/20 active:scale-95">
               0
@@ -104,7 +126,7 @@ export default function LockScreen() {
           </div>
 
           {pin.length >= 4 && (
-            <button onClick={submit} className="btn-gold mt-6 w-full">
+            <button onClick={submit} className="btn-gold mt-6 w-full py-4 text-lg rounded-xl shadow-lg shadow-gold-500/20">
               Unlock
             </button>
           )}

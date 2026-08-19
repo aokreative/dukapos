@@ -9,13 +9,13 @@ import {
   Sun,
   Wifi,
   WifiOff,
-  Lock,
   PieChart,
   Users,
   Truck,
   Building2,
   Crown,
-  Sparkles
+  Sparkles,
+  LogOut
 } from 'lucide-react'
 import { useStore, selectTotalOwed, selectCurrentStaff, selectRole } from '../store/useStore'
 import { money } from '../lib/format'
@@ -25,22 +25,9 @@ import { BillingBanner, Paywall, useBilling } from './Billing'
 import ShiftBar from './ShiftBar'
 
 // Note: PiggyBank and ChefHat are added.
-import { PiggyBank, ChefHat } from 'lucide-react'
+import { PiggyBank, ChefHat, UtensilsCrossed } from 'lucide-react'
+import { getFeatures } from '../lib/labels'
 
-const NAV: { to: string; label: string; icon: any; cap?: Capability }[] = [
-  { to: '/dashboard', label: 'Dashboard', icon: Home, cap: 'viewReports' },
-  { to: '/pos', label: 'Point of Sale', icon: ShoppingCart },
-  { to: '/kitchen', label: 'Kitchen', icon: ChefHat },
-  { to: '/products', label: 'Inventory', icon: Package, cap: 'manageStock' },
-  { to: '/debts', label: 'Debts & Mkopo', icon: PiggyBank, cap: 'viewDebts' },
-  { to: '/customers', label: 'Customers', icon: Users },
-  { to: '/suppliers', label: 'Suppliers', icon: Truck, cap: 'manageStock' },
-  { to: '/reports', label: 'Reports', icon: PieChart, cap: 'viewReports' },
-  { to: '/assistant', label: 'Duka AI', icon: Sparkles, cap: 'useAssistant' },
-  { to: '/warehouse', label: 'Warehouse', icon: Building2, cap: 'transferStock' },
-  { to: '/billing', label: 'Billing', icon: Crown, cap: 'editSettings' },
-  { to: '/settings', label: 'Settings', icon: SettingsIcon, cap: 'editSettings' },
-]
 
 export default function Layout({ children }: { children: ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false)
@@ -59,12 +46,27 @@ export default function Layout({ children }: { children: ReactNode }) {
   const currentStaffFull = useStore(selectCurrentStaff)
   const isPharmacy = settings.businessType === 'pharmacy'
   const isRestaurant = settings.businessType === 'restaurant'
+  const features = getFeatures(settings)
 
-  const nav = NAV.filter((n) => {
+  const nav = [
+    { to: '/dashboard', label: 'Dashboard', icon: Home, cap: 'viewReports' as Capability },
+    { to: '/pos', label: isRestaurant ? 'New Order' : 'Point of Sale', icon: isRestaurant ? UtensilsCrossed : ShoppingCart },
+    { to: '/kitchen', label: 'Kitchen', icon: ChefHat },
+    { to: '/products', label: isRestaurant ? 'Menu' : 'Inventory', icon: Package, cap: 'manageStock' as Capability },
+    { to: '/debts', label: 'Debts & Mkopo', icon: PiggyBank, cap: 'viewDebts' as Capability },
+    { to: '/customers', label: 'Customers', icon: Users },
+    { to: '/suppliers', label: 'Suppliers', icon: Truck, cap: 'manageStock' as Capability },
+    { to: '/reports', label: 'Reports', icon: PieChart, cap: 'viewReports' as Capability },
+    { to: '/assistant', label: 'Duka AI', icon: Sparkles, cap: 'useAssistant' as Capability },
+    { to: '/warehouse', label: isRestaurant ? 'Store' : 'Warehouse', icon: Building2, cap: 'transferStock' as Capability },
+    { to: '/billing', label: 'Billing', icon: Crown, cap: 'editSettings' as Capability },
+    { to: '/settings', label: 'Settings', icon: SettingsIcon, cap: 'editSettings' as Capability },
+  ].filter((n) => {
     if (n.cap && !canStaff(currentStaffFull, n.cap)) return false
     if (isPharmacy && (n.to === '/customers' || n.to === '/debts')) return false
     if (isRestaurant && (n.to === '/suppliers' || n.to === '/debts')) return false
     if (!isRestaurant && n.to === '/kitchen') return false
+    if (!features.branches && n.to === '/warehouse') return false
     return true
   })
 
@@ -106,13 +108,13 @@ export default function Layout({ children }: { children: ReactNode }) {
         </nav>
         <div className="px-4">
           {currentStaff && (
-            <button onClick={logout} className="mb-2 flex items-center gap-2 rounded-xl bg-white/5 px-3 py-2 text-left transition w-full hover:bg-white/10" title="Lock / switch user">
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-900 text-sm font-bold text-gold-400">{currentStaff.name.charAt(0).toUpperCase()}</span>
+            <button onClick={logout} className="mb-4 flex items-center gap-3 rounded-xl bg-red-500/10 border border-red-500/20 px-3 py-3 text-left transition w-full hover:bg-red-500/20 active:scale-[0.98]" title="Lock System / Sign out">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-red-500/20 text-sm font-bold text-red-300">{currentStaff.name.charAt(0).toUpperCase()}</span>
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-semibold text-white">{currentStaff.name}</span>
-                <span className="block text-[11px] text-white/50">{role && ROLE_LABEL[role]}</span>
+                <span className="block truncate text-sm font-bold text-red-100">{currentStaff.name}</span>
+                <span className="block text-[11px] font-bold tracking-wide uppercase text-red-400">Lock System</span>
               </span>
-              <Lock size={15} className="text-white/40 shrink-0" />
+              <LogOut size={18} className="text-red-400 shrink-0" />
             </button>
           )}
           <FooterControls dark={dark} toggleDark={toggleDark} online={online} light />
@@ -136,9 +138,9 @@ export default function Layout({ children }: { children: ReactNode }) {
               {dark ? <Sun size={18} /> : <Moon size={18} />}
             </button>
             {currentStaff && (
-              <button onClick={logout} className="flex items-center gap-1 rounded-full bg-black/5 py-1 pl-1 pr-2.5 dark:bg-white/10" title="Lock / switch user">
+              <button onClick={logout} className="flex items-center gap-1 rounded-full bg-black/5 py-1 pl-1 pr-2.5 dark:bg-white/10" title="Sign out">
                 <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-600 text-[11px] font-bold text-gold-400">{currentStaff.name.charAt(0).toUpperCase()}</span>
-                <Lock size={13} className="text-brand-900/50 dark:text-white/50" />
+                <LogOut size={13} className="text-brand-900/50 dark:text-white/50" />
               </button>
             )}
           </div>

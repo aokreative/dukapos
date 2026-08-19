@@ -257,6 +257,7 @@ function ProductForm({
     compatibility?: string
     batchNumber?: string
     prescription?: boolean
+    isIngredient?: boolean
   }) => void
   onDelete?: () => void
 }) {
@@ -298,6 +299,7 @@ function ProductForm({
   const [compatibility, setCompatibility] = useState<string>(product?.compatibility ?? '')
   const [batchNumber, setBatchNumber] = useState<string>(product?.batchNumber ?? '')
   const [prescription, setPrescription] = useState<boolean>(product?.prescription ?? false)
+  const [isIngredient, setIsIngredient] = useState<boolean>(product?.isIngredient ?? false)
 
   const valid = name.trim() && price >= 0
 
@@ -422,7 +424,7 @@ function ProductForm({
             <p className="mt-1 text-xs text-brand-900/50 dark:text-white/50">Describe what this part fits. Staff can search for "Corolla 2018" at the till.</p>
           </div>
         )}
-        {(pf.batchNumber || pf.prescription) && (
+        {(pf.batchNumber || pf.prescription || pf.isIngredient) && (
           <div className="grid grid-cols-2 gap-3">
             {pf.batchNumber && (
               <div>
@@ -435,6 +437,14 @@ function ProductForm({
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input type="checkbox" className="h-5 w-5 accent-brand-600" checked={prescription} onChange={(e) => setPrescription(e.target.checked)} />
                   <span className="font-medium">Prescription only</span>
+                </label>
+              </div>
+            )}
+            {pf.isIngredient && (
+              <div className="flex items-center pt-6">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" className="h-5 w-5 accent-brand-600" checked={isIngredient} onChange={(e) => setIsIngredient(e.target.checked)} />
+                  <span className="font-medium text-sm">{pf.isIngredientLabel}</span>
                 </label>
               </div>
             )}
@@ -525,6 +535,7 @@ function ProductForm({
               compatibility: pf.compatibility && compatibility.trim() ? compatibility.trim() : undefined,
               batchNumber: pf.batchNumber && batchNumber.trim() ? batchNumber.trim() : undefined,
               prescription: pf.prescription && prescription ? true : undefined,
+              isIngredient: pf.isIngredient && isIngredient ? true : undefined,
             })
           }
         >

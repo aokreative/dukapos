@@ -82,6 +82,7 @@ export default function POS() {
     const t = q.trim().toLowerCase()
     return products.filter((p) => {
       if (!p.active) return false
+      if (p.isIngredient) return false
       if (cat !== 'All' && p.category !== cat) return false
       if (!t) return true
       return p.name.toLowerCase().includes(t) || p.sku.includes(t) || (p.compatibility && p.compatibility.toLowerCase().includes(t))
