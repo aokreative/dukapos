@@ -950,7 +950,7 @@ export const useStore = create<State>()(
           reminderLog: [{ ...entry, id: uid('rl_'), at: Date.now() }, ...s.reminderLog].slice(0, 500),
         })),
 
-      resetDemoData: () => set({ ...buildSeed() }),
+      resetDemoData: () => set({ ...buildCleanState() }),
       clearAll: () =>
         set({
           products: [],
