@@ -3,6 +3,7 @@ import { Delete, ShieldCheck, UserMinus } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { ROLE_LABEL } from '../lib/permissions'
 import type { StaffMember } from '../types'
+import { supabase } from '../lib/cloud'
 
 export default function LockScreen() {
   const shopName = useStore((s) => s.settings.name)
@@ -133,8 +134,15 @@ export default function LockScreen() {
         </div>
       )}
 
-      <div className="mt-10 flex items-center gap-1.5 text-xs text-white/30">
-        <ShieldCheck size={13} /> Demo PINs — Owner 1234 · Cashier 0000
+      <div className="mt-10 flex flex-col items-center gap-4 text-xs text-white/30">
+        <div className="flex items-center gap-1.5">
+          <ShieldCheck size={13} /> Demo PINs — Owner 1234 · Cashier 0000
+        </div>
+        {supabase && (
+          <button onClick={() => supabase()?.auth.signOut()} className="text-white/40 hover:text-white/80 transition uppercase tracking-widest font-bold">
+            Sign Out of Shop
+          </button>
+        )}
       </div>
     </div>
   )
