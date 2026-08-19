@@ -110,12 +110,12 @@ export default function App() {
 
   if (isSuperAdmin) {
     return (
-      <Layout>
+      <div className="flex h-screen w-full flex-col bg-gray-50 dark:bg-brand-900 overflow-y-auto px-4 py-6 md:px-8">
         <Routes>
           <Route path="/superadmin" element={<SuperAdmin />} />
           <Route path="*" element={<Navigate to="/superadmin" replace />} />
         </Routes>
-      </Layout>
+      </div>
     )
   }
 

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   RefreshCw,
   Activity,
@@ -518,6 +519,7 @@ const SEEDERS = [
 ]
 
 function DemoControlCenter() {
+  const navigate = useNavigate()
   const [seeded, setSeeded] = useState<string | null>(null)
   const [wiping, setWiping] = useState(false)
   const [confirmWipe, setConfirmWipe] = useState(false)
@@ -525,14 +527,20 @@ function DemoControlCenter() {
   function runSeed(seeder: typeof SEEDERS[0]) {
     seeder.fn()
     setSeeded(seeder.label)
-    setTimeout(() => setSeeded(null), 3000)
+    setTimeout(() => {
+      setSeeded(null)
+      navigate('/')
+    }, 500) // Small delay so they see the success toast briefly before jumping
   }
 
   function runWipe() {
     setWiping(true)
     wipeLocalStore()
     setConfirmWipe(false)
-    setTimeout(() => setWiping(false), 800)
+    setTimeout(() => {
+      setWiping(false)
+      navigate('/')
+    }, 800)
   }
 
   return (
