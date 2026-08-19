@@ -12,10 +12,22 @@ import {
   X,
   ShieldAlert,
   Store,
+  FlaskConical,
+  Zap,
+  Trash,
 } from 'lucide-react'
 import { PageHeader, Tabs, Badge } from '../components/ui'
 import { money } from '../lib/format'
 import { supabase } from '../lib/cloud'
+import {
+  seedRetail,
+  seedRestaurant,
+  seedPharmacy,
+  seedBoutique,
+  seedAutoSpares,
+  seedHardwareSpices,
+  wipeLocalStore,
+} from '../lib/demoSeeders'
 
 // ── Confirmation dialog ────────────────────────────────────────────────────
 function ConfirmDialog({
@@ -185,6 +197,7 @@ export default function SuperAdmin() {
     { id: 'metrics', label: 'Platform Metrics' },
     { id: 'tenants', label: `Tenants (${tenants.length})` },
     { id: 'health', label: 'System Health' },
+    { id: 'demo', label: '🎬 Demo Control' },
   ]
 
   const loadData = async () => {
@@ -445,6 +458,151 @@ export default function SuperAdmin() {
           </button>
         </div>
       )}
+
+      {/* ── Demo Control Center ───────────────────────────────────────────── */}
+      {activeTab === 'demo' && <DemoControlCenter />}
     </div>
   )
 }
+
+// ── Demo Control Center component ─────────────────────────────────────────
+const SEEDERS = [
+  {
+    id: 'retail',
+    label: 'Seed Retail / Duka',
+    icon: '🛒',
+    desc: '15 grocery & FMCG products, 3 customers, open debts.',
+    color: 'from-green-500/20 to-green-600/10 border-green-500/30 hover:border-green-400/60',
+    fn: seedRetail,
+  },
+  {
+    id: 'restaurant',
+    label: 'Seed Restaurant',
+    icon: '🍽️',
+    desc: '15 menu items (no stock tracking), tables & kitchen flow.',
+    color: 'from-orange-500/20 to-orange-600/10 border-orange-500/30 hover:border-orange-400/60',
+    fn: seedRestaurant,
+  },
+  {
+    id: 'pharmacy',
+    label: 'Seed Pharmacy',
+    icon: '💊',
+    desc: '15 drugs with expiry dates, batch numbers & Rx flags.',
+    color: 'from-blue-500/20 to-blue-600/10 border-blue-500/30 hover:border-blue-400/60',
+    fn: seedPharmacy,
+  },
+  {
+    id: 'boutique',
+    label: 'Seed Boutique',
+    icon: '👗',
+    desc: '15 clothing items with sizes, colors & accessories.',
+    color: 'from-pink-500/20 to-pink-600/10 border-pink-500/30 hover:border-pink-400/60',
+    fn: seedBoutique,
+  },
+  {
+    id: 'autospares',
+    label: 'Seed Auto Spares',
+    icon: '🔧',
+    desc: '15 parts with compatibility (Make/Model/Year) & warranty.',
+    color: 'from-slate-500/20 to-slate-600/10 border-slate-500/30 hover:border-slate-400/60',
+    fn: seedAutoSpares,
+  },
+  {
+    id: 'hardware',
+    label: 'Seed Hardware & Spices',
+    icon: '🏗️',
+    desc: '15 items sold by kg/m/bag — fractional quantities demo.',
+    color: 'from-amber-500/20 to-amber-600/10 border-amber-500/30 hover:border-amber-400/60',
+    fn: seedHardwareSpices,
+  },
+]
+
+function DemoControlCenter() {
+  const [seeded, setSeeded] = useState<string | null>(null)
+  const [wiping, setWiping] = useState(false)
+  const [confirmWipe, setConfirmWipe] = useState(false)
+
+  function runSeed(seeder: typeof SEEDERS[0]) {
+    seeder.fn()
+    setSeeded(seeder.label)
+    setTimeout(() => setSeeded(null), 3000)
+  }
+
+  function runWipe() {
+    setWiping(true)
+    wipeLocalStore()
+    setConfirmWipe(false)
+    setTimeout(() => setWiping(false), 800)
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Warning banner */}
+      <div className="flex items-start gap-3 rounded-2xl bg-amber-500/10 p-4 ring-1 ring-amber-500/30">
+        <FlaskConical size={20} className="shrink-0 text-amber-500 mt-0.5" />
+        <div>
+          <p className="font-bold text-amber-600 dark:text-amber-400">Local Only — Never synced to Supabase</p>
+          <p className="mt-0.5 text-sm text-amber-600/80 dark:text-amber-400/70">
+            All seed buttons write exclusively to this device's local store. No demo data touches the production database. 
+            Use this for client presentations only.
+          </p>
+        </div>
+      </div>
+
+      {/* Success toast */}
+      {seeded && (
+        <div className="flex items-center gap-2 rounded-xl bg-green-500/10 px-4 py-3 text-sm font-semibold text-green-600 dark:text-green-400 ring-1 ring-green-500/20">
+          <Zap size={15} /> {seeded} loaded — open the POS to demo it! Demo PIN: Owner 1234 · Cashier 0000
+        </div>
+      )}
+
+      {/* Seed buttons grid */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {SEEDERS.map((s) => (
+          <button
+            key={s.id}
+            onClick={() => runSeed(s)}
+            className={`group flex flex-col items-start gap-3 rounded-2xl border bg-gradient-to-br p-5 text-left transition-all duration-200 hover:shadow-lg active:scale-[0.98] ${s.color}`}
+          >
+            <div className="flex w-full items-center justify-between">
+              <span className="text-3xl">{s.icon}</span>
+              <Zap size={16} className="text-white/20 transition group-hover:text-white/60" />
+            </div>
+            <div>
+              <div className="font-bold text-brand-900 dark:text-white">{s.label}</div>
+              <div className="mt-1 text-xs text-brand-900/60 dark:text-white/50">{s.desc}</div>
+            </div>
+          </button>
+        ))}
+      </div>
+
+      {/* Wipe section */}
+      <div className="card p-5">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-500/10 text-red-500">
+              <Trash size={18} />
+            </div>
+            <div>
+              <div className="font-bold text-brand-900 dark:text-white">Wipe Local Store</div>
+              <div className="text-xs text-brand-900/50 dark:text-white/50">Clears all local data — products, sales, staff, debts. Triggers first-run setup.</div>
+            </div>
+          </div>
+          {confirmWipe ? (
+            <div className="flex gap-2">
+              <button className="btn-ghost py-2 px-3 text-sm" onClick={() => setConfirmWipe(false)}>Cancel</button>
+              <button className="btn-danger py-2 px-3 text-sm" onClick={runWipe} disabled={wiping}>
+                {wiping ? 'Wiping…' : 'Confirm Wipe'}
+              </button>
+            </div>
+          ) : (
+            <button className="btn-danger py-2 px-4 text-sm" onClick={() => setConfirmWipe(true)}>
+              Wipe Local Store
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
