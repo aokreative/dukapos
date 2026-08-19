@@ -17,10 +17,10 @@ import {
   Sparkles,
   LogOut
 } from 'lucide-react'
-import { useStore, selectTotalOwed, selectCurrentStaff, selectRole } from '../store/useStore'
+import { useStore, selectTotalOwed, selectCurrentStaff } from '../store/useStore'
 import { money } from '../lib/format'
 import { useOnline } from '../lib/useOnline'
-import { canStaff, ROLE_LABEL, type Capability } from '../lib/permissions'
+import { canStaff, type Capability } from '../lib/permissions'
 import { BillingBanner, Paywall, useBilling } from './Billing'
 import ShiftBar from './ShiftBar'
 
@@ -39,7 +39,6 @@ export default function Layout({ children }: { children: ReactNode }) {
   const loc = useLocation()
   const { billing } = useBilling()
   const billingAlert = billing.status !== 'active'
-  const role = useStore(selectRole)
   const currentStaff = useStore(selectCurrentStaff)
   const logout = useStore((s) => s.logout)
   const settings = useStore((s) => s.settings)

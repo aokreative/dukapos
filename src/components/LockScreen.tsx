@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Delete, ArrowLeft, ShieldCheck, UserMinus } from 'lucide-react'
+import { Delete, ShieldCheck, UserMinus } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { ROLE_LABEL } from '../lib/permissions'
 import type { StaffMember } from '../types'
