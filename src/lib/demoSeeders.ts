@@ -131,39 +131,6 @@ function seedSalesAndDebts(customers: Customer[], productList: Product[], staffN
   return { sales, debts }
 }
 
-// ── 1. RETAIL / DUKA ────────────────────────────────────────────────────────
-
-export function seedRetail() {
-  const products: Product[] = [
-    p('Unga Pembe 2kg', '6001', 'Flour', 175, 148, 40, 10),
-    p('Sugar 1kg', '6002', 'Groceries', 165, 140, 30, 10),
-    p('Cooking Oil 1L', '6003', 'Groceries', 320, 285, 18, 6),
-    p('Milk 500ml', '6004', 'Dairy', 60, 50, 24, 12),
-    p('Bread 400g', '6005', 'Bakery', 70, 58, 15, 8),
-    p('Rice 2kg', '6006', 'Groceries', 260, 225, 22, 8),
-    p('Soda 500ml', '6007', 'Drinks', 70, 55, 48, 24),
-    p('Water 1L', '6008', 'Drinks', 50, 35, 60, 24),
-    p('Soap Bar', '6009', 'Household', 55, 42, 36, 12),
-    p('Salt 1kg', '6010', 'Groceries', 45, 33, 20, 8),
-    p('Tea Leaves 250g', '6011', 'Groceries', 145, 120, 14, 6),
-    p('Matchbox', '6012', 'Household', 10, 6, 100, 30),
-    p('Airtime 50', '6013', 'Airtime', 50, 48, 200, 0),
-    p('Eggs (tray)', '6014', 'Dairy', 380, 330, 8, 4),
-    p('Maize Meal 1kg', '6015', 'Flour', 95, 80, 5, 12),
-  ]
-  const customers = [
-    customer('Mama Njeri', '254712345678', 'Regular — buys weekly'),
-    customer('John Otieno', '254723456789'),
-    customer('Grace Wanjiku', '254701234567', 'Salon next door'),
-  ]
-  const staff = demoStaff('Kamau (Owner)')
-  const { sales, debts } = seedSalesAndDebts(customers, products, 'Kamau (Owner)')
-
-  applyDemo(
-    baseSettings({ name: 'Kamau Supermarket', businessType: 'shop', tagline: 'Your neighbourhood duka' }),
-    products, customers, staff, sales, debts,
-  )
-}
 
 // ── 2. RESTAURANT ───────────────────────────────────────────────────────────
 

@@ -21,7 +21,6 @@ import { PageHeader, Tabs, Badge } from '../components/ui'
 import { money } from '../lib/format'
 import { supabase } from '../lib/cloud'
 import {
-  seedRetail,
   seedRestaurant,
   seedPharmacy,
   seedBoutique,
@@ -469,14 +468,6 @@ export default function SuperAdmin() {
 // ── Demo Control Center component ─────────────────────────────────────────
 const SEEDERS = [
   {
-    id: 'retail',
-    label: 'Seed Retail / Duka',
-    icon: '🛒',
-    desc: '15 grocery & FMCG products, 3 customers, open debts.',
-    color: 'from-green-500/20 to-green-600/10 border-green-500/30 hover:border-green-400/60',
-    fn: seedRetail,
-  },
-  {
     id: 'restaurant',
     label: 'Seed Restaurant',
     icon: '🍽️',
@@ -539,7 +530,6 @@ function DemoControlCenter() {
     setConfirmWipe(false)
     setTimeout(() => {
       setWiping(false)
-      navigate('/', { state: { fromDemo: true } })
     }, 800)
   }
 

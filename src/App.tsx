@@ -103,7 +103,10 @@ export default function App() {
   if (cloudStatus === 'onboarding') return <OnboardingPage />
 
   // No staff yet → first-run setup (local-first, works offline too)
-  if (staffList.length === 0) return <OnboardingPage />
+  if (staffList.length === 0) {
+    if (cloudStatus === 'superadmin') return <Navigate to="/superadmin" replace />
+    return <OnboardingPage />
+  }
 
   // No one is signed in on this device → show the PIN lock screen.
   if (!role && !isSuperAdmin) return <LockScreen />
