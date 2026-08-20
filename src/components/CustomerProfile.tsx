@@ -290,14 +290,13 @@ export default function CustomerProfile({ customer, onClose }: { customer: Custo
             <button className="btn-primary" onClick={() => setPayOpen(true)}>
               <Wallet size={16} /> Record payment
             </button>
-            <a
-              className="btn-ghost"
-              href={whatsappLink(customer.phone, buildCombinedReminder(settings, customer, openDebts))}
-              target="_blank"
-              rel="noreferrer"
+            <button
+              className="btn-ghost opacity-50 cursor-not-allowed"
+              disabled
+              title="Messaging unavailable — coming soon"
             >
               <MessageCircle size={16} /> Remind
-            </a>
+            </button>
           </div>
         )}
 
@@ -307,12 +306,12 @@ export default function CustomerProfile({ customer, onClose }: { customer: Custo
           <button className="btn-ghost text-sm" onClick={printStatement}>
             <Printer size={16} /> Print
           </button>
-          <a className="btn-ghost text-sm" href={whatsappLink(customer.phone, statementText())} target="_blank" rel="noreferrer">
+          <button className="btn-ghost text-sm opacity-50 cursor-not-allowed" disabled title="Messaging unavailable — coming soon">
             <MessageCircle size={16} /> WhatsApp
-          </a>
-          <a className="btn-ghost text-sm" href={smsLink(customer.phone, statementText())}>
+          </button>
+          <button className="btn-ghost text-sm opacity-50 cursor-not-allowed" disabled title="Messaging unavailable — coming soon">
             <Send size={16} /> SMS
-          </a>
+          </button>
         </div>
       </Modal>
 

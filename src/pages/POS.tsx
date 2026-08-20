@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { Search, Plus, Minus, Trash2, ShoppingCart, X, Tag, RotateCcw, PauseCircle, Zap } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { money } from '../lib/format'
@@ -73,6 +73,10 @@ export default function POS() {
   const [payOpen, setPayOpen] = useState(false)
   const [cartOpen, setCartOpen] = useState(false)
   const [lastSale, setLastSale] = useState<Sale | null>(null)
+
+  useEffect(() => {
+    useStore.getState().setCartEmpty(cart.length === 0)
+  }, [cart.length])
   const [receiptOpen, setReceiptOpen] = useState(false)
   const [tableNumber, setTableNumber] = useState('')
 

@@ -22,6 +22,8 @@ The store (`useStore`) holds the entire state:
 - `sales`: Ledger of all finalized transactions.
 - `staff`: Employees and their PINs.
 - `settings`: Business configuration.
+- `locations`: Branches and warehouses.
+- `transfers`: Pending and completed stock movements.
 
 Because the app is offline-first, actions like completing a sale synchronously update the local Zustand store. A separate background sync queue (`syncQueue`) is implemented to eventually push these operations to a remote Supabase backend.
 
@@ -44,7 +46,14 @@ The POS adapts dynamically based on the `settings.businessType` value. This trig
 - **Auto Spares**: Introduces `compatibility` (Make/Model/Year fields) for robust searching, plus warranty features.
 - **Hardware & Spices**: Heavily utilizes fractional sales natively via `inputMode="decimal"` and unit configurations (kg, m, L).
 
-## 6. Super Admin & Demo Control Center
+## 6. Multi-Branch & Warehousing
+The POS supports managing multiple locations (branches and warehouses) under a single account.
+- **Locations**: A location can be a `branch` (sells to customers) or a `warehouse` (stores stock).
+- **Device Assignment**: Each POS device selects its active location, meaning all sales and stock deductions occur there.
+- **Stock Transfers**: Stock can be transferred between locations. Transfers remain pending until the receiving location confirms receipt.
+- **Per-branch M-PESA**: Branches can optionally have their own specific M-PESA Till/Paybill numbers and Daraja STK Push keys, so payments at a specific branch go to its own account instead of the shop default.
+
+## 7. Super Admin & Demo Control Center
 The application features a dedicated **Super Admin Dashboard** accessible at `/superadmin`. 
 
 ### Access Control
@@ -64,12 +73,12 @@ For sales presentations, the Super Admin dashboard includes a **Demo Control Cen
 - **Local Isolation**: All seeders write **strictly to the local Zustand store**. The `syncQueue` is explicitly cleared to guarantee fake demo data never pollutes the live Supabase production database.
 - **Wipe Local Store**: A kill-switch to wipe local state and trigger the onboarding wizard.
 
-## 7. Security & Authentication
+## 8. Security & Authentication
 - The app features a PIN-based lock screen for daily staff operations.
 - A global `keydown` event listener is attached on the `LockScreen` for fast physical keyboard PIN entry.
 - A prominent Lock System / Switch User button provides fast account switching.
 
-## 8. How to Resume Development
+## 9. How to Resume Development
 1. **Prerequisites**: Ensure you have Node.js installed.
 2. **Setup**: Run `npm install` in the project root.
 3. **Start**: Run `npm run dev` to launch the Vite development server.
@@ -79,12 +88,16 @@ For sales presentations, the Super Admin dashboard includes a **Demo Control Cen
      - Owner PIN: `1234`
      - Cashier PIN: `0000`
 
-## 9. Key Files
+## 10. Key Files
 - `src/store/useStore.ts`: The central nervous system of the app. All state modifications go through here.
 - `src/types.ts`: Domain models. Review this to understand the data schema.
 - `src/pages/POS.tsx`: The main checkout and cart interface. Handles fractional logic, wholesale triggers, and parking sales.
 - `src/pages/SuperAdmin.tsx`: The multi-tenant control panel.
+- `src/pages/Branches.tsx`: Multi-branch, warehouse, and stock transfer management.
 - `src/lib/demoSeeders.ts`: Generators for rich, local-only mock data.
 
-## 10. Deployment
+## 11. Deployment
 This is a standard Vite application. The repository is hosted on **GitHub** and connected to **Vercel** for CI/CD. Pushing changes to the `main` branch will automatically trigger a build and deploy on Vercel. Supabase acts as the remote backend for syncing the offline data and managing SaaS billing states.
+
+## 12. Tracked Defects
+- **Silent RLS failures in Sync Queue**: Postgres missing UPDATE/DELETE policies return 0 rows updated instead of throwing an error. Supabase client resolves successfully with an empty array. The `syncQueue` processes this empty result as a success, silently dequeuing and losing the change. We need to verify the expected number of rows was affected and route a 0-row result to a visible error state, instead of silently dropping it or infinitely retrying.

@@ -4,59 +4,8 @@ import { Modal } from './ui'
 import CustomerPicker from './CustomerPicker'
 import { useStore, selectCurrentStaff } from '../store/useStore'
 import { money, displayPhone, normalizePhone } from '../lib/format'
-import { mpesaCollect, mpesaCollectStatus, type ShopMpesaCreds } from '../lib/api'
-import { branchMpesaCreds, vatAddedTo, vatIncludedIn } from '../lib/reminders'
+import { vatAddedTo, vatIncludedIn } from '../lib/reminders'
 import type { Customer, PaymentMethod, Tender } from '../types'
-
-/** Prompt the customer's phone with an STK push instead of typing the code.
- *  `creds` are the branch's own Daraja keys when set, else the shop's. */
-function MpesaPrompt({ amount, defaultPhone, creds, onConfirmed }: { amount: number; defaultPhone?: string; creds: ShopMpesaCreds | null; onConfirmed: (ref: string) => void }) {
-  const [phone, setPhone] = useState(defaultPhone ? displayPhone(defaultPhone) : '')
-  const [state, setState] = useState<'idle' | 'sending' | 'waiting' | 'done' | 'sim' | 'failed'>('idle')
-
-  async function prompt() {
-    if (!phone.trim() || amount <= 0) return
-    setState('sending')
-    const out = await mpesaCollect(phone, amount, 'Sale', creds)
-    if (!out) return setState('failed')
-    // Honesty first: a simulated prompt never claims the customer paid.
-    if (out.simulated) return setState('sim')
-    setState('waiting')
-    for (let i = 0; i < 20; i++) {
-      await new Promise((r) => setTimeout(r, 3000))
-      const s = await mpesaCollectStatus(out.checkoutId)
-      if (s === 'success') {
-        setState('done')
-        onConfirmed('STK-' + out.checkoutId.slice(-6).toUpperCase())
-        return
-      }
-      if (s === 'failed') return setState('failed')
-    }
-    setState('failed')
-  }
-
-  if (state === 'done') return <div className="mt-2 text-xs font-semibold text-green-600 dark:text-green-400">✓ Customer paid via M-PESA prompt</div>
-  if (state === 'sim')
-    return (
-      <div className="mt-2 rounded-lg bg-amber-50 px-2.5 py-2 text-xs font-medium text-amber-800 dark:bg-amber-500/10 dark:text-amber-300">
-        ⚠ TEST prompt only — no real request reached the customer's phone. Add your own Daraja keys
-        (Settings → Auto-prompt, or per branch) to prompt for real. Confirm their payment on your till
-        messages and type the M-PESA code above.
-      </div>
-    )
-  return (
-    <div className="mt-2 flex items-center gap-2">
-      <input className="input py-1.5 text-sm" inputMode="tel" placeholder="Customer phone for STK prompt" value={phone} onChange={(e) => setPhone(e.target.value)} disabled={state === 'sending' || state === 'waiting'} />
-      <button
-        className="shrink-0 rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50"
-        disabled={!phone.trim() || state === 'sending' || state === 'waiting'}
-        onClick={prompt}
-      >
-        {state === 'sending' ? 'Sending…' : state === 'waiting' ? 'Waiting…' : state === 'failed' ? 'Retry prompt' : '📲 Prompt'}
-      </button>
-    </div>
-  )
-}
 
 export interface SaleExtras {
   assignedToName?: string
@@ -113,7 +62,6 @@ export default function PaymentModal({
   const vatIncl = settings.vatMode === 'inclusive' ? vatIncludedIn(total, settings) : 0
   // STK prompt collects into the current branch's own till when it has keys.
   const branch = locations.find((l) => l.id === currentLocationId)
-  const stkCreds = branchMpesaCreds(settings, branch)
 
   // Quick customer-by-phone: as the cashier types a number, auto-recognise a
   // returning customer. A number with no match becomes a new customer on
@@ -262,14 +210,7 @@ export default function PaymentModal({
               {(t.method === 'mpesa' || t.method === 'airtel' || t.method === 'card') && (
                 <input className="input mt-2 py-2 text-sm" placeholder={t.method === 'mpesa' ? 'M-PESA code (e.g. RBG6X...)' : t.method === 'airtel' ? 'Airtel Money ref (optional)' : 'Card ref (optional)'} value={t.ref || ''} onChange={(e) => setRef(i, e.target.value)} />
               )}
-              {t.method === 'mpesa' && (
-                <MpesaPrompt
-                  amount={t.amount}
-                  defaultPhone={customer?.phone}
-                  creds={stkCreds}
-                  onConfirmed={(ref) => setRef(i, ref)}
-                />
-              )}
+
             </div>
           ))}
         </div>

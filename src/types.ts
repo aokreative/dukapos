@@ -49,21 +49,11 @@ export interface BizLocation {
   createdAt: number
   // --- Optional per-branch M-PESA override -----------------------------------
   // A branch with its own Till/Paybill collects into ITS OWN number. When set,
-  // receipts and reminders for sales made at this branch use these instead of
-  // the shop's default (Settings). Leave unset and the shop default applies.
+  // shop default (Settings). Leave unset and the shop default applies.
   mpesaType?: 'till' | 'paybill'
   mpesaTill?: string
   mpesaPaybill?: string
   mpesaAccount?: string
-  // --- Optional per-branch STK auto-prompt ------------------------------------
-  // Daraja keys for THIS branch's till/Paybill, so the 📲 Prompt at this branch
-  // pushes the bill straight into this branch's own account. When off/incomplete
-  // the shop-level STK keys (Settings) apply, and failing that it's manual pay.
-  stkEnabled?: boolean
-  stkConsumerKey?: string
-  stkConsumerSecret?: string
-  stkPasskey?: string
-  stkEnv?: 'sandbox' | 'production'
 }
 
 export interface TransferLine {
@@ -312,6 +302,8 @@ export interface Sale {
   /** VAT charged ON TOP of the goods amount (0/absent when VAT was off or the
    *  cashier switched it off for this sale, or prices are VAT-inclusive). */
   vatAmount?: number
+  payment_method?: PaymentMethod
+  mpesa_reference?: string
   tenders: Tender[]
   /** Portion sold on credit (mkopo) — becomes/updates a debt. */
   creditAmount: number
@@ -412,17 +404,6 @@ export interface BusinessSettings {
   mpesaTill: string
   mpesaPaybill: string
   mpesaAccount: string
-  // --- The shop's OWN M-PESA STK (so the "Prompt" at the till pushes the bill
-  // to the customer's phone and the money lands in THIS shop's till/Paybill).
-  // These are the shop's own Safaricom Daraja keys — never ours. Optional: when
-  // off/blank the till still works, the customer just pays the till manually. ---
-  mpesaStkEnabled?: boolean
-  mpesaConsumerKey?: string
-  mpesaConsumerSecret?: string
-  mpesaPasskey?: string
-  /** The Paybill or Till/Store number STK collects into (defaults to the till/paybill above). */
-  mpesaStkShortcode?: string
-  mpesaStkEnv?: 'sandbox' | 'production'
   /** Airtel Money number/till — shown in reminders when set. */
   airtelNumber: string
   acceptCash: boolean

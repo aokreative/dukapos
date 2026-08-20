@@ -1,11 +1,9 @@
 // Duka AI — ask questions about your business in plain language.
-// With a backend + AI key it uses Claude; otherwise it answers locally from
-// the shop's own numbers, so it always works (even offline).
+// Currently running in Offline Mode (local rules only).
 import { useEffect, useRef, useState } from 'react'
 import { Send, Sparkles } from 'lucide-react'
 import { PageHeader } from '../components/ui'
 import { useStore, selectRole } from '../store/useStore'
-import { askAssistant } from '../lib/api'
 import { buildShopSnapshot, localAnswer, SUGGESTED_QUESTIONS, SUGGESTED_QUESTIONS_CASHIER } from '../lib/assistant'
 
 interface ChatMsg {
@@ -17,11 +15,8 @@ export default function Assistant() {
   const [msgs, setMsgs] = useState<ChatMsg[]>([])
   const [input, setInput] = useState('')
   const [busy, setBusy] = useState(false)
-  const [simulated, setSimulated] = useState<boolean | null>(null)
   const endRef = useRef<HTMLDivElement>(null)
   const role = useStore(selectRole)
-  // Cashiers get a limited assistant: stock/availability & debts, never profit,
-  // margins, other cashiers' sales, or other branches.
   const restricted = role === 'cashier'
 
   useEffect(() => {
@@ -34,54 +29,43 @@ export default function Assistant() {
     setInput('')
     setMsgs((m) => [...m, { role: 'user', text: q }])
     setBusy(true)
-    try {
-      const s = useStore.getState()
-      const snapshot = buildShopSnapshot({
-        business: s.settings.name,
-        currency: s.settings.currency,
-        sales: s.sales,
-        products: s.products,
-        customers: s.customers,
-        debts: s.debts,
-        suppliers: s.suppliers,
-        supplierTxns: s.supplierTxns,
-        staff: s.staff,
-        locations: s.locations,
-        transfers: s.transfers,
-        returns: s.returns,
-        businessType: s.settings.businessType,
-        restrictedFor: restricted ? s.staff.find((m) => m.id === s.currentStaffId)?.name : undefined,
-      })
-      // Gemini via the backend when available (with chat memory for follow-ups
-      // and role persona); local rules otherwise or when the add-on is off.
-      const remote = await askAssistant(q, snapshot, msgs.slice(-10), {
-        tenantId: s.tenantId,
-        persona: restricted ? 'cashier' : 'manager',
-      })
-      
-      setSimulated(remote.simulated ?? true)
-
-      const answer =
-        remote.answer && !remote.simulated
-          ? remote.answer
-          : remote.locked 
-            ? `${remote.detail}\n\n(Here's what I can tell you from your device:)\n\n${localAnswer(q, snapshot)}` 
-            : localAnswer(q, snapshot)
-      setMsgs((m) => [...m, { role: 'ai', text: answer }])
-    } finally {
-      setBusy(false)
-    }
+    
+    // Slight artificial delay to feel like a real chat assistant
+    setTimeout(() => {
+      try {
+        const s = useStore.getState()
+        const snapshot = buildShopSnapshot({
+          business: s.settings.name,
+          currency: s.settings.currency,
+          sales: s.sales,
+          products: s.products,
+          customers: s.customers,
+          debts: s.debts,
+          suppliers: s.suppliers,
+          supplierTxns: s.supplierTxns,
+          staff: s.staff,
+          locations: s.locations,
+          transfers: s.transfers,
+          returns: s.returns,
+          businessType: s.settings.businessType,
+          restrictedFor: restricted ? s.staff.find((m) => m.id === s.currentStaffId)?.name : undefined,
+        })
+        
+        const answer = localAnswer(q, snapshot)
+        setMsgs((m) => [...m, { role: 'ai', text: answer }])
+      } finally {
+        setBusy(false)
+      }
+    }, 400)
   }
 
   return (
     <div className="mx-auto flex h-[calc(100dvh-8.5rem)] max-w-2xl flex-col md:h-[calc(100vh-5rem)]">
       <PageHeader title="Duka AI" subtitle="Ask anything about your shop — sales, debts, stock" />
       
-      {simulated === true && (
-        <div className="mb-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-800 dark:bg-amber-500/10 dark:text-amber-300 flex items-center justify-between">
-          <span><strong>Local Mode:</strong> You are using the basic offline assistant. Add a Gemini API key to your backend environment variables to unlock the smart AI.</span>
-        </div>
-      )}
+      <div className="mb-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-800 dark:bg-amber-500/10 dark:text-amber-300 flex items-center justify-between">
+        <span><strong>Offline mode — limited answers</strong></span>
+      </div>
 
       <div className="flex-1 space-y-3 overflow-y-auto pb-4 pr-1">
         {msgs.length === 0 && (

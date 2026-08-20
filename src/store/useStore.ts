@@ -72,12 +72,40 @@ const idbStorage: StateStorage = {
     } catch {
       /* ls blocked too */
     }
-    // Prefer whichever exists; if both do, prefer the longer (usually newer)
-    // blob so a stale empty value never wins.
-    if (fromIdb && fromLs) return fromIdb.length >= fromLs.length ? fromIdb : fromLs
+    // Prefer whichever exists; if both do, parse and compare versions.
+    if (fromIdb && fromLs) {
+      try {
+        const idb = JSON.parse(fromIdb)
+        const ls = JSON.parse(fromLs)
+        if (idb.version !== ls.version) {
+          const winner = (idb.version > ls.version) ? fromIdb : fromLs
+          // Write winner back to both to sync them
+          idbStorage.setItem(name, winner).catch(() => {})
+          return winner
+        }
+        if (idb.state?._savedAt && ls.state?._savedAt) {
+          const winner = (idb.state._savedAt > ls.state._savedAt) ? fromIdb : fromLs
+          idbStorage.setItem(name, winner).catch(() => {})
+          return winner
+        }
+      } catch (e) {
+        // Fallback to length if unparseable
+      }
+      return fromIdb.length >= fromLs.length ? fromIdb : fromLs
+    }
     return fromIdb ?? fromLs
   },
   setItem: async (name, value) => {
+    // Inject a savedAt timestamp so we can break ties on dual-write conflicts
+    try {
+      const parsed = JSON.parse(value)
+      if (parsed && typeof parsed === 'object') {
+        if (!parsed.state) parsed.state = {}
+        parsed.state._savedAt = Date.now()
+        value = JSON.stringify(parsed)
+      }
+    } catch {}
+
     // Mirror to localStorage first (synchronous, most reliable), then IndexedDB.
     try {
       LS?.setItem(name, value)
@@ -118,6 +146,21 @@ export interface CompleteSaleInput {
 
 interface State {
   _hasHydrated: boolean
+  _booted: boolean
+  _cloudSession: 'off' | 'initializing' | 'signedOut' | 'signedIn' | 'error'
+  _cloudRole: 'superadmin' | 'tenant' | null
+  _cloudOnboarding: 'complete' | 'pending' | null
+  _cloudEmail: string | null
+  
+  _draftShopName: string
+  _draftOwnerName: string
+  _draftBizType: string | null
+  setDraftOnboarding: (patch: Partial<{ _draftShopName: string, _draftOwnerName: string, _draftBizType: string | null }>) => void
+  clearDraftOnboarding: () => void
+
+  _cartEmpty: boolean
+  setCartEmpty: (v: boolean) => void
+
   dark: boolean
 
   settings: BusinessSettings
@@ -153,6 +196,7 @@ interface State {
   // staff & access
   staff: StaffMember[]
   currentStaffId: string | null
+  staffLastActiveAt: number
 
   // SaaS layer
   subscription: Subscription
@@ -278,6 +322,16 @@ function buildCleanState() {
     receiptCounter: 0,
     staff: [] as StaffMember[],
     currentStaffId: null as string | null,
+    staffLastActiveAt: 0,
+    _booted: false,
+    _cloudSession: 'initializing' as const,
+    _cloudRole: null as 'superadmin' | 'tenant' | null,
+    _cloudOnboarding: null as 'complete' | 'pending' | null,
+    _cloudEmail: null as string | null,
+    _draftShopName: '',
+    _draftOwnerName: '',
+    _draftBizType: null as string | null,
+    _cartEmpty: true,
     locations: defaultLocations(),
     currentLocationId: MAIN_LOCATION_ID,
     transfers: [] as StockTransfer[],
@@ -317,12 +371,12 @@ export const useStore = create<State>()(
           // If this staff member is assigned to a branch, drop them straight
           // into it so they sell that branch's stock (owners still roam).
           const assigned = member.locationId && st.locations.some((l) => l.id === member.locationId) ? member.locationId : null
-          set(assigned ? { currentStaffId: staffId, currentLocationId: assigned } : { currentStaffId: staffId })
+          set(assigned ? { currentStaffId: staffId, currentLocationId: assigned, staffLastActiveAt: Date.now() } : { currentStaffId: staffId, staffLastActiveAt: Date.now() })
           return true
         }
         return false
       },
-      logout: () => set({ currentStaffId: null }),
+      logout: () => set({ currentStaffId: null, staffLastActiveAt: 0 }),
       addStaff: (s) => set((st) => ({ staff: [...st.staff, { ...s, id: uid('staff_'), createdAt: Date.now() }] })),
       updateStaff: (id, patch) =>
         set((st) => ({ staff: st.staff.map((m) => (m.id === id ? { ...m, ...patch } : m)) })),
@@ -714,6 +768,12 @@ export const useStore = create<State>()(
         const pointsRedeemed = input.tenders.filter((t) => t.method === 'points').reduce((s, t) => s + t.amount, 0)
         const pointsEarned = loyaltyOn ? Math.floor((goods * (state.settings.loyaltyRate ?? 1)) / 100) : 0
 
+        // Primary payment method for reporting columns
+        const primaryTender = input.tenders.length > 0 
+          ? [...input.tenders].sort((a, b) => b.amount - a.amount)[0] 
+          : undefined
+        const mpesaTender = input.tenders.find(t => t.method === 'mpesa')
+
         const sale: Sale = {
           id: uid('s_'),
           receiptNo: fmtReceipt(counter),
@@ -723,6 +783,8 @@ export const useStore = create<State>()(
           discount,
           total,
           vatAmount: vatAmount || undefined,
+          payment_method: primaryTender?.method,
+          mpesa_reference: mpesaTender?.ref || undefined,
           tenders: input.tenders,
           creditAmount,
           customerId: input.customerId,
@@ -969,10 +1031,13 @@ export const useStore = create<State>()(
           parkedCarts: [],
           kitchenOrders: [],
         }),
+      setCartEmpty: (v) => set({ _cartEmpty: v }),
+      setDraftOnboarding: (patch) => set((s) => ({ ...s, ...patch })),
+      clearDraftOnboarding: () => set({ _draftShopName: '', _draftOwnerName: '', _draftBizType: null }),
     }),
     {
       name: 'duka-pos-v1',
-      version: 4,
+      version: 5,
       migrate: (persisted, version) => {
         const s = persisted as Record<string, unknown> | undefined
         // v1 → v2: single-number stock becomes per-location stock; new
@@ -999,13 +1064,45 @@ export const useStore = create<State>()(
           s.shifts ??= []
           s.parkedCarts ??= []
         }
+        // v4 → v5: wipe currentStaffId/serverBilling, and strip daraja credentials
+        if (s && version < 5) {
+          s.currentStaffId = null
+          s.staffLastActiveAt = 0
+          s.serverBilling = null
+
+          const locs = s.locations as Record<string, unknown>[] | undefined
+          if (locs) {
+            s.locations = locs.map((l) => {
+              const { stkConsumerKey, stkConsumerSecret, stkPasskey, ...rest } = l
+              return rest
+            })
+          }
+          
+          const settings = s.settings as Record<string, unknown> | undefined
+          if (settings) {
+            const { mpesaConsumerKey, mpesaConsumerSecret, mpesaPasskey, ...restSettings } = settings
+            s.settings = restSettings
+          }
+        }
         return persisted as State
       },
       storage: createJSONStorage(() => idbStorage),
       partialize: (s) => {
-        const { _hasHydrated, setHydrated, ...rest } = s as unknown as Record<string, unknown>
-        void _hasHydrated
-        void setHydrated
+        const {
+          _hasHydrated,
+          setHydrated,
+          _booted,
+          _cloudSession,
+          _cloudRole,
+          _cloudOnboarding,
+          _cloudEmail,
+          _cartEmpty,
+          setCartEmpty,
+          setDraftOnboarding,
+          clearDraftOnboarding,
+          serverBilling,
+          ...rest
+        } = s as unknown as Record<string, unknown>
         return rest
       },
       onRehydrateStorage: () => (state, error) => {

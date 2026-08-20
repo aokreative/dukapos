@@ -30,3 +30,8 @@ pnpm-debug.log*
 
 # TS incremental build info
 *.tsbuildinfo
+
+verify_accounts.cjs
+check-profiles.js
+check-shop-state.js
+test-phase1.js

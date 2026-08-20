@@ -42,9 +42,9 @@ export default function AutomationPanel() {
           </div>
         </div>
 
-        <label className="relative inline-flex cursor-pointer items-center">
-          <input type="checkbox" className="peer sr-only" checked={rule.enabled} onChange={(e) => updateRule({ enabled: e.target.checked })} />
-          <div className="h-6 w-11 rounded-full bg-black/15 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all peer-checked:bg-brand-600 peer-checked:after:translate-x-5 dark:bg-white/20" />
+        <label className="relative inline-flex cursor-pointer items-center" title="Messaging unavailable — coming soon">
+          <input type="checkbox" className="peer sr-only" checked={false} disabled onChange={() => {}} />
+          <div className="h-6 w-11 rounded-full bg-black/15 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all peer-checked:bg-brand-600 peer-checked:after:translate-x-5 dark:bg-white/20 opacity-50" />
         </label>
       </div>
 

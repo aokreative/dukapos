@@ -86,6 +86,12 @@ Asante sana!
   platform owner, see every shop, its plan/status/renewal, estimated MRR, and can charge a shop or
   run a billing sweep. The `/api/admin/*` endpoints require the same token (disabled if unset).
 
+### Multi-Branch & Warehousing
+- **Locations**: Create branches (that sell) and warehouses (that store).
+- **Stock Movement**: Initiate stock transfers from a warehouse to a branch or between branches. The receiving side confirms arrival.
+- **Per-branch Payments**: Assign specific M-PESA Till/Paybill numbers and STK Daraja keys per branch to route funds accurately.
+- **Device Assignment**: Each device selects which location it operates at.
+
 ### Run the shop
 - **Customers** — save name + phone, see each customer's outstanding balance
 - **Stock** — add/edit products, quick +/- stock, low-stock highlighting and filter
@@ -223,8 +229,6 @@ scripts/
 
 ## Roadmap (from the master prompt, not yet in this MVP)
 
-Multi-shop + warehouse, KRA eTIMS, staff roles & attendance, loyalty, supplier POs & GRNs, and
-the platform **super-admin** layer (managing all tenant shops). 24/7 server-side reminder
+Staff attendance, loyalty, supplier POs & GRNs. 24/7 server-side reminder
 scheduling (sending even when the shop's device is off) needs the shop's debts synced to the
-backend — the provider modules are already written to support it. The current build focuses on
-what a single shop uses every day — **fast sales, getting paid back, and paying for the POS.**
+backend — the provider modules are already written to support it.
