@@ -2,21 +2,21 @@ import { useEffect, useRef, useState } from 'react'
 import { supabase, cloudConfigured } from './cloud'
 import { useStore } from '../store/useStore'
 
-export type CloudStatus = 'off' | 'initializing' | 'signedOut' | 'superadmin' | 'onboarding' | 'syncing' | 'live' | 'error'
-
 export function useCloudSync() {
-  const [status, setStatus] = useState<CloudStatus>(cloudConfigured ? 'initializing' : 'off')
-  const [email, setEmail] = useState<string | null>(null)
   const processing = useRef(false)
   const timer = useRef<ReturnType<typeof setInterval> | null>(null)
   const shopIdRef = useRef<string | null>(null)
+  const startRef = useRef(false)
 
   useEffect(() => {
     const client = supabase()
-    if (!client) return
+    if (!client) {
+      useStore.setState({ _cloudSession: 'off' })
+      return
+    }
     const sb = client
-
     let unsubStore: (() => void) | null = null
+    let activeTimeout: any = null
 
     async function processQueue() {
       if (processing.current) return
@@ -26,7 +26,6 @@ export function useCloudSync() {
       if (!shopIdRef.current) return
 
       processing.current = true
-      setStatus('syncing')
       
       const successIds: string[] = []
       
@@ -65,7 +64,6 @@ export function useCloudSync() {
         useStore.getState().dequeueSyncItems(successIds)
       }
       
-      setStatus('live')
       processing.current = false
     }
 
@@ -78,43 +76,44 @@ export function useCloudSync() {
     }
 
     async function start(userId: string, userEmail: string | null) {
-      setEmail(userEmail)
+      if (startRef.current) return
+      startRef.current = true
+
+      if (timer.current) clearInterval(timer.current)
+      
+      useStore.setState({ _cloudEmail: userEmail })
+
       if (userEmail === 'aokreative@gmail.com') {
-        setStatus('superadmin')
+        useStore.setState({ _cloudSession: 'signedIn', _cloudRole: 'superadmin' })
         return
       }
 
-      setStatus('syncing')
+      useStore.setState({ _cloudSession: 'signedIn', _cloudRole: 'tenant' })
       
-      // 1. Fetch shop and onboarding status
-      const { data: shops, error } = await sb.from('businesses').select('id, name, business_type, onboarding_complete').eq('owner_id', userId)
+      const { data: shops, error } = await sb.from('shops').select('id, name, business_type, onboarding_complete').eq('owner_id', userId)
       if (error) {
-        console.error('Error fetching business:', error)
-        setStatus('error')
+        console.error('Error fetching shop:', error)
+        useStore.setState({ _cloudSession: 'error' })
         return
       }
 
       const shop = shops?.[0]
       if (!shop || !shop.onboarding_complete) {
-        setStatus('onboarding')
+        useStore.setState({ _cloudOnboarding: 'pending' })
         return
       }
       
+      useStore.setState({ _cloudOnboarding: 'complete' })
       shopIdRef.current = shop.id
 
-      // 2. Sync cloud profile down to local store
       useStore.getState().updateSettings({
         name: shop.name,
         ...(shop.business_type ? { businessType: shop.business_type as any } : {})
       })
 
-      // 3. Fetch authoritative data
       await fetchInitialData()
 
-      // 4. Start processing queue
       processQueue()
-      
-      if (timer.current) clearInterval(timer.current)
       timer.current = setInterval(processQueue, 3000)
 
       unsubStore = useStore.subscribe((state, prevState) => {
@@ -125,33 +124,46 @@ export function useCloudSync() {
     }
 
     function stop() {
+      startRef.current = false
       if (timer.current) clearInterval(timer.current)
       timer.current = null
       unsubStore?.()
       unsubStore = null
-      setEmail(null)
       shopIdRef.current = null
-      setStatus('signedOut')
+      useStore.setState({
+        _cloudSession: 'signedOut',
+        _cloudRole: null,
+        _cloudEmail: null,
+        _cloudOnboarding: null,
+      })
     }
 
-    sb.auth.getSession().then(({ data }) => {
-      const u = data.session?.user
-      if (u) {
-        start(u.id, u.email ?? null)
-      } else {
-        setStatus('signedOut')
+    activeTimeout = setTimeout(() => {
+      if (useStore.getState()._cloudSession === 'initializing') {
+        useStore.setState({ _cloudSession: 'signedOut' })
       }
+    }, 5000)
+
+    sb.auth.getSession().then(({ data }) => {
+      if (activeTimeout) clearTimeout(activeTimeout)
+      const u = data.session?.user
+      if (u) start(u.id, u.email ?? null)
+      else useStore.setState({ _cloudSession: 'signedOut' })
+    }).catch(() => {
+      if (activeTimeout) clearTimeout(activeTimeout)
+      useStore.setState({ _cloudSession: 'signedOut' })
     })
+
     const { data: authSub } = sb.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' && session?.user) start(session.user.id, session.user.email ?? null)
       if (event === 'SIGNED_OUT') stop()
     })
 
     return () => {
+      if (activeTimeout) clearTimeout(activeTimeout)
       authSub.subscription.unsubscribe()
       stop()
     }
   }, [])
-
-  return { status, email }
 }
+
