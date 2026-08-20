@@ -245,9 +245,6 @@ export default function Settings() {
         </label>
       </Section>
 
-
-      </Section>
-
       {/* Reminder template */}
       <Section icon={<MessageSquareText size={18} />} title="Reminder message">
         <p className="-mt-1 mb-2 text-sm text-brand-900/50 dark:text-white/50">

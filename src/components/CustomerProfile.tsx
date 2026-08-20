@@ -8,7 +8,6 @@ import { Wallet, ReceiptText, CheckCircle2, MessageCircle, Phone, Store, Link2, 
 import { Modal, Badge } from './ui'
 import { useStore } from '../store/useStore'
 import { money, displayPhone, shortDate, shortDateTime } from '../lib/format'
-import { buildCombinedReminder, whatsappLink, smsLink } from '../lib/reminders'
 import type { Customer, Debt, PaymentMethod } from '../types'
 
 const METHOD: Record<string, string> = { cash: 'Cash', mpesa: 'M-PESA', airtel: 'Airtel', card: 'Card', credit: 'Credit' }
@@ -56,25 +55,6 @@ export default function CustomerProfile({ customer, onClose }: { customer: Custo
   const fromT = from ? new Date(from + 'T00:00:00').getTime() : -Infinity
   const toT = to ? new Date(to + 'T23:59:59').getTime() : Infinity
   const salesShown = customerSales.filter((s) => s.createdAt >= fromT && s.createdAt <= toT)
-
-  // A full account statement the customer can keep — every purchase, how it was
-  // paid, and what (if anything) is still pending. Works long after settlement.
-  function statementText(): string {
-    const rows = customerSales
-      .map((s) => {
-        const debt = debtBySaleId.get(s.id)
-        const tag = !debt || s.creditAmount === 0 ? 'PAID' : debt.status === 'settled' ? 'credit — cleared ✓' : `credit — ${money(debt.balance, cur)} pending`
-        return `${shortDate(s.createdAt)}  ${s.receiptNo}: ${money(s.total, cur)}  [${tag}]`
-      })
-      .join('\n')
-    return (
-      `*${settings.name} — Statement*\n${customer.name} · ${displayPhone(customer.phone)}\nAs of ${shortDate(Date.now())}\n\n` +
-      `${rows || 'No purchases recorded yet.'}\n\n` +
-      `Total purchases: ${money(totalSpent, cur)}\nStill pending: ${totalOwed > 0 ? money(totalOwed, cur) : 'nothing ✓'}` +
-      (customer.points ? `\nPoints: ${customer.points}` : '') +
-      `\n\nAsante! Karibu tena.`
-    )
-  }
 
   function printStatement() {
     const w = window.open('', 'print', 'width=380,height=680')

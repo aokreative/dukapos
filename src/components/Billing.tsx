@@ -2,10 +2,10 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Smartphone, Lock, AlertTriangle, Sparkles, Loader2, Check } from 'lucide-react'
 import { useStore } from '../store/useStore'
-import { evaluateBilling, billingFromServer } from '../lib/billing'
+import { evaluateBilling } from '../lib/billing'
 import { getPlan, priceFor } from '../lib/plans'
-import { money, displayPhone, isValidPhone, normalizePhone } from '../lib/format'
-import { startSubscriptionPayment, checkPayment, getTenantStatus, isLive } from '../lib/api'
+import { money, displayPhone, isValidPhone } from '../lib/format'
+
 import { Modal } from './ui'
 import type { BillingCycle, PlanId } from '../types'
 
@@ -21,10 +21,9 @@ function useNow(intervalMs = 60_000) {
 
 export function useBilling() {
   const subscription = useStore((s) => s.subscription)
-  const serverBilling = useStore((s) => s.serverBilling)
-  const now = useNow()
+    const now = useNow()
   // When connected to the backend, the server is the source of truth.
-  const billing = isLive && serverBilling ? billingFromServer(serverBilling, now) : evaluateBilling(subscription, now)
+  const billing = evaluateBilling(subscription, now)
   return { billing, subscription }
 }
 
@@ -33,88 +32,31 @@ export function PaySubscriptionModal({
   cycle = 'monthly',
   open,
   onClose,
-  onPaid,
-}: {
+  }: {
   planId: PlanId
   cycle?: BillingCycle
   open: boolean
   onClose: () => void
-  onPaid: () => void
-}) {
+  }) {
   const settings = useStore((s) => s.settings)
-  const recordSubscriptionPayment = useStore((s) => s.recordSubscriptionPayment)
-  const tenantId = useStore((s) => s.tenantId)
-  const setServerBilling = useStore((s) => s.setServerBilling)
-  const plan = getPlan(planId)
+        const plan = getPlan(planId)
   const amount = priceFor(plan, cycle)
   const [phone, setPhone] = useState(displayPhone(settings.phone))
   const [state, setState] = useState<'idle' | 'pending' | 'done' | 'error'>('idle')
   const [detail, setDetail] = useState('')
   // True when the server confirmed WITHOUT moving real money (no Daraja keys).
-  const [wasSimulated, setWasSimulated] = useState(false)
-
-  async function refreshServer() {
-    if (isLive && tenantId) {
-      const v = await getTenantStatus(tenantId)
-      if (v) setServerBilling(v)
-    }
-  }
-
-  function finishOk(simulated: boolean) {
-    setWasSimulated(simulated)
-    recordSubscriptionPayment(planId, cycle, 'mpesa')
-    setState('done')
-    // Give the TEST warning time to be read; real payments close quickly.
-    setTimeout(() => {
-      onPaid()
-      onClose()
-      setState('idle')
-      setWasSimulated(false)
-    }, simulated ? 3500 : 1100)
-  }
-
+  
+  
+  
   async function pay() {
     if (!isValidPhone(phone)) return
     setState('pending')
-    setDetail(isLive ? 'Check your phone and enter your M-PESA PIN…' : 'Simulating M-PESA prompt…')
-    const res = await startSubscriptionPayment({
-      phone: normalizePhone(phone),
-      amount,
-      planId,
-      cycle,
-      tenantId,
-      business: settings.name,
-    })
-    if (!res.ok) {
+    setDetail('Processing...')
+    // IntaSend integration deferred
+    setTimeout(() => {
       setState('error')
-      setDetail(res.detail || 'Payment failed. Try again.')
-      return
-    }
-    if (res.simulated) {
-      // No Daraja keys on the server (or no backend at all): the payment is
-      // SIMULATED for demos — clearly labelled so nobody mistakes it for money.
-      setTimeout(refreshServer, 1800) // server renews the tenant shortly after
-      finishOk(true)
-      return
-    }
-    // Real STK push initiated — wait for the customer to confirm on their phone.
-    let confirmed = false
-    for (let i = 0; i < 20 && res.checkoutId; i++) {
-      await new Promise((r) => setTimeout(r, 3000))
-      const s = await checkPayment(res.checkoutId)
-      if (s.status === 'success') {
-        confirmed = true
-        break
-      }
-      if (s.status === 'failed') break
-    }
-    if (confirmed) {
-      await refreshServer()
-      finishOk(false)
-    } else {
-      setState('error')
-      setDetail('Payment not completed. If you entered your PIN, give it a moment and check the Billing page.')
-    }
+      setDetail('Online payment is currently unavailable. Please contact support.')
+    }, 1500)
   }
 
   return (
@@ -126,10 +68,14 @@ export function PaySubscriptionModal({
       </div>
 
       {state === 'done' ? (
-        wasSimulated ? (
+        false ? (
           <div className="mt-5 rounded-2xl bg-amber-50 p-4 text-center dark:bg-amber-500/10">
             <AlertTriangle size={36} className="mx-auto text-amber-500" />
-            <p className="mt-2 font-bold text-amber-700 dark:text-amber-300">TEST payment — no real money was taken</p>
+            {!useStore((s) => s.tenantId) && (
+              <p className="mt-3 text-xs text-amber-800 dark:text-amber-300">
+                Sign in via cloud sync to manage your subscription.
+              </p>
+            )}
             <p className="mt-1 text-sm text-amber-800/80 dark:text-amber-200/80">
               This server has no M-PESA (Daraja) keys yet, so payments are simulated for demos.
               The account is marked active for testing only. Add your Daraja keys on the server
@@ -156,7 +102,7 @@ export function PaySubscriptionModal({
             {state === 'pending' ? <Loader2 className="animate-spin" size={20} /> : <Smartphone size={20} />}
             {state === 'pending' ? 'Waiting for payment…' : `Pay ${money(amount)} with M-PESA`}
           </button>
-          {!isLive && (
+          {true && (
             <p className="mt-2 text-center text-xs text-brand-900/40 dark:text-white/40">
               Demo mode — payment is simulated. Set VITE_API_URL to collect real M-PESA.
             </p>
@@ -209,7 +155,7 @@ export function BillingBanner() {
           {config.cta}
         </button>
       </div>
-      <PaySubscriptionModal planId={billing.planId} open={payOpen} onClose={() => setPayOpen(false)} onPaid={() => {}} />
+      <PaySubscriptionModal planId={billing.planId} open={payOpen} onClose={() => setPayOpen(false)}  />
     </>
   )
 }
@@ -240,7 +186,7 @@ export function Paywall() {
           <Smartphone size={20} /> Pay & reactivate
         </button>
       </div>
-      <PaySubscriptionModal planId={billing.planId} open={payOpen} onClose={() => setPayOpen(false)} onPaid={() => {}} />
+      <PaySubscriptionModal planId={billing.planId} open={payOpen} onClose={() => setPayOpen(false)}  />
     </div>
   )
 }

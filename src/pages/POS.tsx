@@ -10,7 +10,7 @@ import { Modal, EmptyState } from '../components/ui'
 import { useBilling } from '../components/Billing'
 import { selectRole } from '../store/useStore'
 import { can } from '../lib/permissions'
-import { submitEtimsInvoice } from '../lib/api'
+
 import { stockAt } from '../lib/stock'
 import { bizLabels, getFeatures } from '../lib/labels'
 import { uid } from '../lib/id'
@@ -227,15 +227,8 @@ export default function POS() {
     // KRA eTIMS: submit the invoice in the background when enabled.
     const st = useStore.getState().settings
     if (st.etimsEnabled) {
-      // VAT actually charged on top; VAT-inclusive shops report the included part.
-      const vat = sale.vatAmount ?? (st.vatEnabled ? Math.round((sale.total * st.vatRate) / (100 + st.vatRate)) : 0)
-      void submitEtimsInvoice({
-        receiptNo: sale.receiptNo,
-        total: sale.total,
-        vat,
-        at: sale.createdAt,
-        lines: sale.lines.map((l) => ({ name: l.name, qty: l.qty, price: l.price })),
-      })
+      // eTIMS integration has been disabled
+      console.log('eTIMS submission disabled')
     }
     setLastSale(sale)
     setPayOpen(false)

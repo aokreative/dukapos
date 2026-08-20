@@ -39,9 +39,7 @@ export default function PaymentModal({
   const currentStaff = useStore(selectCurrentStaff)
   const customers = useStore((s) => s.customers)
   const addCustomer = useStore((s) => s.addCustomer)
-  const locations = useStore((s) => s.locations)
-  const currentLocationId = useStore((s) => s.currentLocationId)
-  const [tenders, setTenders] = useState<Tender[]>([])
+      const [tenders, setTenders] = useState<Tender[]>([])
   const [customer, setCustomer] = useState<Customer | null>(null)
   const [pickerOpen, setPickerOpen] = useState(false)
   const [assignedToName, setAssignedToName] = useState('')
@@ -61,7 +59,6 @@ export default function PaymentModal({
   // Inclusive mode keeps the old informational line (VAT inside the price).
   const vatIncl = settings.vatMode === 'inclusive' ? vatIncludedIn(total, settings) : 0
   // STK prompt collects into the current branch's own till when it has keys.
-  const branch = locations.find((l) => l.id === currentLocationId)
 
   // Quick customer-by-phone: as the cashier types a number, auto-recognise a
   // returning customer. A number with no match becomes a new customer on

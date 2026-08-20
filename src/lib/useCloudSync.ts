@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
-import { supabase, cloudConfigured } from './cloud'
+import { useEffect, useRef } from 'react'
+import { supabase } from './cloud'
 import { useStore } from '../store/useStore'
 
 export function useCloudSync() {

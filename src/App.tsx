@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
+import { Navigate, Route, Routes } from 'react-router-dom'
 import { useStore, selectRole, selectCurrentStaff } from './store/useStore'
 import Layout from './components/Layout'
 import LockScreen from './components/LockScreen'
@@ -30,7 +30,6 @@ export function resetAuth() {
   const url = import.meta.env.VITE_SUPABASE_URL as string | undefined
   if (url) {
     try {
-      const ref = new URL(url).hostname.split('.')[0]
       // Iterate keys and remove any matching /^sb-.*-auth-token/
       const keysToRemove: string[] = []
       for (let i = 0; i < localStorage.length; i++) {

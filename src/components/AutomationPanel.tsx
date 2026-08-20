@@ -1,9 +1,9 @@
 import { useState } from 'react'
-import { Bot, Settings2, MessageCircle, Send, Zap, CloudOff } from 'lucide-react'
+import { Bot, Settings2, MessageCircle, Send, CloudOff } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { Modal, Badge } from './ui'
 import { shortDateTime } from '../lib/format'
-import { isLive } from '../lib/api'
+
 import type { ReminderRule } from '../types'
 
 export default function AutomationPanel() {
@@ -34,8 +34,8 @@ export default function AutomationPanel() {
                 : 'Turn on to chase debtors automatically — no tapping needed.'}
             </p>
             <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-              <Badge color={isLive ? 'green' : 'amber'}>
-                {isLive ? <Zap size={11} /> : <CloudOff size={11} />} {isLive ? 'Live sending' : 'Simulation'}
+              <Badge color="gray">
+                <CloudOff size={11} /> Messaging Disabled
               </Badge>
               {rule.enabled && <span className="text-xs text-brand-900/50 dark:text-white/50">{sentToday} sent today · {autoLog.length} total</span>}
             </div>
@@ -60,11 +60,9 @@ export default function AutomationPanel() {
       {editOpen && <RuleEditor rule={rule} onClose={() => setEditOpen(false)} onSave={(r) => { updateRule(r); setEditOpen(false) }} />}
 
       <Modal open={logOpen} onClose={() => setLogOpen(false)} title="Automated reminder log" wide>
-        {!isLive && (
-          <p className="mb-3 rounded-xl bg-amber-100 px-3 py-2 text-xs font-medium text-amber-800 dark:bg-amber-500/20 dark:text-amber-300">
-            Running in simulation — messages are logged but not actually sent. Connect the backend (VITE_API_URL) to send real WhatsApp/SMS.
-          </p>
-        )}
+        <p className="mb-3 rounded-xl bg-amber-100 px-3 py-2 text-xs font-medium text-amber-800 dark:bg-amber-500/20 dark:text-amber-300">
+          Messaging is currently disabled.
+        </p>
         {autoLog.length === 0 ? (
           <p className="py-6 text-center text-sm text-brand-900/40 dark:text-white/40">No automated reminders yet.</p>
         ) : (

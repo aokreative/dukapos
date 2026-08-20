@@ -39,7 +39,7 @@ import type {
   KitchenOrder,
   OrderStatus,
 } from '../types'
-import type { TenantView } from '../lib/api'
+
 import { uid } from '../lib/id'
 import { receiptNo as fmtReceipt } from '../lib/id'
 import { normalizePhone } from '../lib/format'
@@ -75,17 +75,17 @@ const idbStorage: StateStorage = {
     // Prefer whichever exists; if both do, parse and compare versions.
     if (fromIdb && fromLs) {
       try {
-        const idb = JSON.parse(fromIdb)
-        const ls = JSON.parse(fromLs)
+        const idb = JSON.parse(fromIdb) as any
+        const ls = JSON.parse(fromLs) as any
         if (idb.version !== ls.version) {
           const winner = (idb.version > ls.version) ? fromIdb : fromLs
           // Write winner back to both to sync them
-          idbStorage.setItem(name, winner).catch(() => {})
+          void (idbStorage.setItem(name, winner) as any)
           return winner
         }
         if (idb.state?._savedAt && ls.state?._savedAt) {
           const winner = (idb.state._savedAt > ls.state._savedAt) ? fromIdb : fromLs
-          idbStorage.setItem(name, winner).catch(() => {})
+          void (idbStorage.setItem(name, winner) as any)
           return winner
         }
       } catch (e) {
@@ -203,7 +203,7 @@ interface State {
   reminderRule: ReminderRule
   reminderLog: ReminderLogEntry[]
   tenantId?: string
-  serverBilling: TenantView | null
+  serverBilling: any | null
 
   // Offline sync queue
   syncQueue: SyncQueueItem[]
@@ -299,7 +299,7 @@ interface State {
   setAutoRenew: (v: boolean) => void
   recordSubscriptionPayment: (planId: PlanId, cycle: BillingCycle, method: 'mpesa' | 'card' | 'manual', ref?: string) => void
   setTenantId: (id: string) => void
-  setServerBilling: (v: TenantView | null) => void
+  setServerBilling: (v: any | null) => void
   /** Demo helper: shift billing dates so a given status is reproduced. */
   simulateBillingAge: (daysOverdue: number) => void
 
@@ -346,7 +346,7 @@ function buildCleanState() {
     subscription: defaultSubscription(),
     reminderRule: defaultReminderRule,
     reminderLog: [] as ReminderLogEntry[],
-    serverBilling: null as TenantView | null,
+    serverBilling: null as any | null,
     syncQueue: [] as SyncQueueItem[],
   }
 }
@@ -945,7 +945,7 @@ export const useStore = create<State>()(
       setPlan: (planId) => set((s) => ({ subscription: { ...s.subscription, planId } })),
       setAutoRenew: (v) => set((s) => ({ subscription: { ...s.subscription, autoRenew: v } })),
       setTenantId: (id) => set({ tenantId: id }),
-      setServerBilling: (v) => set({ serverBilling: v }),
+      setServerBilling: (v: any | null) => set({ serverBilling: v }),
 
       recordSubscriptionPayment: (planId, cycle, method, ref) =>
         set((s) => {

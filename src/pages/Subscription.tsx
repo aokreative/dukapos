@@ -174,7 +174,7 @@ export default function Subscription() {
       </div>
 
       {payFor && (
-        <PaySubscriptionModal planId={payFor} cycle={cycle} open onClose={() => setPayFor(null)} onPaid={() => setPayFor(null)} />
+        <PaySubscriptionModal planId={payFor} cycle={cycle} open onClose={() => setPayFor(null)} />
       )}
     </div>
   )

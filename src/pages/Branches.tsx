@@ -335,32 +335,15 @@ function LocationModal({ location, onClose }: { location: BizLocation | null; on
   const [mpesaTill, setMpesaTill] = useState(location?.mpesaTill ?? '')
   const [mpesaPaybill, setMpesaPaybill] = useState(location?.mpesaPaybill ?? '')
   const [mpesaAccount, setMpesaAccount] = useState(location?.mpesaAccount ?? '')
-  // This branch's own Daraja keys → the 📲 Prompt collects into ITS till.
-  const [stkOn, setStkOn] = useState(!!location?.stkEnabled)
-  const [stkKey, setStkKey] = useState(location?.stkConsumerKey ?? '')
-  const [stkSecret, setStkSecret] = useState(location?.stkConsumerSecret ?? '')
-  const [stkPasskey, setStkPasskey] = useState(location?.stkPasskey ?? '')
-  const [stkEnv, setStkEnv] = useState<'sandbox' | 'production'>(location?.stkEnv ?? 'production')
 
-  const stkFields =
-    mpesaMode === 'none' || !stkOn
-      ? { stkEnabled: undefined, stkConsumerKey: undefined, stkConsumerSecret: undefined, stkPasskey: undefined, stkEnv: undefined }
-      : {
-          stkEnabled: true,
-          stkConsumerKey: stkKey.trim() || undefined,
-          stkConsumerSecret: stkSecret.trim() || undefined,
-          stkPasskey: stkPasskey.trim() || undefined,
-          stkEnv,
-        }
   const mpesaFields =
     mpesaMode === 'none'
-      ? { mpesaType: undefined, mpesaTill: undefined, mpesaPaybill: undefined, mpesaAccount: undefined, ...stkFields }
+      ? { mpesaType: undefined, mpesaTill: undefined, mpesaPaybill: undefined, mpesaAccount: undefined }
       : {
           mpesaType: mpesaMode,
           mpesaTill: mpesaMode === 'till' ? mpesaTill.trim() || undefined : undefined,
           mpesaPaybill: mpesaMode === 'paybill' ? mpesaPaybill.trim() || undefined : undefined,
           mpesaAccount: mpesaMode === 'paybill' ? mpesaAccount.trim() || undefined : undefined,
-          ...stkFields,
         }
 
   return (
@@ -420,34 +403,7 @@ function LocationModal({ location, onClose }: { location: BizLocation | null; on
                 : 'Sales made at this branch show this number on receipts and reminders, so money lands in the right account.'}
             </p>
 
-            {/* Auto-prompt (STK) with THIS branch's own Daraja keys. */}
-            {mpesaMode !== 'none' && (
-              <div className="mt-3 border-t border-black/10 pt-3 dark:border-white/10">
-                <label className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-brand-900 dark:text-white">
-                    📲 Auto-prompt (STK) on this branch's {mpesaMode === 'till' ? 'till' : 'Paybill'}
-                    <span className="block text-[11px] font-normal text-brand-900/50 dark:text-white/50">
-                      Paste the Daraja keys created for THIS number — the prompt then collects into it.
-                    </span>
-                  </span>
-                  <input type="checkbox" className="h-5 w-5 shrink-0 accent-brand-600" checked={stkOn} onChange={(e) => setStkOn(e.target.checked)} />
-                </label>
-                {stkOn && (
-                  <div className="mt-2 space-y-2">
-                    <input className="input py-2 font-mono text-xs" placeholder="Consumer Key (Daraja app for this till)" value={stkKey} onChange={(e) => setStkKey(e.target.value.trim())} />
-                    <input type="password" className="input py-2 font-mono text-xs" placeholder="Consumer Secret" value={stkSecret} onChange={(e) => setStkSecret(e.target.value.trim())} />
-                    <input type="password" className="input py-2 font-mono text-xs" placeholder="Passkey (Go-Live, for this shortcode)" value={stkPasskey} onChange={(e) => setStkPasskey(e.target.value.trim())} />
-                    <select className="input py-2 text-sm" value={stkEnv} onChange={(e) => setStkEnv(e.target.value as 'sandbox' | 'production')}>
-                      <option value="production">Live (production)</option>
-                      <option value="sandbox">Test (sandbox)</option>
-                    </select>
-                    <p className="text-[11px] text-brand-900/50 dark:text-white/50">
-                      Until all three keys are filled, prompts at this branch fall back to the shop-level keys in Settings.
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
+
           </div>
         )}
       </div>

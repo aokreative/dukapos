@@ -28,13 +28,7 @@ export const defaultSettings: BusinessSettings = {
   lowStockNudge: true,
   etimsEnabled: false,
   kraPin: '',
-  mpesaStkEnabled: false,
-  mpesaConsumerKey: '',
-  mpesaConsumerSecret: '',
-  mpesaPasskey: '',
-  mpesaStkShortcode: '',
-  mpesaStkEnv: 'production',
-}
+            }
 
 const now = Date.now()
 const day = 24 * 60 * 60 * 1000

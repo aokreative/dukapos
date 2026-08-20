@@ -8,7 +8,7 @@
 // ---------------------------------------------------------------------------
 
 import type { BizLocation, BusinessSettings, Customer, Debt } from '../types'
-import type { ShopMpesaCreds } from './api'
+
 import { money, normalizePhone } from './format'
 
 /**
@@ -30,29 +30,7 @@ export function settingsForLocation(
   }
 }
 
-/**
- * The shop's OWN M-PESA STK credentials, ready to send to the backend so a
- * "Prompt" at the till pushes the bill to the customer's phone and the money
- * lands in THIS shop's till/Paybill. Returns null unless the owner has turned
- * it on and filled in all four keys — otherwise the till simply works the
- * normal way (customer pays the till/Paybill shown on the receipt).
- */
-export function shopMpesaCreds(s: BusinessSettings): ShopMpesaCreds | null {
-  if (!s.mpesaStkEnabled) return null
-  const shortcode = (s.mpesaStkShortcode || (s.mpesaType === 'paybill' ? s.mpesaPaybill : s.mpesaTill) || '').trim()
-  const key = (s.mpesaConsumerKey || '').trim()
-  const secret = (s.mpesaConsumerSecret || '').trim()
-  const passkey = (s.mpesaPasskey || '').trim()
-  if (!key || !secret || !passkey || !shortcode) return null
-  return {
-    consumerKey: key,
-    consumerSecret: secret,
-    passkey,
-    shortcode,
-    env: s.mpesaStkEnv === 'sandbox' ? 'sandbox' : 'production',
-    txType: s.mpesaType === 'paybill' ? 'CustomerPayBillOnline' : 'CustomerBuyGoodsOnline',
-  }
-}
+
 
 /** VAT that is *included* in a VAT-inclusive total (for shops whose shelf
  *  prices already contain VAT — vatMode 'inclusive'). */
@@ -67,32 +45,6 @@ export function vatIncludedIn(total: number, s: Pick<BusinessSettings, 'vatEnabl
 export function vatAddedTo(goods: number, s: Pick<BusinessSettings, 'vatEnabled' | 'vatRate' | 'vatMode'>): number {
   if (!s.vatEnabled || !s.vatRate || s.vatMode === 'inclusive') return 0
   return Math.round((goods * s.vatRate) / 100)
-}
-
-/**
- * STK credentials for the branch this device is selling at. A branch that has
- * its own till/Paybill AND its own Daraja keys prompts into ITS OWN account;
- * otherwise we fall back to the shop-level keys from Settings (and if those
- * are off too, the till simply takes manual payment).
- */
-export function branchMpesaCreds(s: BusinessSettings, loc?: BizLocation | null): ShopMpesaCreds | null {
-  if (loc?.stkEnabled) {
-    const shortcode = ((loc.mpesaType === 'paybill' ? loc.mpesaPaybill : loc.mpesaTill) || '').trim()
-    const key = (loc.stkConsumerKey || '').trim()
-    const secret = (loc.stkConsumerSecret || '').trim()
-    const passkey = (loc.stkPasskey || '').trim()
-    if (key && secret && passkey && shortcode) {
-      return {
-        consumerKey: key,
-        consumerSecret: secret,
-        passkey,
-        shortcode,
-        env: loc.stkEnv === 'sandbox' ? 'sandbox' : 'production',
-        txType: loc.mpesaType === 'paybill' ? 'CustomerPayBillOnline' : 'CustomerBuyGoodsOnline',
-      }
-    }
-  }
-  return shopMpesaCreds(s)
 }
 
 /**
