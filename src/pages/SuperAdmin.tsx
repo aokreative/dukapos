@@ -209,7 +209,7 @@ export default function SuperAdmin() {
       if (!sb) throw new Error('Cloud disconnected')
       const { data, error: rpcError } = await sb.rpc('get_all_tenants')
       if (rpcError) throw rpcError
-      setTenants(data || [])
+      setTenants(Array.isArray(data) ? data : [])
     } catch (e: any) {
       setError(e.message || 'Failed to load tenants')
     } finally {
@@ -236,8 +236,8 @@ export default function SuperAdmin() {
       const sb = supabase()
       if (!sb) return
       
-      const { data: { session } } = await sb.auth.getSession()
-      if (!session || session.user.email !== 'aokreative@gmail.com') {
+      const { data, error } = await sb.auth.getSession()
+      if (error || !data?.session || data.session.user?.email !== 'aokreative@gmail.com') {
         forceLogout()
       }
     }

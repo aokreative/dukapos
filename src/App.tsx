@@ -24,6 +24,9 @@ import Reports from './pages/Reports'
 import Assistant from './pages/Assistant'
 import SuperAdmin from './pages/SuperAdmin'
 import Kitchen from './pages/Kitchen'
+import { ErrorBoundary } from './components/ErrorBoundary'
+import { supabase } from './lib/cloud'
+import { wipeLocalStore } from './lib/demoSeeders'
 import type { ReactNode } from 'react'
 
 function HomeRedirect() {
@@ -93,9 +96,6 @@ export default function App() {
   if (cloudStatus === 'signedOut') return <AuthPage />
 
   // Role-Based Routing: Default superadmins to the dashboard on login, but allow them to explore the POS.
-  if (cloudStatus === 'superadmin' && loc.pathname === '/' && !loc.state?.fromDemo) {
-    return <Navigate to="/superadmin" replace />
-  }
   if (cloudStatus !== 'superadmin' && isSuperAdmin) {
     return <Navigate to="/" replace />
   }
@@ -114,10 +114,17 @@ export default function App() {
   if (isSuperAdmin) {
     return (
       <div className="flex h-screen w-full flex-col bg-gray-50 dark:bg-brand-900 overflow-y-auto px-4 py-6 md:px-8">
-        <Routes>
-          <Route path="/superadmin" element={<SuperAdmin />} />
-          <Route path="*" element={<Navigate to="/superadmin" replace />} />
-        </Routes>
+        <ErrorBoundary onReset={async () => {
+          const sb = supabase()
+          if (sb) await sb.auth.signOut()
+          wipeLocalStore()
+          window.location.href = '/' 
+        }}>
+          <Routes>
+            <Route path="/superadmin" element={<SuperAdmin />} />
+            <Route path="*" element={<Navigate to="/superadmin" replace />} />
+          </Routes>
+        </ErrorBoundary>
       </div>
     )
   }
