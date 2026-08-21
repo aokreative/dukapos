@@ -133,11 +133,11 @@ export function useCloudSync() {
 
         const shop = shops?.[0]
         if (!shop || !shop.onboarding_complete) {
-          useStore.setState({ _cloudOnboarding: 'pending' })
+          useStore.setState({ _cloudOnboarding: 'pending', tenantId: shop?.id })
           return
         }
         
-        useStore.setState({ _cloudOnboarding: 'complete' })
+        useStore.setState({ _cloudOnboarding: 'complete', tenantId: shop.id })
         shopIdRef.current = shop.id
 
         useStore.getState().updateSettings({

@@ -113,7 +113,7 @@ export default function OnboardingPage() {
         const { data: session } = await client.auth.getSession()
         const user = session.session?.user
         if (user) {
-          const { error: upsertErr } = await client
+          const { error: upsertErr, data } = await client
             .from('shops')
             .upsert({
               owner_id: user.id,
@@ -121,8 +121,12 @@ export default function OnboardingPage() {
               business_type: draftBizType,
               onboarding_complete: true,
             }, { onConflict: 'owner_id' })
+            .select()
             
           if (upsertErr) throw upsertErr
+          if (data && data[0]) {
+            useStore.setState({ tenantId: data[0].id })
+          }
         }
       }
     } catch (err: any) {
