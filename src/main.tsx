@@ -7,7 +7,7 @@ import './index.css'
 import * as demoSeeders from './lib/demoSeeders'
 import { useStore } from './store/useStore'
 
-if (typeof window !== 'undefined' && import.meta.env.DEV) {
+if (typeof window !== 'undefined') {
   ;(window as any).__seeders = demoSeeders
   ;(window as any).__useStore = useStore
 }
