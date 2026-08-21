@@ -2,7 +2,9 @@ import { useState } from 'react'
 import { Store, Loader2, Sparkles, Eye, EyeOff } from 'lucide-react'
 import { supabase } from '../lib/cloud'
 
-export default function AuthPage() {
+import { useStore } from '../store/useStore'
+
+export default function AuthPage({ unreachable }: { unreachable?: boolean }) {
   const [isSignUp, setIsSignUp] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -96,6 +98,11 @@ export default function AuthPage() {
           </p>
 
           <form onSubmit={submit} className="mt-8 space-y-6">
+            {unreachable && (
+              <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 text-sm font-medium text-amber-400">
+                Couldn’t reach the server — check your connection.
+              </div>
+            )}
             {error && (
               <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-sm font-medium text-red-400">
                 {error}

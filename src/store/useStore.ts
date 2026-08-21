@@ -151,6 +151,7 @@ interface State {
   _cloudRole: 'superadmin' | 'tenant' | null
   _cloudOnboarding: 'complete' | 'pending' | null
   _cloudEmail: string | null
+  _cloudUnreachable: boolean
   
   _draftShopName: string
   _draftOwnerName: string
@@ -328,6 +329,7 @@ function buildCleanState() {
     _cloudRole: null as 'superadmin' | 'tenant' | null,
     _cloudOnboarding: null as 'complete' | 'pending' | null,
     _cloudEmail: null as string | null,
+    _cloudUnreachable: false,
     _draftShopName: '',
     _draftOwnerName: '',
     _draftBizType: null as string | null,
@@ -1096,6 +1098,7 @@ export const useStore = create<State>()(
           _cloudRole,
           _cloudOnboarding,
           _cloudEmail,
+          _cloudUnreachable,
           _cartEmpty,
           setCartEmpty,
           setDraftOnboarding,

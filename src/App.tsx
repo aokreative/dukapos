@@ -18,6 +18,7 @@ import AuthPage from './pages/AuthPage'
 import OnboardingPage from './pages/OnboardingPage'
 import { useAutomation } from './lib/useAutomation'
 import { useBillingSync } from './lib/useBillingSync'
+import { useCloudSync } from './lib/useCloudSync'
 import { useStaffSession } from './lib/useStaffSession'
 import { canStaff, type Capability } from './lib/permissions'
 import Reports from './pages/Reports'
@@ -126,9 +127,11 @@ export default function App() {
   const session = useStore((s) => s._cloudSession)
   const role = useStore((s) => s._cloudRole)
   const onboarding = useStore((s) => s._cloudOnboarding)
+  const unreachable = useStore((s) => s._cloudUnreachable)
 
   useAutomation()
   useBillingSync()
+  useCloudSync()
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', dark)
@@ -153,19 +156,17 @@ export default function App() {
         <BootSplash label="loading your shop…" />
       ) : session === 'initializing' ? (
         <BootSplash label="connecting…" />
-      ) : session === 'signedOut' ? (
-        <AuthPage />
+      ) : session === 'signedOut' || session === 'error' ? (
+        <AuthPage unreachable={unreachable || session === 'error'} />
       ) : session === 'off' ? (
         <div className="flex h-full flex-col items-center justify-center gap-4 p-8 text-center bg-brand-900 text-white">
           <div className="text-xl font-bold text-red-400">Database Offline</div>
           <p className="text-white/60">Vercel env vars are missing or Supabase is unconfigured.</p>
         </div>
-      ) : session === 'error' ? (
-        <div className="flex h-full flex-col items-center justify-center gap-4 p-8 text-center bg-brand-900 text-white">
-          <div className="text-xl font-bold text-red-400">Connection Error</div>
-          <p className="text-white/60">Failed to load business profile. Please check your network.</p>
-          <button className="rounded-xl bg-white/10 px-6 py-3 font-bold text-white" onClick={() => window.location.reload()}>Retry</button>
-        </div>
+      ) : session !== 'signedIn' ? (
+        /* Final fallback: any unrecognised session value → AuthPage.
+           This is what made /superadmin blank while signed out. */
+        <AuthPage unreachable={unreachable} />
       ) : role === 'superadmin' ? (
         <div className="flex h-screen w-full flex-col bg-gray-50 dark:bg-brand-900 overflow-y-auto px-4 py-6 md:px-8">
           <Routes>
