@@ -98,7 +98,8 @@ export default function OnboardingPage() {
           active: true, 
           createdAt: Date.now() 
         }],
-        currentStaffId: ownerId
+        currentStaffId: ownerId,
+        staffLastActiveAt: Date.now()
       }))
       const client = supabase?.()
       if (client) {
