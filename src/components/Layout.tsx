@@ -146,6 +146,23 @@ export default function Layout({ children, isSuperAdmin }: { children: ReactNode
           </div>
         </header>
 
+        {useStore((s) => s._isDemo) && (
+          <div className="sticky top-0 z-40 flex items-center justify-between bg-amber-500 px-4 py-2 text-amber-950 shadow-md">
+            <div className="flex items-center gap-2 font-bold text-sm">
+              <Sparkles size={16} /> Viewing Demo Shop
+            </div>
+            <button 
+              onClick={() => {
+                useStore.setState({ _isDemo: false })
+                window.location.href = '/superadmin'
+              }}
+              className="rounded bg-amber-950 px-3 py-1 text-xs font-bold text-amber-400 hover:bg-amber-900 transition"
+            >
+              Exit demo
+            </button>
+          </div>
+        )}
+
         <BillingBanner />
         <ShiftBar />
 

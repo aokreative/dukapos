@@ -28,6 +28,12 @@ import {
   seedAutoSpares,
   seedHardwareSpices,
   wipeLocalStore,
+  seedShop,
+  seedElectronics,
+  seedAgrovet,
+  seedSpices,
+  seedWholesale,
+  seedBabyshop,
 } from '../lib/demoSeeders'
 
 // ── Confirmation dialog ────────────────────────────────────────────────────
@@ -532,6 +538,54 @@ const SEEDERS = [
     color: 'from-amber-500/20 to-amber-600/10 border-amber-500/30 hover:border-amber-400/60',
     fn: seedHardwareSpices,
   },
+  {
+    id: 'shop',
+    label: 'Seed Duka / Mini-Mart',
+    icon: '🏪',
+    desc: '15 groceries and household items for basic retail.',
+    color: 'from-emerald-500/20 to-emerald-600/10 border-emerald-500/30 hover:border-emerald-400/60',
+    fn: seedShop,
+  },
+  {
+    id: 'electronics',
+    label: 'Seed Electronics',
+    icon: '💻',
+    desc: '15 gadgets with warranties and serial numbers.',
+    color: 'from-cyan-500/20 to-cyan-600/10 border-cyan-500/30 hover:border-cyan-400/60',
+    fn: seedElectronics,
+  },
+  {
+    id: 'agrovet',
+    label: 'Seed Agrovet',
+    icon: '🌱',
+    desc: '15 farming supplies with expiry dates and pack sizes.',
+    color: 'from-lime-500/20 to-lime-600/10 border-lime-500/30 hover:border-lime-400/60',
+    fn: seedAgrovet,
+  },
+  {
+    id: 'spices',
+    label: 'Seed Spices & Cereals',
+    icon: '🌶️',
+    desc: '15 cereals & spices sold by fractional kg weight.',
+    color: 'from-yellow-500/20 to-yellow-600/10 border-yellow-500/30 hover:border-yellow-400/60',
+    fn: seedSpices,
+  },
+  {
+    id: 'wholesale',
+    label: 'Seed Wholesale',
+    icon: '📦',
+    desc: '15 bulk items with wholesale pricing layers.',
+    color: 'from-indigo-500/20 to-indigo-600/10 border-indigo-500/30 hover:border-indigo-400/60',
+    fn: seedWholesale,
+  },
+  {
+    id: 'babyshop',
+    label: 'Seed Baby Shop',
+    icon: '👶',
+    desc: '15 baby items with sizes and age ranges.',
+    color: 'from-fuchsia-500/20 to-fuchsia-600/10 border-fuchsia-500/30 hover:border-fuchsia-400/60',
+    fn: seedBabyshop,
+  },
 ]
 
 function DemoControlCenter() {
@@ -543,9 +597,10 @@ function DemoControlCenter() {
   function runSeed(seeder: typeof SEEDERS[0]) {
     seeder.fn()
     setSeeded(seeder.label)
+    useStore.setState({ _isDemo: true })
     setTimeout(() => {
       setSeeded(null)
-      navigate('/', { state: { fromDemo: true } })
+      navigate('/pos', { replace: true })
     }, 500) // Small delay so they see the success toast briefly before jumping
   }
 
@@ -607,8 +662,8 @@ function DemoControlCenter() {
               <Trash size={18} />
             </div>
             <div>
-              <div className="font-bold text-brand-900 dark:text-white">Wipe Local Store</div>
-              <div className="text-xs text-brand-900/50 dark:text-white/50">Clears all local data — products, sales, staff, debts. Triggers first-run setup.</div>
+              <div className="font-bold text-brand-900 dark:text-white">Clear Demo Data (Wipe Local Store)</div>
+              <div className="text-xs text-brand-900/50 dark:text-white/50">Clears all local data. Refuses to run if there are unsynced changes in the queue.</div>
             </div>
           </div>
           {confirmWipe ? (
@@ -619,8 +674,13 @@ function DemoControlCenter() {
               </button>
             </div>
           ) : (
-            <button className="btn-danger py-2 px-4 text-sm" onClick={() => setConfirmWipe(true)}>
-              Wipe Local Store
+            <button 
+              className="btn-danger py-2 px-4 text-sm disabled:opacity-50" 
+              onClick={() => setConfirmWipe(true)}
+              disabled={useStore.getState().syncQueue.length > 0}
+              title={useStore.getState().syncQueue.length > 0 ? 'Cannot wipe: sync queue has pending items' : ''}
+            >
+              Clear Demo Data
             </button>
           )}
         </div>

@@ -108,8 +108,9 @@ function HomeRedirect() {
   const staffRole = useStore(selectRole)
   const staff = useStore(selectCurrentStaff)
   const cloudRole = useStore((s) => s._cloudRole)
+  const isDemo = useStore((s) => s._isDemo)
 
-  if (cloudRole === 'superadmin') return <Navigate to="/superadmin" replace />
+  if (cloudRole === 'superadmin' && !isDemo) return <Navigate to="/superadmin" replace />
 
   if (staffRole === 'cashier' && !canStaff(staff, 'viewReports')) {
     return <Navigate to="/pos" replace />
@@ -129,6 +130,7 @@ export default function App() {
   const onboarding = useStore((s) => s._cloudOnboarding)
   const unreachable = useStore((s) => s._cloudUnreachable)
   const staffCount = useStore((s) => s.staff.length)
+  const isDemo = useStore((s) => s._isDemo)
 
   useAutomation()
   useBillingSync()
@@ -137,6 +139,13 @@ export default function App() {
   useEffect(() => {
     document.documentElement.classList.toggle('dark', dark)
   }, [dark])
+
+  // Clear demo mode if we just booted
+  useEffect(() => {
+    if (useStore.getState()._isDemo) {
+      useStore.setState({ _isDemo: false })
+    }
+  }, [])
 
   useEffect(() => {
     if (hydrated && session !== 'initializing') {
@@ -168,7 +177,7 @@ export default function App() {
         /* Final fallback: any unrecognised session value → AuthPage.
            This is what made /superadmin blank while signed out. */
         <AuthPage unreachable={unreachable} />
-      ) : role === 'superadmin' ? (
+      ) : role === 'superadmin' && !isDemo ? (
         <div className="flex h-screen w-full flex-col bg-gray-50 dark:bg-brand-900 overflow-y-auto px-4 py-6 md:px-8">
           <Routes>
             <Route path="/superadmin" element={<SuperAdmin />} />

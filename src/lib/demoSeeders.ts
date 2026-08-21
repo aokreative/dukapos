@@ -303,6 +303,198 @@ export function seedHardwareSpices() {
   )
 }
 
+// ── 6. SHOP (DUKA / MINI-MART) ──────────────────────────────────────────────
+export function seedShop() {
+  const products: Product[] = [
+    p('Sugar 1kg', 'SH001', 'Groceries', 150, 120, 100, 20),
+    p('Milk 500ml', 'SH002', 'Dairy', 60, 50, 50, 15),
+    p('Bread 400g', 'SH003', 'Bakery', 65, 55, 30, 10),
+    p('Maize Flour 2kg', 'SH004', 'Groceries', 220, 180, 80, 20),
+    p('Cooking Oil 1L', 'SH005', 'Groceries', 350, 290, 40, 10),
+    p('Salt 500g', 'SH006', 'Groceries', 30, 20, 100, 20),
+    p('Tea Leaves 250g', 'SH007', 'Groceries', 150, 110, 60, 15),
+    p('Rice 1kg', 'SH008', 'Groceries', 200, 160, 90, 20),
+    p('Washing Powder 500g', 'SH009', 'Detergents', 180, 140, 50, 10),
+    p('Bar Soap', 'SH010', 'Detergents', 120, 90, 70, 15),
+    p('Toothpaste 100g', 'SH011', 'Personal Care', 150, 110, 40, 10),
+    p('Tissue Paper (2-pack)', 'SH012', 'Household', 80, 60, 100, 20),
+    p('Drinking Water 1L', 'SH013', 'Drinks', 70, 50, 60, 15),
+    p('Soda 500ml', 'SH014', 'Drinks', 80, 60, 120, 30),
+    p('Biscuits 100g', 'SH015', 'Snacks', 50, 35, 80, 20),
+  ]
+  const customers = [
+    customer('Mama Jane', '254710123456', 'Neighbor'),
+    customer('John Doe', '254722987654', 'Local resident'),
+    customer('Wanjiku', '254733456789', 'Regular buyer'),
+  ]
+  const staff = demoStaff('Kamau (Owner)')
+  const { sales, debts } = seedSalesAndDebts(customers, products, 'Kamau (Owner)')
+  applyDemo(
+    baseSettings({ name: 'Kamau Mini-Mart', businessType: 'shop', tagline: 'Your daily needs' }),
+    products, customers, staff, sales, debts,
+  )
+}
+
+// ── 7. ELECTRONICS ──────────────────────────────────────────────────────────
+export function seedElectronics() {
+  const products: Product[] = [
+    p('HDMI Cable 1.5m', 'EL001', 'Cables', 350, 150, 50, 10, { brand: 'Generic' }),
+    p('Extension Cable 4-way', 'EL002', 'Power', 850, 500, 30, 10, { brand: 'Tronic' }),
+    p('Flash Drive 32GB', 'EL003', 'Storage', 800, 450, 40, 10, { brand: 'SanDisk' }),
+    p('MicroSD Card 64GB', 'EL004', 'Storage', 1200, 700, 25, 5, { brand: 'Kingston' }),
+    p('Wireless Mouse', 'EL005', 'Accessories', 1500, 800, 20, 5, { brand: 'Logitech', warrantyMonths: 12 }),
+    p('Phone Charger Type-C', 'EL006', 'Accessories', 500, 250, 60, 15, { brand: 'Samsung' }),
+    p('Bluetooth Earbuds', 'EL007', 'Audio', 2500, 1200, 15, 5, { brand: 'Oraimo', warrantyMonths: 6 }),
+    p('CCTV Camera Outdoor', 'EL008', 'Security', 4500, 2800, 10, 3, { brand: 'Hikvision', warrantyMonths: 12 }),
+    p('LED Bulb 9W', 'EL009', 'Lighting', 250, 120, 100, 20, { brand: 'Philips' }),
+    p('Smart Watch', 'EL010', 'Wearables', 3500, 2000, 12, 4, { warrantyMonths: 6 }),
+    p('Laptop Bag 15.6"', 'EL011', 'Accessories', 1800, 900, 20, 5),
+    p('VGA Cable 3m', 'EL012', 'Cables', 450, 200, 15, 5),
+    p('Power Bank 10000mAh', 'EL013', 'Power', 2200, 1300, 25, 8, { brand: 'Anker', warrantyMonths: 12 }),
+    p('Wireless Keyboard', 'EL014', 'Accessories', 2800, 1500, 10, 3, { brand: 'HP', warrantyMonths: 12 }),
+    p('Network Cable Cat6 (1m)', 'EL015', 'Networking', 100, 40, 200, 50),
+  ]
+  const customers = [
+    customer('Tech Solutions Ltd', '254711111111', 'B2B client'),
+    customer('David', '254722222222', 'Gadget enthusiast'),
+    customer('Mary', '254733333333', 'Student'),
+  ]
+  const staff = demoStaff('Ken (Owner)')
+  const { sales, debts } = seedSalesAndDebts(customers, products, 'Ken (Owner)')
+  applyDemo(
+    baseSettings({ name: 'Ken Electronics', businessType: 'electronics', tagline: 'Gadgets & Accessories' }),
+    products, customers, staff, sales, debts,
+  )
+}
+
+// ── 8. AGROVET ──────────────────────────────────────────────────────────────
+export function seedAgrovet() {
+  const products: Product[] = [
+    p('DAP Fertilizer 50kg', 'AG001', 'Fertilizer', 3500, 3000, 40, 10, { brand: 'Osho' }),
+    p('CAN Fertilizer 50kg', 'AG002', 'Fertilizer', 2800, 2400, 50, 15, { brand: 'Osho' }),
+    p('Dairy Meal 70kg', 'AG003', 'Feeds', 2200, 1800, 30, 10, { brand: 'Unga' }),
+    p('Layers Mash 50kg', 'AG004', 'Feeds', 2400, 2000, 25, 8, { brand: 'Fugo' }),
+    p('Maize Seeds 2kg', 'AG005', 'Seeds', 500, 350, 100, 20, { brand: 'Kenya Seed' }),
+    p('Cabbage Seeds 10g', 'AG006', 'Seeds', 150, 100, 50, 10, { brand: 'Simlaw' }),
+    p('Tick Wash 100ml', 'AG007', 'Vet Medicine', 250, 150, 40, 10),
+    p('Dewormer (Cattle) 500ml', 'AG008', 'Vet Medicine', 800, 500, 20, 5),
+    p('Weed Killer 1L', 'AG009', 'Pesticides', 1200, 850, 30, 10, { brand: 'Twiga' }),
+    p('Insecticide 50ml', 'AG010', 'Pesticides', 300, 180, 60, 15),
+    p('Mineral Block 2kg', 'AG011', 'Supplements', 450, 300, 40, 10),
+    p('Milking Salve 500g', 'AG012', 'Supplies', 200, 120, 50, 15),
+    p('Chicken Drinker 3L', 'AG013', 'Equipment', 350, 200, 20, 5),
+    p('Knapsack Sprayer 16L', 'AG014', 'Equipment', 2500, 1800, 10, 3),
+    p('Dog Food 5kg', 'AG015', 'Pet Food', 1500, 1100, 15, 5, { brand: 'Josera' }),
+  ]
+  const customers = [
+    customer('Mzee Juma', '254711112222', 'Dairy farmer'),
+    customer('Alice', '254722223333', 'Poultry farmer'),
+    customer('Kiprono', '254733334444', 'Maize farmer'),
+  ]
+  const staff = demoStaff('Grace (Owner)')
+  const { sales, debts } = seedSalesAndDebts(customers, products, 'Grace (Owner)')
+  applyDemo(
+    baseSettings({ name: 'Grace Agrovet', businessType: 'agrovet', tagline: 'Farming solutions' }),
+    products, customers, staff, sales, debts,
+  )
+}
+
+// ── 9. SPICES ───────────────────────────────────────────────────────────────
+export function seedSpices() {
+  const products: Product[] = [
+    p('Pilau Masala', 'SP001', 'Spices', 100, 50, 2, 0.5, { unit: 'kg' }), // 2kg in stock
+    p('Tea Masala', 'SP002', 'Spices', 150, 80, 1.5, 0.5, { unit: 'kg' }),
+    p('Black Pepper (Ground)', 'SP003', 'Spices', 200, 120, 1, 0.2, { unit: 'kg' }),
+    p('Garlic Powder', 'SP004', 'Spices', 180, 100, 1.2, 0.3, { unit: 'kg' }),
+    p('Ginger Powder', 'SP005', 'Spices', 160, 90, 1.5, 0.3, { unit: 'kg' }),
+    p('Turmeric Powder', 'SP006', 'Spices', 120, 70, 2, 0.5, { unit: 'kg' }),
+    p('Cinnamon Sticks', 'SP007', 'Spices', 250, 150, 0.8, 0.2, { unit: 'kg' }),
+    p('Green Grams (Ndengu)', 'SP008', 'Cereals', 180, 130, 50, 10, { unit: 'kg' }),
+    p('Yellow Beans', 'SP009', 'Cereals', 200, 150, 40, 10, { unit: 'kg' }),
+    p('Njahi (Black Beans)', 'SP010', 'Cereals', 220, 160, 30, 10, { unit: 'kg' }),
+    p('Pishori Rice', 'SP011', 'Cereals', 250, 190, 60, 15, { unit: 'kg' }),
+    p('Groundnuts (Raw)', 'SP012', 'Nuts', 300, 220, 20, 5, { unit: 'kg' }),
+    p('Baobab Seeds (Mabuyu)', 'SP013', 'Snacks', 100, 60, 5, 1, { unit: 'kg' }),
+    p('Honey 500ml', 'SP014', 'Specialty', 450, 300, 15, 5, { unit: 'pc' }), // pc for honey
+    p('Chia Seeds', 'SP015', 'Healthy Foods', 600, 400, 3, 0.5, { unit: 'kg' }),
+  ]
+  const customers = [
+    customer('Mama Ntilie', '254711999999', 'Restaurant owner'),
+    customer('Fatuma', '254722888888', 'Bulk buyer'),
+    customer('Ahmed', '254733777777', 'Regular customer'),
+  ]
+  const staff = demoStaff('Ali (Owner)')
+  const { sales, debts } = seedSalesAndDebts(customers, products, 'Ali (Owner)')
+  applyDemo(
+    baseSettings({ name: 'Ali Spices & Cereals', businessType: 'spices', tagline: 'Fresh and pure' }),
+    products, customers, staff, sales, debts,
+  )
+}
+
+// ── 10. WHOLESALE ───────────────────────────────────────────────────────────
+export function seedWholesale() {
+  const products: Product[] = [
+    p('Sugar 50kg Sack', 'WH001', 'Groceries', 6500, 5800, 100, 20),
+    p('Maize Flour (12 x 2kg) Bale', 'WH002', 'Flour', 2400, 2100, 80, 15),
+    p('Wheat Flour (12 x 2kg) Bale', 'WH003', 'Flour', 2600, 2300, 60, 10),
+    p('Cooking Oil 20L Jerrycan', 'WH004', 'Oil', 5800, 5200, 40, 10),
+    p('Rice 25kg Bag (Sindano)', 'WH005', 'Rice', 3200, 2800, 120, 30),
+    p('Salt (40 x 500g) Carton', 'WH006', 'Groceries', 1000, 850, 50, 10),
+    p('Tea Leaves (50 x 50g) Carton', 'WH007', 'Beverages', 2200, 1900, 30, 8),
+    p('Milk (12 x 500ml) Carton', 'WH008', 'Dairy', 650, 580, 150, 40),
+    p('Soda (24 x 300ml) Crate', 'WH009', 'Drinks', 1100, 950, 200, 50),
+    p('Bottled Water (12 x 1L) Carton', 'WH010', 'Drinks', 600, 450, 80, 20),
+    p('Bar Soap (10 x 1kg) Carton', 'WH011', 'Detergents', 1500, 1250, 60, 15),
+    p('Washing Powder (12 x 500g) Bale', 'WH012', 'Detergents', 1800, 1500, 40, 10),
+    p('Tissue Paper (10 x 4-pack) Bale', 'WH013', 'Household', 1400, 1100, 70, 15),
+    p('Matches (10 x 10-box) Carton', 'WH014', 'Household', 500, 400, 50, 10),
+    p('Biscuits (24 x 50g) Box', 'WH015', 'Snacks', 600, 480, 90, 20),
+  ]
+  const customers = [
+    customer('Kamau Shop', '254711122122', 'Retailer in CBD'),
+    customer('Mama Jane Kiosk', '254722233233', 'Estate kiosk'),
+    customer('SuperMart Ltd', '254733344344', 'Supermarket'),
+  ]
+  const staff = demoStaff('Peter (Owner)')
+  const { sales, debts } = seedSalesAndDebts(customers, products, 'Peter (Owner)')
+  applyDemo(
+    baseSettings({ name: 'Peter Wholesale Distributors', businessType: 'wholesale', tagline: 'Bulk supplies at great prices' }),
+    products, customers, staff, sales, debts,
+  )
+}
+
+// ── 11. BABYSHOP ────────────────────────────────────────────────────────────
+export function seedBabyshop() {
+  const products: Product[] = [
+    p('Pampers Size 3 (Jumbo)', 'BB001', 'Diapers', 2200, 1800, 30, 10, { brand: 'Pampers' }),
+    p('Huggies Size 4', 'BB002', 'Diapers', 2000, 1600, 25, 8, { brand: 'Huggies' }),
+    p('Baby Wipes 80pcs', 'BB003', 'Hygiene', 350, 200, 60, 15, { brand: 'Johnson\'s' }),
+    p('Baby Lotion 500ml', 'BB004', 'Hygiene', 850, 600, 20, 5, { brand: 'Cussons' }),
+    p('Baby Powder 200g', 'BB005', 'Hygiene', 400, 250, 30, 10, { brand: 'Johnson\'s' }),
+    p('Feeding Bottle 250ml', 'BB006', 'Feeding', 600, 400, 40, 10, { brand: 'Philips Avent' }),
+    p('Formula Milk No. 1 (400g)', 'BB007', 'Feeding', 1500, 1200, 15, 5, { brand: 'Nan', expiryDate: new Date(Date.now() + 180 * day).toISOString().slice(0, 10) }),
+    p('Baby Cerelac 400g', 'BB008', 'Feeding', 750, 550, 25, 8, { brand: 'Nestle' }),
+    p('Onesie (3-6 Months)', 'BB009', 'Clothing', 500, 300, 50, 15),
+    p('Baby Romper', 'BB010', 'Clothing', 800, 500, 30, 10),
+    p('Baby Socks (3-pack)', 'BB011', 'Clothing', 300, 150, 40, 10),
+    p('Stroller', 'BB012', 'Gear', 12000, 8500, 5, 2, { brand: 'Graco' }),
+    p('Baby Carrier', 'BB013', 'Gear', 3500, 2200, 10, 3),
+    p('Cot Bedding Set', 'BB014', 'Nursery', 2500, 1600, 12, 4),
+    p('Teething Toy', 'BB015', 'Toys', 450, 250, 35, 10),
+  ]
+  const customers = [
+    customer('Sarah', '254711234123', 'New mom'),
+    customer('Mercy', '254722345234', 'Expectant mother'),
+    customer('John (Gift Buyer)', '254733456345', 'Baby shower shopper'),
+  ]
+  const staff = demoStaff('Stella (Owner)')
+  const { sales, debts } = seedSalesAndDebts(customers, products, 'Stella (Owner)')
+  applyDemo(
+    baseSettings({ name: 'Stella Babyshop', businessType: 'babyshop', tagline: 'Everything for your little one' }),
+    products, customers, staff, sales, debts,
+  )
+}
+
 // ── Core apply function ──────────────────────────────────────────────────────
 // Writes ONLY to local Zustand. No Supabase calls.
 
@@ -322,6 +514,7 @@ function applyDemo(
     currentStaffId: staff[0]?.id ?? null,
     staffLastActiveAt: Date.now(),
     _cloudOnboarding: 'complete',
+    locations: defaultLocations,
     sales,
     debts,
     receiptCounter: sales.length + 1,

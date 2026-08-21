@@ -165,6 +165,9 @@ interface State {
   setDraftOnboarding: (patch: Partial<{ _draftShopName: string, _draftOwnerName: string, _draftBizType: string | null }>) => void
   clearDraftOnboarding: () => void
 
+  _isDemo: boolean
+  setDemoMode: (v: boolean) => void
+
   _cartEmpty: boolean
   setCartEmpty: (v: boolean) => void
 
@@ -363,10 +366,12 @@ export const useStore = create<State>()(
   persist(
     (set, get) => ({
       _hasHydrated: false,
+      _isDemo: false,
       dark: false,
       ...buildCleanState(),
 
       setHydrated: (v) => set({ _hasHydrated: v }),
+      setDemoMode: (v) => set({ _isDemo: v }),
       toggleDark: () => set((s) => ({ dark: !s.dark })),
 
       dequeueSyncItems: (ids) => set((s) => ({ syncQueue: s.syncQueue.filter((q) => !ids.includes(q.id)) })),
@@ -1110,6 +1115,8 @@ export const useStore = create<State>()(
           setDraftOnboarding,
           clearDraftOnboarding,
           serverBilling,
+          _isDemo,
+          setDemoMode,
           ...rest
         } = s as unknown as Record<string, unknown>
         return rest
