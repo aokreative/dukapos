@@ -62,9 +62,12 @@ const idbStorage: StateStorage = {
   getItem: async (name) => {
     let fromIdb: string | null = null
     try {
-      fromIdb = (await idbGet(name)) ?? null
+      fromIdb = (await Promise.race([
+        idbGet(name),
+        new Promise<null>((_, reject) => setTimeout(() => reject(new Error('idbGet timeout')), 500))
+      ])) ?? null
     } catch {
-      /* idb blocked — fall back to localStorage */
+      /* idb blocked or timed out — fall back to localStorage */
     }
     let fromLs: string | null = null
     try {
@@ -113,9 +116,12 @@ const idbStorage: StateStorage = {
       /* quota or blocked — idb may still take it */
     }
     try {
-      await idbSet(name, value)
+      await Promise.race([
+        idbSet(name, value),
+        new Promise<void>((_, reject) => setTimeout(() => reject(new Error('idbSet timeout')), 500))
+      ])
     } catch {
-      /* idb blocked — localStorage mirror carries us */
+      /* idb blocked or timed out — localStorage mirror carries us */
     }
   },
   removeItem: async (name) => {
