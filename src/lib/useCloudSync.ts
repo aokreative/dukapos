@@ -6,12 +6,14 @@ import { useStore } from '../store/useStore'
 const TERMINAL = new Set(['signedIn', 'signedOut', 'off', 'error'])
 
 export function useCloudSync() {
+  const hydrated = useStore(s => s._hasHydrated)
   const processing = useRef(false)
   const timer = useRef<ReturnType<typeof setInterval> | null>(null)
   const shopIdRef = useRef<string | null>(null)
   const startRef = useRef(false)
 
   useEffect(() => {
+    if (!hydrated) return
     const client = supabase()
     if (!client) {
       useStore.setState({ _cloudSession: 'off' })
@@ -251,5 +253,5 @@ export function useCloudSync() {
       authSub.subscription.unsubscribe()
       stop()
     }
-  }, [])
+  }, [hydrated])
 }
