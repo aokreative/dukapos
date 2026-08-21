@@ -1,6 +1,6 @@
 // Tiny id + receipt-number helpers. No external dependency needed.
 
-export function uid(prefix = ''): string {
+export function uid(_prefix = ''): string {
   // Use crypto.randomUUID to ensure Postgres uuid compatibility, but keep the signature
   // for legacy support. We drop the prefix so it parses as a standard UUID.
   return crypto.randomUUID()
