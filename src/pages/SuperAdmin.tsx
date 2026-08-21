@@ -677,8 +677,8 @@ function DemoControlCenter() {
             <button 
               className="btn-danger py-2 px-4 text-sm disabled:opacity-50" 
               onClick={() => setConfirmWipe(true)}
-              disabled={useStore.getState().syncQueue.length > 0}
-              title={useStore.getState().syncQueue.length > 0 ? 'Cannot wipe: sync queue has pending items' : ''}
+              disabled={useStore((s) => s.syncQueue.length > 0)}
+              title={useStore((s) => s.syncQueue.length > 0) ? 'Cannot wipe: sync queue has pending items' : ''}
             >
               Clear Demo Data
             </button>

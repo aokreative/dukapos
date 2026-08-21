@@ -5,7 +5,7 @@
 // Use ONLY for sales presentations and client demos.
 // ---------------------------------------------------------------------------
 import { useStore } from '../store/useStore'
-import { MAIN_LOCATION_ID } from './stock'
+import { MAIN_LOCATION_ID, defaultLocations } from './stock'
 import { uid } from './id'
 import type { Product, Customer, StaffMember, Debt, Sale, BusinessSettings } from '../types'
 
@@ -514,7 +514,7 @@ function applyDemo(
     currentStaffId: staff[0]?.id ?? null,
     staffLastActiveAt: Date.now(),
     _cloudOnboarding: 'complete',
-    locations: defaultLocations,
+    locations: defaultLocations(),
     sales,
     debts,
     receiptCounter: sales.length + 1,
