@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { Store, Loader2, Sparkles, Eye, EyeOff } from 'lucide-react'
 import { supabase } from '../lib/cloud'
 
-import { useStore } from '../store/useStore'
 
 export default function AuthPage({ unreachable }: { unreachable?: boolean }) {
   const [isSignUp, setIsSignUp] = useState(false)
