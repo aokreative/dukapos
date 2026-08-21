@@ -128,6 +128,7 @@ export default function App() {
   const role = useStore((s) => s._cloudRole)
   const onboarding = useStore((s) => s._cloudOnboarding)
   const unreachable = useStore((s) => s._cloudUnreachable)
+  const staffCount = useStore((s) => s.staff.length)
 
   useAutomation()
   useBillingSync()
@@ -175,7 +176,7 @@ export default function App() {
             <Route path="*" element={<NotFound />} />
           </Routes>
         </div>
-      ) : onboarding === 'pending' ? (
+      ) : onboarding === 'pending' || staffCount === 0 ? (
         <OnboardingPage />
       ) : !staffSessionValid ? (
         <LockScreen />

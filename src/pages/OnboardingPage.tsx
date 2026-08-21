@@ -88,13 +88,18 @@ export default function OnboardingPage() {
         cashierName: draftOwnerName.trim() || 'Owner',
       })
 
-      useStore.getState().addStaff({
-        name: draftOwnerName.trim() || 'Owner',
-        role: 'owner',
-        pin,
-        active: true,
-      })
-
+      const ownerId = 'staff_' + Math.random().toString(36).substring(2, 11)
+      useStore.setState((s) => ({
+        staff: [...s.staff, { 
+          id: ownerId, 
+          name: draftOwnerName.trim() || 'Owner', 
+          role: 'owner', 
+          pin, 
+          active: true, 
+          createdAt: Date.now() 
+        }],
+        currentStaffId: ownerId
+      }))
       const client = supabase?.()
       if (client) {
         const { data: session } = await client.auth.getSession()
