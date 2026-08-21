@@ -40,7 +40,7 @@ Once completed, the owner can begin trading immediately, completely offline.
 The POS adapts dynamically based on the `settings.businessType` value. This triggers specific feature flags and UI changes via `src/lib/labels.ts`.
 
 - **Retail / Shop**: Standard FMCG workflow.
-- **Restaurant**: Hides barcodes and brands. Adds Table assignment, Order Holding, and Kitchen view. Features raw ingredient tracking.
+- **Restaurant**: Hides barcodes and brands. Adds Table assignment, Order Holding, and Kitchen view (3-column layout: Preparing -> Waiting/Pass -> Floor). Features raw ingredient tracking.
 - **Pharmacy**: Adds `batchNumber`, `prescription` flags, and strict `expiryDate` tracking. Hides customer debts.
 - **Boutique**: Separates variations into explicitly structured `sizes` and `colors`.
 - **Auto Spares**: Introduces `compatibility` (Make/Model/Year fields) for robust searching, plus warranty features.
@@ -69,9 +69,10 @@ Super Admins can manage all multi-tenant SaaS accounts:
 
 ### Demo Control Center
 For sales presentations, the Super Admin dashboard includes a **Demo Control Center**.
-- **6 Vertical Seeders**: Injects rich, vertical-specific mock data (Retail, Restaurant, Pharmacy, Boutique, Auto Spares, Hardware) into the application.
+- **11 Vertical Seeders**: Injects rich, vertical-specific mock data (Restaurant, Pharmacy, Boutique, Auto Spares, Hardware, Mini-Mart, Electronics, Agrovet, Spices, Wholesale, Babyshop) into the application.
 - **Local Isolation**: All seeders write **strictly to the local Zustand store**. The `syncQueue` is explicitly cleared to guarantee fake demo data never pollutes the live Supabase production database.
-- **Wipe Local Store**: A kill-switch to wipe local state and trigger the onboarding wizard.
+- **Demo Mode Routing**: Super admins can enter the seeded POS directly (`_isDemo` mode) without being bounced back to `/superadmin`.
+- **Clear Demo Data**: A dedicated button to wipe local state safely without triggering Supabase sync.
 
 ## 8. Security & Authentication
 - The app features a PIN-based lock screen for daily staff operations.
