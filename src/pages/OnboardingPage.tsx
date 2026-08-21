@@ -99,7 +99,8 @@ export default function OnboardingPage() {
           createdAt: Date.now() 
         }],
         currentStaffId: ownerId,
-        staffLastActiveAt: Date.now()
+        staffLastActiveAt: Date.now(),
+        _cloudOnboarding: 'complete'
       }))
       const client = supabase?.()
       if (client) {
@@ -121,7 +122,6 @@ export default function OnboardingPage() {
       }
 
       clearDraft()
-      window.location.reload()
     } catch (err: any) {
       setError(err.message)
       setLoading(false)
