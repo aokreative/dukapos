@@ -88,7 +88,7 @@ export default function OnboardingPage() {
       cashierName: draftOwnerName.trim() || 'Owner',
     })
 
-    const ownerId = 'staff_' + Math.random().toString(36).substring(2, 11)
+    const ownerId = crypto.randomUUID()
     useStore.setState((s) => ({
       staff: [...s.staff, { 
         id: ownerId, 
