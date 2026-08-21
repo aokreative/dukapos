@@ -81,33 +81,38 @@ export default function OnboardingPage() {
     setLoading(true)
     setError(null)
 
-    try {
-      useStore.getState().updateSettings({
-        name: draftShopName.trim(),
-        businessType: draftBizType!,
-        cashierName: draftOwnerName.trim() || 'Owner',
-      })
+    // 1. Write ALL local state first, synchronously
+    useStore.getState().updateSettings({
+      name: draftShopName.trim(),
+      businessType: draftBizType!,
+      cashierName: draftOwnerName.trim() || 'Owner',
+    })
 
-      const ownerId = 'staff_' + Math.random().toString(36).substring(2, 11)
-      useStore.setState((s) => ({
-        staff: [...s.staff, { 
-          id: ownerId, 
-          name: draftOwnerName.trim() || 'Owner', 
-          role: 'owner', 
-          pin, 
-          active: true, 
-          createdAt: Date.now() 
-        }],
-        currentStaffId: ownerId,
-        staffLastActiveAt: Date.now(),
-        _cloudOnboarding: 'complete'
-      }))
+    const ownerId = 'staff_' + Math.random().toString(36).substring(2, 11)
+    useStore.setState((s) => ({
+      staff: [...s.staff, { 
+        id: ownerId, 
+        name: draftOwnerName.trim() || 'Owner', 
+        role: 'owner', 
+        pin, 
+        active: true, 
+        createdAt: Date.now() 
+      }],
+      currentStaffId: ownerId,
+      staffLastActiveAt: Date.now(),
+      _cloudOnboarding: 'complete'
+    }))
+
+    // 2. Navigate into the POS. Do not reload the page.
+    clearDraft()
+
+    // 3. THEN attempt the Supabase upsert, wrapped in try/catch.
+    try {
       const client = supabase?.()
       if (client) {
         const { data: session } = await client.auth.getSession()
         const user = session.session?.user
         if (user) {
-          // Idempotent insert with upsert
           const { error: upsertErr } = await client
             .from('shops')
             .upsert({
@@ -120,11 +125,29 @@ export default function OnboardingPage() {
           if (upsertErr) throw upsertErr
         }
       }
-
-      clearDraft()
     } catch (err: any) {
-      setError(err.message)
-      setLoading(false)
+      // 4. On ANY failure: log it, push it to the sync queue for retry, show a non-blocking notice.
+      console.warn('Supabase onboarding upsert failed. Queueing for offline sync.', err)
+      
+      const client = supabase?.()
+      if (client) {
+        client.auth.getSession().then(({ data: session }) => {
+          const userId = session.session?.user?.id
+          if (userId) {
+            useStore.getState().enqueueSync({
+              table: 'shops',
+              action: 'upsert',
+              record: {
+                owner_id: userId,
+                name: draftShopName.trim(),
+                business_type: draftBizType,
+                onboarding_complete: true,
+              }
+            })
+          }
+        })
+      }
+      setTimeout(() => alert('Working offline — will sync when connected'), 500)
     }
   }
 

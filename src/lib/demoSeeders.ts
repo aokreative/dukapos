@@ -321,6 +321,7 @@ function applyDemo(
     staff,
     currentStaffId: staff[0]?.id ?? null,
     staffLastActiveAt: Date.now(),
+    _cloudOnboarding: 'complete',
     sales,
     debts,
     receiptCounter: sales.length + 1,
