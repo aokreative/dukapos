@@ -334,7 +334,7 @@ export interface Sale {
   tableNumber?: string
 }
 
-export type OrderStatus = 'placed' | 'ready' | 'served'
+export type OrderStatus = 'preparing' | 'ready' | 'served' | 'charged' | 'cancelled'
 
 /** A restaurant order sent to the kitchen */
 export interface KitchenOrder {
@@ -343,6 +343,7 @@ export interface KitchenOrder {
   lines: CartLine[]
   status: OrderStatus
   placedAt: number
+  statusChangedAt?: number
   cashierName: string
   locationId?: string
 }

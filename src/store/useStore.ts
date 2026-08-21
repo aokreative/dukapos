@@ -698,22 +698,22 @@ export const useStore = create<State>()(
       removeParkedCart: (id) => set((s) => ({ parkedCarts: s.parkedCarts.filter((c) => c.id !== id) })),
 
       placeKitchenOrder: (tableNumber, lines) => set((s) => {
-        const locId = get().currentLocationId
-        const staffId = get().currentStaffId
-        const staffName = staffId ? (get().staff.find((st) => st.id === staffId)?.name || 'Staff') : 'Owner'
+        const staff = s.staff.find((x) => x.id === s.currentStaffId)
+        const now = Date.now()
         const newOrder: KitchenOrder = {
-          id: uid(),
+          id: uid('ko_'),
           tableNumber,
           lines,
-          status: 'placed',
-          placedAt: Date.now(),
-          cashierName: staffName,
-          locationId: locId,
+          status: 'preparing',
+          placedAt: now,
+          statusChangedAt: now,
+          cashierName: staff?.name ?? 'Unknown',
+          locationId: s.currentLocationId,
         }
         return { kitchenOrders: [...s.kitchenOrders, newOrder] }
       }),
       updateKitchenOrderStatus: (id, status) => set((s) => ({
-        kitchenOrders: s.kitchenOrders.map((o) => (o.id === id ? { ...o, status } : o))
+        kitchenOrders: s.kitchenOrders.map((o) => (o.id === id ? { ...o, status, statusChangedAt: Date.now() } : o))
       })),
       removeKitchenOrder: (id) => set((s) => ({
         kitchenOrders: s.kitchenOrders.filter((o) => o.id !== id)

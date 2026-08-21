@@ -7,7 +7,7 @@
 import { useStore } from '../store/useStore'
 import { MAIN_LOCATION_ID, defaultLocations } from './stock'
 import { uid } from './id'
-import type { Product, Customer, StaffMember, Debt, Sale, BusinessSettings } from '../types'
+import type { Product, Customer, StaffMember, Debt, Sale, BusinessSettings, KitchenOrder } from '../types'
 
 const now = Date.now()
 const day = 86_400_000
@@ -154,9 +154,26 @@ export function seedRestaurant() {
   const staff = demoStaff('Rose (Owner)')
   const { sales, debts } = seedSalesAndDebts(customers, products, 'Rose (Owner)')
 
+  const ko = (table: string, minsAgo: number, status: KitchenOrder['status'], pIndex: number): KitchenOrder => ({
+    id: uid('ko_'),
+    tableNumber: table,
+    lines: [{ productId: products[pIndex].id, name: products[pIndex].name, price: products[pIndex].price, qty: 1 }],
+    status,
+    placedAt: now - minsAgo * 60000,
+    statusChangedAt: now - (minsAgo - 5) * 60000,
+    cashierName: staff[1].name,
+    locationId: MAIN_LOCATION_ID,
+  })
+
+  const kitchenOrders = [
+    ko('Table 4', 15, 'preparing', 0),
+    ko('Table 2', 8, 'ready', 1),
+    ko('VIP 1', 3, 'served', 4)
+  ]
+
   applyDemo(
     baseSettings({ name: 'Mama Rose Kitchen', businessType: 'restaurant', tagline: 'Home-cooked meals' }),
-    products, customers, staff, sales, debts,
+    products, customers, staff, sales, debts, kitchenOrders
   )
 }
 
@@ -505,6 +522,7 @@ function applyDemo(
   staff: StaffMember[],
   sales: Sale[],
   debts: Debt[],
+  kitchenOrders?: KitchenOrder[],
 ) {
   useStore.setState({
     settings,
@@ -521,7 +539,7 @@ function applyDemo(
     expenses: [],
     shifts: [],
     parkedCarts: [],
-    kitchenOrders: [],
+    kitchenOrders: kitchenOrders ?? [],
     transfers: [],
     returns: [],
     exchangeCredit: 0,
